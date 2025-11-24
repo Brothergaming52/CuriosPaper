@@ -1,0 +1,12 @@
+name: CuriosPaper
+version: '${project.version}'
+main: org.bg52.curiospaper.CuriosPaper
+api-version: '1.21'
+author: Brothergaming52
+description: Custom accessory inventory system API for Paper
+
+commands:
+  baubles:
+    description: Open the accessory inventory
+    aliases: [b, bbag]
+    usage: /<command>
