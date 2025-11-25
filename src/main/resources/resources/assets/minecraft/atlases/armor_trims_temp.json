@@ -1,0 +1,45 @@
+{
+    "sources": [
+        {
+            "type": "paletted_permutations",
+            "textures": [
+				"trims/entity/wings/coast",
+				"trims/entity/wings/sentry",
+				"trims/entity/wings/dune",
+				"trims/entity/wings/wild",
+				"trims/entity/wings/ward",
+				"trims/entity/wings/eye",
+				"trims/entity/wings/vex",
+				"trims/entity/wings/tide",
+				"trims/entity/wings/snout",
+				"trims/entity/wings/rib",
+				"trims/entity/wings/spire",
+				"trims/entity/wings/wayfinder",
+				"trims/entity/wings/shaper",
+				"trims/entity/wings/silence",
+				"trims/entity/wings/raiser",
+				"trims/entity/wings/host",
+				"trims/entity/wings/flow",
+				"trims/entity/wings/bolt"
+            ],
+            "palette_key": "trims/color_palettes/trim_palette",
+            "permutations": {
+                "quartz": "trims/color_palettes/quartz",
+                "iron": "trims/color_palettes/iron",
+                "gold": "trims/color_palettes/gold",
+                "diamond": "trims/color_palettes/diamond",
+                "netherite": "trims/color_palettes/netherite",
+                "redstone": "trims/color_palettes/redstone",
+                "copper": "trims/color_palettes/copper",
+                "emerald": "trims/color_palettes/emerald",
+                "lapis": "trims/color_palettes/lapis",
+                "amethyst": "trims/color_palettes/amethyst",
+                "iron_darker": "trims/color_palettes/iron_darker",
+                "gold_darker": "trims/color_palettes/gold_darker",
+                "diamond_darker": "trims/color_palettes/diamond_darker",
+                "netherite_darker": "trims/color_palettes/netherite_darker",
+                "resin": "trims/color_palettes/resin"
+            }
+        }
+    ]
+}

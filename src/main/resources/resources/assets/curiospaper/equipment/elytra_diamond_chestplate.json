@@ -1,0 +1,15 @@
+{
+    "layers": {
+        "humanoid": [
+            {
+                "texture": "minecraft:diamond"
+            }
+        ],
+        "wings": [
+            {
+                "texture": "minecraft:elytra",
+                "use_player_texture": true
+            }
+        ]
+    }
+}
