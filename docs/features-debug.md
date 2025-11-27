@@ -2,7 +2,7 @@
 layout: default
 title: Features & Debugs
 parent: Configuration # **CRITICAL: Links it to the parent page**
-nav_order: 1 # Position within the Configuration drop-down
+nav_order: 6 # Position within the Configuration drop-down
 ---
 # Basic CurioPaper Settings
 
