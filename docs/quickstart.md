@@ -345,6 +345,4 @@ public void onAccessoryEquip(AccessoryEquipEvent event) {
     player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 20 * 10, 0)); // 10 seconds
 }
 ```
-
----Reference[oaicite:0]{index=0}
 ```
