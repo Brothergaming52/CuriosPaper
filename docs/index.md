@@ -52,7 +52,7 @@ It provides a **dedicated accessory GUI** (rings, charms, back-slot, etc.) and a
 
 - **Configuration** — tweak slot types, slot counts, GUI layout, pack hosting, storage & performance settings.  
 - **Developer API** — learn how to tag items, equip accessories programmatically, listen for equip/unequip events, and integrate resource-pack assets.  
-- (Future — if you add an **editor GUI addon**: docs for “in-game slot/item editor + resource-pack builder”)
+- (In Future Updates)
 
 ---
 
@@ -63,5 +63,5 @@ It provides a **dedicated accessory GUI** (rings, charms, back-slot, etc.) and a
 
 --- 
 
-> 💡 _Pro tip for server admins or devs:_ read the [Configuration docs] and [Developer API docs] **before you touch anything**, especially the resource-pack settings. A wrong IP or port will break icon loading for all players.
+> 💡 _Pro tip for server admins or devs:_ read the [Configuration docs](https://brothergaming52.github.io/CuriosPaper/configuration.html) and [Developer API docs](https://brothergaming52.github.io/CuriosPaper/developer.html) **before you touch anything**, especially the resource-pack settings. A wrong IP or port will break icon loading for all players.
 
