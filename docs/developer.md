@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Developer API
-nav_order: 4 # Position in the main sidebar
+nav_order: 3 # Position in the main sidebar
 has_children: true 
 ---
 # Developer Resources
