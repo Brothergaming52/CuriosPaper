@@ -15,6 +15,8 @@ This page explains how **accessory items** and **slot types** work together in C
 
 If you haven’t read the **Quickstart** and **Configuration / Slots & GUI** pages yet, do that first – they explain how slots are defined in `config.yml`.
 
+![Accessary Example](assets/Accessary_Example.png)
+
 ---
 
 ## 1. Slot Types – The Core Concept
