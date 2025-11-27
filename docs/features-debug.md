@@ -76,6 +76,8 @@ This option is essential for RPG-style servers where players want:
 * Cloaks
 * Elytra + Chestplate combos
 
+![Elytra + Chestplate](assets/Elytra.png)
+
 ---
 
 ## 🔲 `show-empty-slots`
