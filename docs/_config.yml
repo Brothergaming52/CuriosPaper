@@ -13,3 +13,5 @@ nav_sort: title # Sorts pages by title in the sidebar
 
 # Enable dark/light mode toggle (often built-in to this theme!)
 color_scheme: dark
+
+google_analytics: "G-C97C3F4GQJ"
