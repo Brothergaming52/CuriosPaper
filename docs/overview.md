@@ -174,4 +174,4 @@ debug:
   log-api-calls: false
   log-inventory-events: false
   log-slot-positions: false
-
+```
