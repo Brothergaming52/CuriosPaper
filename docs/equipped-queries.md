@@ -2,7 +2,7 @@
 layout: default
 title: Equipped items & Queries
 parent: Developer API # **Links it to the Developer Guide parent**
-nav_order: 1 
+nav_order: 3
 ---
 # How to Contribute
 
