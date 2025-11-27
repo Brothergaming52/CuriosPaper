@@ -13,6 +13,7 @@ This page explains how slot types work, how the GUI is structured, and how to co
 
 If you want a deeper look at the GUI system (patterns, filler items, borders), scroll to the **GUI Layout** section below.
 
+![Main Accessary Menu](assets/Main_Menu.png)
 ---
 
 ## 🔮 What Are Slot Types?
