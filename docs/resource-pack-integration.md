@@ -2,7 +2,7 @@
 layout: default
 title: Resource Pack Integration
 parent: Developer API # **Links it to the Developer Guide parent**
-nav_order: 1 
+nav_order: 6
 ---
 # How to Contribute
 
