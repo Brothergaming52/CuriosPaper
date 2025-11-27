@@ -130,17 +130,17 @@ Optional, but helpful for players.
 
 CuriosPaper ships with:
 
-| Slot Type    | Default Amount | Icon               |
-| ------------ | -------------- | ------------------ |
-| **head**     | 1              | GOLDEN_HELMET      |
-| **necklace** | 1              | NAUTILUS_SHELL     |
-| **back**     | 1              | ELYTRA             |
-| **body**     | 1              | DIAMOND_CHESTPLATE |
-| **belt**     | 1              | LEATHER            |
-| **hands**    | 2              | LEATHER_CHESTPLATE |
-| **bracelet** | 2              | CHAIN              |
-| **ring**     | 2              | GOLD_NUGGET        |
-| **charm**    | 4              | EMERALD            |
+| Slot Type    | Default Amount | Icon               | Icon (Resource Pack enabled) |
+| ------------ | -------------- | ------------------ |------------------------------|
+| **head**     | 1              | GOLDEN_HELMET      | Paper                        |
+| **necklace** | 1              | NAUTILUS_SHELL     | Paper                        |
+| **back**     | 1              | ELYTRA             | Paper                        |
+| **body**     | 1              | DIAMOND_CHESTPLATE | Paper                        |
+| **belt**     | 1              | LEATHER            | Paper                        |
+| **hands**    | 2              | LEATHER_CHESTPLATE | Paper                        |
+| **bracelet** | 2              | CHAIN              | Paper                        |
+| **ring**     | 2              | GOLD_NUGGET        | Paper                        |
+| **charm**    | 4              | EMERALD            | Paper                        |
 
 You can modify, rename, or restructure any of them.
 
