@@ -7,4 +7,3 @@ has_children: true # **CRITICAL: This makes it a clickable drop-down**
 # CurioPaper Configuration Guide
 
 This section details how to set up and configure your CurioPaper plugin.
-*(This content appears when the user clicks the main Configuration title.)*
