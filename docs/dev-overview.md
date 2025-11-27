@@ -364,5 +364,3 @@ Detailed usage and examples are covered in the dedicated Developer API pages:
 * **Resource Pack Integration**
 
 ---
-```
-```
