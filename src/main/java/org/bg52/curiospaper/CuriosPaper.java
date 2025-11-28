@@ -45,6 +45,13 @@ public class CuriosPaper extends JavaPlugin {
         BaublesCommand baublesCommand = new BaublesCommand(this, gui);
         getCommand("baubles").setExecutor(baublesCommand);
 
+        getCommand("curios").setExecutor(
+                new org.bg52.curiospaper.command.CuriosCommand(this, this.api())
+        );
+        getCommand("curios").setTabCompleter(
+                new org.bg52.curiospaper.command.CuriosCommand(this, this.api())
+        );
+
         getServer().getPluginManager().registerEvents(new InventoryListener(this, gui), this);
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
 
@@ -61,6 +68,10 @@ public class CuriosPaper extends JavaPlugin {
 
         getLogger().info("CuriosPaper has been enabled!");
         getLogger().info("Loaded " + configManager.getSlotConfigurations().size() + " slot types.");
+    }
+
+    private CuriosPaperAPI api() {
+        return api;
     }
 
     @Override

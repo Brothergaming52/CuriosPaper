@@ -6,6 +6,11 @@ author: Brothergaming52
 description: Custom accessory inventory system API for Paper
 
 commands:
+  curios:
+    description: CuriosPaper admin and debug commands
+    usage: /curios <rp|debug>
+    permission: curiospaper.admin
+    aliases: [cp, curiospaper]
   baubles:
     description: Open the accessory inventory
     aliases: [b, bbag]

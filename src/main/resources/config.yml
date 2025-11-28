@@ -12,6 +12,10 @@ resource-pack:
   # Base material for custom icons (usually PAPER or LEATHER_HORSE_ARMOR)
   base-material: "PAPER"
 
+  allow-minecraft-namespace: false
+
+  allow-namespace-conflicts: false
+
 # Slot configurations - 9 total slot types
 slots:
   # Head slot for helmets, crowns, circlets

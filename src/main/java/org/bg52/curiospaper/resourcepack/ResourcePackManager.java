@@ -10,10 +10,12 @@ import java.security.MessageDigest;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonArray;
 
 public class ResourcePackManager {
     private final CuriosPaper plugin;
@@ -25,6 +27,21 @@ public class ResourcePackManager {
 
     private final Gson gson = new Gson();
 
+    // Dirty build flag
+    private boolean dirty = false;
+
+    // Namespace rules
+    private final Set<String> reservedNamespaces = Set.of("curiospaper");
+    private final Map<String, Plugin> namespaceOwners = new HashMap<>();
+
+    // Conflict tracking
+    private final List<String> conflictLog = new ArrayList<>();
+    private final List<String> namespaceConflictLog = new ArrayList<>();
+
+    // Config options
+    private boolean allowMinecraftNamespace;
+    private boolean allowNamespaceConflicts;
+
     public ResourcePackManager(CuriosPaper plugin) {
         this.plugin = plugin;
         this.resourcePackDir = new File(plugin.getDataFolder(), "resource-pack-build");
@@ -32,18 +49,140 @@ public class ResourcePackManager {
         this.registeredSources = new HashMap<>();
     }
 
+    // --- Exposed for commands / debugging ---
+
+    public List<String> getConflictLog() {
+        return Collections.unmodifiableList(conflictLog);
+    }
+
+    public List<String> getNamespaceConflictLog() {
+        return Collections.unmodifiableList(namespaceConflictLog);
+    }
+
+    public Map<Plugin, File> getRegisteredSources() {
+        return Collections.unmodifiableMap(registeredSources);
+    }
+
+    public Set<String> getRegisteredNamespaces() {
+        return Collections.unmodifiableSet(namespaceOwners.keySet());
+    }
+
+    public File getPackFile() {
+        return packFile;
+    }
+
+    public boolean isDirty() {
+        return dirty;
+    }
+
+
     public void registerResource(Plugin plugin, File sourceFolder) {
-        if (sourceFolder.exists() && sourceFolder.isDirectory()) {
-            registeredSources.put(plugin, sourceFolder);
-            this.plugin.getLogger().info("Registered resource pack source for plugin: " + plugin.getName());
-            generatePack();
-        } else {
-            this.plugin.getLogger().warning(
-                    "Failed to register resource pack source for " + plugin.getName() + ": Directory not found.");
+        if (!sourceFolder.exists() || !sourceFolder.isDirectory()) {
+            plugin.getLogger().warning("Resource folder missing for plugin: " + plugin.getName());
+            return;
         }
+
+        // 1) Detect namespace from folder
+        // Required folder structure: assets/<namespace>/
+        File assets = new File(sourceFolder, "assets");
+        if (!assets.exists()) {
+            plugin.getLogger().warning("Plugin " + plugin.getName() +
+                    " tried to register a resource folder WITHOUT /assets/. Ignored.");
+            return;
+        }
+
+        File[] namespaces = assets.listFiles(File::isDirectory);
+        if (namespaces == null || namespaces.length == 0) {
+            plugin.getLogger().warning("Plugin " + plugin.getName() +
+                    " has no namespaces inside /assets/. Ignored.");
+            return;
+        }
+
+        for (File nsFolder : namespaces) {
+            String namespace = nsFolder.getName().toLowerCase(Locale.ROOT);
+
+            // Reserved namespace check
+            if (reservedNamespaces.contains(namespace)) {
+                if (plugin == this.plugin) {
+                    // CuriosPaper itself – allowed
+                    namespaceOwners.put(namespace, plugin);
+                    continue;
+                }
+
+                String msg = "[CuriosPaper-RP] Plugin " + plugin.getName()
+                        + " attempted to use reserved namespace '" + namespace + "'. "
+                        + "Its resources will NOT be registered. Use your own namespace.";
+
+                this.plugin.getLogger().severe(msg);
+                namespaceConflictLog.add("RESERVED NAMESPACE: plugin=" + plugin.getName()
+                        + " namespace=" + namespace);
+
+                return; // abort registration for this plugin
+            }
+
+            // Minecraft namespace check
+            if (namespace.equals("minecraft")) {
+                if (plugin == this.plugin) {
+                    // Core plugin is always allowed to touch minecraft namespace
+                    namespaceOwners.put(namespace, plugin);
+                    continue;
+                }
+
+                if (!allowMinecraftNamespace) {
+                    String msg = "[CuriosPaper-RP] Plugin " + plugin.getName()
+                            + " attempted to override minecraft namespace but config disallows it. "
+                            + "Skipping its 'minecraft' assets.";
+
+                    this.plugin.getLogger().warning(msg);
+                    namespaceConflictLog.add("MINECRAFT NAMESPACE BLOCKED: plugin=" + plugin.getName());
+                    continue;
+                }
+                // else fall through to ownership checks
+            }
+
+            // Namespace ownership enforcement
+            if (namespaceOwners.containsKey(namespace)) {
+                Plugin owner = namespaceOwners.get(namespace);
+
+                if (owner != plugin && !allowNamespaceConflicts) {
+                    String msg = "[CuriosPaper-RP] Namespace '" + namespace
+                            + "' is already owned by plugin " + owner.getName()
+                            + ". Resources from " + plugin.getName() + " will NOT be registered.";
+
+                    this.plugin.getLogger().severe(msg);
+                    namespaceConflictLog.add("NAMESPACE OWNER CONFLICT: namespace=" + namespace
+                            + " owner=" + owner.getName()
+                            + " conflicting=" + plugin.getName());
+
+                    return;
+                }
+
+                if (owner != plugin && allowNamespaceConflicts) {
+                    String msg = "[CuriosPaper-RP] WARNING: Namespace conflict allowed for '"
+                            + namespace + "' between " + owner.getName() + " and " + plugin.getName();
+                    this.plugin.getLogger().warning(msg);
+                    // Optional: also log as a soft conflict:
+                    namespaceConflictLog.add("NAMESPACE CONFLICT ALLOWED: namespace=" + namespace
+                            + " owner=" + owner.getName()
+                            + " conflicting=" + plugin.getName());
+                }
+            } else {
+                namespaceOwners.put(namespace, plugin);
+            }
+        }
+
+        registeredSources.put(plugin, sourceFolder);
+        dirty = true;
     }
 
     public void initialize() {
+
+        this.allowMinecraftNamespace =
+                plugin.getConfig().getBoolean("resource-pack.allow-minecraft-namespace", false);
+
+        this.allowNamespaceConflicts =
+                plugin.getConfig().getBoolean("resource-pack.allow-namespace-conflicts", false);
+
         // Target: <plugin data folder>/resources
         File ownResources = new File(plugin.getDataFolder(), "resources");
         if (!ownResources.exists()) {
@@ -55,7 +194,6 @@ public class ResourcePackManager {
         // 1) Stream ALL files from /resources in the JAR into the data folder
         try {
             extractEmbeddedResourcesFolder("resources/", ownResources);
-            //plugin.getLogger().info("Extracted embedded resources to: " + ownResources.getAbsolutePath());
         } catch (Exception e) {
             plugin.getLogger().severe("Failed to extract embedded resources: " + e.getMessage());
             e.printStackTrace();
@@ -68,13 +206,18 @@ public class ResourcePackManager {
             plugin.getLogger().info("Created default pack.mcmeta in resources folder.");
         }
 
-        // 3) Register own resources as a pack source
+        // register own resources — NO auto-build
         registerResource(plugin, ownResources);
 
-        // Generate pack from all registered sources
-        //generatePack();
+        // set dirty, but don’t build yet
+        dirty = true;
 
-        // 5) Start server if enabled
+        // delayed build — allow addons time to register
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (dirty) generatePack();
+        }, 200L); // 10 seconds
+
+        // Start server if enabled
         if (plugin.getConfig().getBoolean("resource-pack.enabled", false)) {
             int port = plugin.getConfig().getInt("resource-pack.port", 8080);
             server = new ResourcePackServer(plugin, port, packFile);
@@ -150,7 +293,6 @@ public class ResourcePackManager {
         }
     }
 
-
     public void shutdown() {
         if (server != null) {
             server.stop();
@@ -173,40 +315,41 @@ public class ResourcePackManager {
     }
 
     public void generatePack() {
-        plugin.getLogger().info("Generating resource pack...");
+        dirty = false;
+        conflictLog.clear();
 
-        // Clean build directory
-        if (resourcePackDir.exists()) {
-            deleteDirectory(resourcePackDir);
-        }
+        plugin.getLogger().info("Building CuriosPaper resource pack...");
+
+        if (resourcePackDir.exists()) deleteDirectory(resourcePackDir);
         resourcePackDir.mkdirs();
 
-        // Copy all registered resources
         for (Map.Entry<Plugin, File> entry : registeredSources.entrySet()) {
+            Plugin pl = entry.getKey();
+            File src = entry.getValue();
+
             try {
-                copyDirectory(entry.getValue(), resourcePackDir);
-            } catch (IOException e) {
-                plugin.getLogger()
-                        .severe("Failed to copy resources for " + entry.getKey().getName() + ": " + e.getMessage());
+                copyFolderStrict(pl, src, resourcePackDir);
+            } catch (Exception e) {
+                plugin.getLogger().severe("Failed while copying " + pl.getName() + ": " + e.getMessage());
             }
         }
 
-        // Ensure pack.mcmeta exists
+        // Ensure mcmeta exists
         if (!new File(resourcePackDir, "pack.mcmeta").exists()) {
             createDefaultMcmeta(resourcePackDir);
         }
 
-        // Zip it
         try {
             zipDirectory(resourcePackDir, packFile);
-            plugin.getLogger().info("Resource pack generated successfully: " + packFile.getName());
-
-            // Calculate hash
             this.packHash = calculateSha1(packFile);
-            plugin.getLogger().info("Pack Hash: " + packHash);
+            plugin.getLogger().info("Pack built. Hash: " + this.packHash);
+        } catch (Exception e) {
+            plugin.getLogger().severe("Failed to zip pack: " + e.getMessage());
+        }
 
-        } catch (IOException e) {
-            plugin.getLogger().severe("Failed to zip resource pack: " + e.getMessage());
+        if (!conflictLog.isEmpty()) {
+            plugin.getLogger().warning("=== CuriosPaper Resource Pack Conflicts ===");
+            conflictLog.forEach(plugin.getLogger()::warning);
         }
     }
 
@@ -238,114 +381,124 @@ public class ResourcePackManager {
         dir.delete();
     }
 
-    private void copyDirectory(File source, File target) throws IOException {
-        if (!target.exists()) {
-            target.mkdirs();
-        }
+    private void copyFolderStrict(Plugin plugin, File source, File target) throws IOException {
+        if (source.isDirectory()) {
+            if (!target.exists()) target.mkdirs();
 
-        String[] children = source.list();
-        if (children == null) return;
-
-        for (String fileName : children) {
-            File srcFile = new File(source, fileName);
-            File destFile = new File(target, fileName);
-
-            if (srcFile.isDirectory()) {
-                copyDirectory(srcFile, destFile);
-            } else {
-                mergeOrCopyFile(srcFile, destFile);
+            for (File f : Objects.requireNonNull(source.listFiles())) {
+                copyFolderStrict(plugin, f, new File(target, f.getName()));
             }
+
+            return;
         }
+
+        // File
+        if (target.exists()) {
+            handleConflict(plugin, source, target);
+            return;
+        }
+
+        Files.copy(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    private void handleConflict(Plugin conflictingPlugin, File src, File dest) throws IOException {
+        String path = dest.getPath().replace("\\", "/");
+
+        // Reject everything EXCEPT curated mergeable files
+        if (isMergeableJson(path)) {
+            mergeOverrideModels(src, dest);
+            return;
+        }
+
+        conflictLog.add("CONFLICT: " + path +
+                " | Existing owner: " + findOwnerByPath(path) +
+                " | Conflicting plugin: " + conflictingPlugin.getName());
+
+        // keep first file, skip conflicting one
+    }
+
+    private boolean isMergeableJson(String path) {
+        return path.endsWith("curios_combined_override.json")
+                || path.endsWith("curios_item_base.json");
     }
 
     /**
-     * Copy a file into the target, merging JSON where possible.
+     * Merge curated override JSON models:
+     * - Keeps dest as base
+     * - Appends src "overrides" entries into dest "overrides"
+     * - Does NOT touch other keys
      */
-    private void mergeOrCopyFile(File srcFile, File destFile) throws IOException {
-        if (!destFile.exists()) {
-            // No conflict: just copy
-            File parent = destFile.getParentFile();
-            if (parent != null && !parent.exists()) {
-                parent.mkdirs();
+    private void mergeOverrideModels(File src, File dest) throws IOException {
+        JsonElement destJson;
+        JsonElement srcJson;
+
+        try (Reader destReader = new FileReader(dest);
+             Reader srcReader = new FileReader(src)) {
+
+            destJson = JsonParser.parseReader(destReader);
+            srcJson = JsonParser.parseReader(srcReader);
+        }
+
+        if (!destJson.isJsonObject() || !srcJson.isJsonObject()) {
+            plugin.getLogger().warning("Cannot merge override model (non-object JSON): " + dest.getPath());
+            return;
+        }
+
+        JsonObject destObj = destJson.getAsJsonObject();
+        JsonObject srcObj = srcJson.getAsJsonObject();
+
+        JsonArray destOverrides;
+        if (destObj.has("overrides") && destObj.get("overrides").isJsonArray()) {
+            destOverrides = destObj.getAsJsonArray("overrides");
+        } else {
+            destOverrides = new JsonArray();
+            destObj.add("overrides", destOverrides);
+        }
+
+        if (srcObj.has("overrides") && srcObj.get("overrides").isJsonArray()) {
+            JsonArray srcOverrides = srcObj.getAsJsonArray("overrides");
+            for (JsonElement el : srcOverrides) {
+                destOverrides.add(el);
             }
-            Files.copy(srcFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            return;
         }
 
-        // If destination exists, try to merge JSON where it makes sense.
-        String name = srcFile.getName().toLowerCase(Locale.ROOT);
-
-        // Don't try to merge binary stuff, images, etc.
-        if (!name.endsWith(".json")) {
-            // Keep existing non-JSON; skip the new one to avoid breaking things.
-            plugin.getLogger().fine("Skipping duplicate non-JSON resource: " + destFile.getPath());
-            return;
+        try (Writer writer = new FileWriter(dest)) {
+            gson.toJson(destObj, writer);
         }
 
-        // Special case: pack.mcmeta – keep the root one we created / first one.
-        if (name.equals("pack.mcmeta")) {
-            // If you want to be fancy, you can merge "description", but safest is to keep the first.
-            plugin.getLogger().fine("Duplicate pack.mcmeta detected; keeping existing: " + destFile.getPath());
-            return;
-        }
+        plugin.getLogger().info("Merged override JSON: " + dest.getPath());
+    }
 
+    /**
+     * Try to find which plugin owns the existing file at 'path' by matching
+     * relative paths against each registered source.
+     */
+    private String findOwnerByPath(String path) {
         try {
-            JsonElement destJson;
-            JsonElement srcJson;
+            Path destPath = Paths.get(path);
+            Path root = resourcePackDir.toPath();
 
-            try (Reader destReader = new FileReader(destFile);
-                 Reader srcReader = new FileReader(srcFile)) {
-
-                destJson = JsonParser.parseReader(destReader);
-                srcJson = JsonParser.parseReader(srcReader);
+            Path rel;
+            try {
+                rel = root.relativize(destPath);
+            } catch (IllegalArgumentException e) {
+                // Not under our root (shouldn't happen)
+                return "Unknown";
             }
 
-            if (!destJson.isJsonObject() || !srcJson.isJsonObject()) {
-                // If either is not an object, don't attempt merge – keep existing file.
-                plugin.getLogger().warning("Cannot merge non-object JSON file: " + destFile.getPath());
-                return;
+            for (Map.Entry<Plugin, File> entry : registeredSources.entrySet()) {
+                Plugin pl = entry.getKey();
+                File srcRoot = entry.getValue();
+
+                File candidate = new File(srcRoot, rel.toString());
+                if (candidate.exists()) {
+                    return pl.getName();
+                }
             }
-
-            JsonObject destObj = destJson.getAsJsonObject();
-            JsonObject srcObj = srcJson.getAsJsonObject();
-
-            // Deep merge src into dest, without overwriting existing keys.
-            deepMergeJsonObjects(destObj, srcObj);
-
-            try (Writer writer = new FileWriter(destFile)) {
-                gson.toJson(destObj, writer);
-            }
-
-            plugin.getLogger().info("Merged JSON resource: " + destFile.getPath());
-
         } catch (Exception e) {
-            plugin.getLogger().severe("Failed to merge JSON resource " + destFile.getPath()
-                    + " from " + srcFile.getPath() + ": " + e.getMessage());
+            // ignore, fall through
         }
-    }
-
-    /**
-     * Deep merge: add keys from 'src' into 'dest'. For conflicting keys:
-     * - if both are objects, recurse
-     * - otherwise, keep existing value in dest
-     */
-    private void deepMergeJsonObjects(JsonObject dest, JsonObject src) {
-        for (Map.Entry<String, JsonElement> entry : src.entrySet()) {
-            String key = entry.getKey();
-            JsonElement srcVal = entry.getValue();
-
-            if (!dest.has(key)) {
-                dest.add(key, srcVal);
-                continue;
-            }
-
-            JsonElement destVal = dest.get(key);
-
-            if (destVal.isJsonObject() && srcVal.isJsonObject()) {
-                deepMergeJsonObjects(destVal.getAsJsonObject(), srcVal.getAsJsonObject());
-            }
-            // else: dest already has a non-object or different type -> keep dest as-is.
-        }
+        return "Unknown";
     }
 
     private void zipDirectory(File sourceDir, File zipFile) throws IOException {
@@ -356,7 +509,10 @@ public class ResourcePackManager {
             Files.walkFileTree(sourcePath, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    zos.putNextEntry(new ZipEntry(sourcePath.relativize(file).toString().replace("\\", "/")));
+                    zos.putNextEntry(new ZipEntry(sourcePath
+                            .relativize(file)
+                            .toString()
+                            .replace("\\", "/")));
                     Files.copy(file, zos);
                     zos.closeEntry();
                     return FileVisitResult.CONTINUE;
@@ -369,7 +525,7 @@ public class ResourcePackManager {
         try (FileInputStream fis = new FileInputStream(file)) {
             MessageDigest digest = MessageDigest.getInstance("SHA-1");
             byte[] buffer = new byte[8192];
-            int n = 0;
+            int n;
             while ((n = fis.read(buffer)) != -1) {
                 digest.update(buffer, 0, n);
             }
