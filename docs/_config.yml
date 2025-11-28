@@ -1,0 +1,17 @@
+remote_theme: just-the-docs/just-the-docs
+
+# Site Settings
+title: CurioPaper API Docs
+description: Documentation for the CurioPaper API Plugin.
+footer_content: "Copyright &copy; 2025 CurioPaper"
+
+# Sidebar Navigation (The key to making it look good!)
+aux_links: # Links in the header
+  "GitHub Repo": "https://github.com/Brothergaming52/CuriosPaper"
+
+nav_sort: title # Sorts pages by title in the sidebar
+
+# Enable dark/light mode toggle (often built-in to this theme!)
+color_scheme: dark
+
+google_analytics: "G-C97C3F4GQJ"
