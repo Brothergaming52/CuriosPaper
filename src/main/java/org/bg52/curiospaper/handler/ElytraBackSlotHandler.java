@@ -3,15 +3,20 @@ package org.bg52.curiospaper.handler;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.Equippable;
 import org.bg52.curiospaper.CuriosPaper;
+import org.bg52.curiospaper.config.SlotConfiguration;
 import org.bg52.curiospaper.event.AccessoryEquipEvent;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
@@ -39,6 +44,99 @@ public class ElytraBackSlotHandler implements Listener {
         this.secretElytraKey = new NamespacedKey(plugin, "secret_elytra");
         this.playersWithSecretElytra = new HashSet<>();
     }
+
+    /**
+     * Ensure an Elytra has the "Required Slot: <Back Name>" lore and back-slot tag.
+     * Returns the same instance if no change is needed, or a new tagged ItemStack otherwise.
+     */
+    private ItemStack ensureBackTaggedElytra(ItemStack stack) {
+        if (stack == null || stack.getType() != Material.ELYTRA) {
+            return stack;
+        }
+
+        // Get back slot config (for the display name used in lore)
+        SlotConfiguration backConfig = plugin.getConfigManager().getSlotConfiguration("back");
+        if (backConfig == null) {
+            return stack; // no back slot defined, bail out
+        }
+
+        String requiredLine = ChatColor.GRAY + "Required Slot: " + ChatColor.RESET + backConfig.getName();
+
+        ItemMeta meta = stack.getItemMeta();
+        if (meta != null && meta.hasLore()) {
+            List<String> lore = meta.getLore();
+            if (lore != null) {
+                for (String line : lore) {
+                    if (requiredLine.equals(line)) {
+                        // Already has correct lore; assume already tagged
+                        return stack;
+                    }
+                }
+            }
+        }
+
+        // Not tagged yet -> use your API to tag it for the back slot.
+        // This MUST clone internally and preserve durability & other data.
+        ItemStack tagged = plugin.getCuriosPaperAPI().tagAccessoryItem(stack, "back", true);
+
+        // Make sure durability and data are preserved: tagAccessoryItem clones and only
+        // adds PDC + lore, so no reset. If it didn't, you'd fix it there, not here.
+        return tagged;
+    }
+
+    /**
+     * Scan the player's inventory + armor/offhand and ensure all Elytras are tagged for the back slot.
+     * Idempotent: safe to call often.
+     */
+    private void retagAllPlayerElytras(Player player) {
+        // Main inventory, hotbar, armor, etc. in one go
+        ItemStack[] contents = player.getInventory().getContents();
+        boolean changed = false;
+
+        for (int i = 0; i < contents.length; i++) {
+            ItemStack original = contents[i];
+            ItemStack updated = ensureBackTaggedElytra(original);
+            if (updated != original) {
+                contents[i] = updated;
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            player.getInventory().setContents(contents);
+        }
+
+        // Offhand
+        ItemStack off = player.getInventory().getItemInOffHand();
+        ItemStack updatedOff = ensureBackTaggedElytra(off);
+        if (updatedOff != off) {
+            player.getInventory().setItemInOffHand(updatedOff);
+        }
+
+        // Chest slot (in case Elytra is there)
+        ItemStack chest = player.getInventory().getChestplate();
+        ItemStack updatedChest = ensureBackTaggedElytra(chest);
+        if (updatedChest != chest) {
+            player.getInventory().setChestplate(updatedChest);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onElytraPickup(EntityPickupItemEvent event) {
+        if (!(event.getEntity() instanceof Player player)) {
+            return;
+        }
+
+        ItemStack stack = event.getItem().getItemStack();
+        if (stack == null || stack.getType() != Material.ELYTRA) {
+            return;
+        }
+
+        // After pickup is processed, retag all Elytras in their inventory
+        plugin.getServer().getScheduler().runTask(plugin, () -> retagAllPlayerElytras(player));
+    }
+
+
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onAccessoryEquip(AccessoryEquipEvent event) {
@@ -110,6 +208,67 @@ public class ElytraBackSlotHandler implements Listener {
             equipSecretElytra(player);
         }
     }
+
+    /**
+     * Handles right-click equipping of chestplates so the secret elytra
+     * never ends up as a normal survival item.
+     *
+     * Flow:
+     *  - Player has secret elytra in chest slot (our fake wings)
+     *  - Player right-clicks with a real chestplate in hand
+     *  - Vanilla swaps: chestplate -> chest slot, secret elytra -> inventory
+     *  - We run 1 tick later, wipe all secret elytras from inventory,
+     *    and reapply GLIDER to the new chestplate.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onChestplateRightClick(PlayerInteractEvent event) {
+        if (!plugin.getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
+            return;
+        }
+
+        Action action = event.getAction();
+        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        ItemStack item = event.getItem();
+        if (item == null || item.getType().isAir()) {
+            return;
+        }
+
+        // Only care about right-clicking with chestplates
+        if (!isChestplate(item.getType())) {
+            return;
+        }
+
+        // Only relevant if this player currently has our secret elytra equipped
+        if (!playersWithSecretElytra.contains(player.getUniqueId())) {
+            return;
+        }
+
+        // And only if the system is actually active (elytra in back slot)
+        if (!hasElytraInBackSlot(player)) {
+            return;
+        }
+
+        // Let vanilla do the swap first, then clean up 1 tick later
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            ItemStack chestplate = player.getInventory().getChestplate();
+            if (chestplate != null && isChestplate(chestplate.getType())) {
+                // Remove all traces of secret elytra (including the one that got dumped into inventory)
+                playersWithSecretElytra.remove(player.getUniqueId());
+                wipeSecretElytra(player);
+
+                // Re-read chestplate in case anything changed
+                ItemStack currentChest = player.getInventory().getChestplate();
+                if (currentChest != null && isChestplate(currentChest.getType())) {
+                    addGliderToChestplate(player, currentChest);
+                }
+            }
+        }, 1L);
+    }
+
 
     /**
      * Called when an elytra is unequipped from the back slot
@@ -267,7 +426,15 @@ public class ElytraBackSlotHandler implements Listener {
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onItemDamage(PlayerItemDamageEvent event) {
         Player player = event.getPlayer();
+
         if (!plugin.getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
+            return;
+        }
+
+        // ✅ Only redirect damage while the player is actually gliding
+        //    If they're just wearing the chestplate and taking hits on the ground,
+        //    that damage should NOT be mirrored to the back-slot elytra.
+        if (!player.isGliding()) {
             return;
         }
 

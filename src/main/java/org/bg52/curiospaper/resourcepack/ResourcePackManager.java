@@ -10,6 +10,10 @@ import java.security.MessageDigest;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 public class ResourcePackManager {
     private final CuriosPaper plugin;
@@ -18,6 +22,8 @@ public class ResourcePackManager {
     private final Map<Plugin, File> registeredSources;
     private ResourcePackHost server;
     private String packHash;
+
+    private final Gson gson = new Gson();
 
     public ResourcePackManager(CuriosPaper plugin) {
         this.plugin = plugin;
@@ -237,15 +243,108 @@ public class ResourcePackManager {
             target.mkdirs();
         }
 
-        for (String file : source.list()) {
-            File srcFile = new File(source, file);
-            File destFile = new File(target, file);
+        String[] children = source.list();
+        if (children == null) return;
+
+        for (String fileName : children) {
+            File srcFile = new File(source, fileName);
+            File destFile = new File(target, fileName);
 
             if (srcFile.isDirectory()) {
                 copyDirectory(srcFile, destFile);
             } else {
-                Files.copy(srcFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                mergeOrCopyFile(srcFile, destFile);
             }
+        }
+    }
+
+    /**
+     * Copy a file into the target, merging JSON where possible.
+     */
+    private void mergeOrCopyFile(File srcFile, File destFile) throws IOException {
+        if (!destFile.exists()) {
+            // No conflict: just copy
+            File parent = destFile.getParentFile();
+            if (parent != null && !parent.exists()) {
+                parent.mkdirs();
+            }
+            Files.copy(srcFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            return;
+        }
+
+        // If destination exists, try to merge JSON where it makes sense.
+        String name = srcFile.getName().toLowerCase(Locale.ROOT);
+
+        // Don't try to merge binary stuff, images, etc.
+        if (!name.endsWith(".json")) {
+            // Keep existing non-JSON; skip the new one to avoid breaking things.
+            plugin.getLogger().fine("Skipping duplicate non-JSON resource: " + destFile.getPath());
+            return;
+        }
+
+        // Special case: pack.mcmeta – keep the root one we created / first one.
+        if (name.equals("pack.mcmeta")) {
+            // If you want to be fancy, you can merge "description", but safest is to keep the first.
+            plugin.getLogger().fine("Duplicate pack.mcmeta detected; keeping existing: " + destFile.getPath());
+            return;
+        }
+
+        try {
+            JsonElement destJson;
+            JsonElement srcJson;
+
+            try (Reader destReader = new FileReader(destFile);
+                 Reader srcReader = new FileReader(srcFile)) {
+
+                destJson = JsonParser.parseReader(destReader);
+                srcJson = JsonParser.parseReader(srcReader);
+            }
+
+            if (!destJson.isJsonObject() || !srcJson.isJsonObject()) {
+                // If either is not an object, don't attempt merge – keep existing file.
+                plugin.getLogger().warning("Cannot merge non-object JSON file: " + destFile.getPath());
+                return;
+            }
+
+            JsonObject destObj = destJson.getAsJsonObject();
+            JsonObject srcObj = srcJson.getAsJsonObject();
+
+            // Deep merge src into dest, without overwriting existing keys.
+            deepMergeJsonObjects(destObj, srcObj);
+
+            try (Writer writer = new FileWriter(destFile)) {
+                gson.toJson(destObj, writer);
+            }
+
+            plugin.getLogger().info("Merged JSON resource: " + destFile.getPath());
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("Failed to merge JSON resource " + destFile.getPath()
+                    + " from " + srcFile.getPath() + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Deep merge: add keys from 'src' into 'dest'. For conflicting keys:
+     * - if both are objects, recurse
+     * - otherwise, keep existing value in dest
+     */
+    private void deepMergeJsonObjects(JsonObject dest, JsonObject src) {
+        for (Map.Entry<String, JsonElement> entry : src.entrySet()) {
+            String key = entry.getKey();
+            JsonElement srcVal = entry.getValue();
+
+            if (!dest.has(key)) {
+                dest.add(key, srcVal);
+                continue;
+            }
+
+            JsonElement destVal = dest.get(key);
+
+            if (destVal.isJsonObject() && srcVal.isJsonObject()) {
+                deepMergeJsonObjects(destVal.getAsJsonObject(), srcVal.getAsJsonObject());
+            }
+            // else: dest already has a non-object or different type -> keep dest as-is.
         }
     }
 

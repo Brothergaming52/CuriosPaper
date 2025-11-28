@@ -145,7 +145,48 @@ public class InventoryListener implements Listener {
                 }
             }
         }
+
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            Inventory topInventoryAfter = event.getView().getTopInventory();
+            enforceSingleItemPerAccessorySlot(player, topInventoryAfter, slotType);
+        });
     }
+
+    private void enforceSingleItemPerAccessorySlot(Player player, Inventory topInventory, String slotType) {
+        // Get the real accessory slot positions for this slot type
+        int[] accessorySlots = gui.getAccessorySlots(slotType);
+        if (accessorySlots == null || accessorySlots.length == 0) {
+            return;
+        }
+
+        for (int slot : accessorySlots) {
+            if (slot < 0 || slot >= topInventory.getSize()) continue;
+
+            ItemStack item = topInventory.getItem(slot);
+            if (item == null || item.getType().isAir()) continue;
+
+            int amount = item.getAmount();
+            if (amount <= 1) continue;
+
+            // Keep exactly 1 in the accessory slot
+            item.setAmount(1);
+
+            int extra = amount - 1;
+            ItemStack extraStack = item.clone();
+            extraStack.setAmount(extra);
+
+            // Try to give extras back to the player's inventory
+            Map<Integer, ItemStack> leftovers = player.getInventory().addItem(extraStack);
+
+            // If inventory is full, drop leftovers on the ground
+            if (!leftovers.isEmpty()) {
+                leftovers.values().forEach(leftover ->
+                        player.getWorld().dropItemNaturally(player.getLocation(), leftover)
+                );
+            }
+        }
+    }
+
 
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
@@ -182,6 +223,10 @@ public class InventoryListener implements Listener {
                     player.sendMessage("§cThat item cannot be placed in this slot type!");
                 }
             }
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                Inventory topInventoryAfter = event.getView().getTopInventory();
+                enforceSingleItemPerAccessorySlot(player, topInventoryAfter, slotType);
+            });
         }
     }
 
