@@ -2,7 +2,7 @@
 
 # CuriosPaper
 
-[![](https://jitci.com/gh/Brothergaming52/CuriosPaper/svg)](https://jitci.com/gh/Brothergaming52/CuriosPaper)
+[![](https://jitci.com/gh/Brothergaming52/CuriosPaper/svg)](https://jitci.com/gh/Brothergaming52/CuriosPaper);
 
 CuriosPaper is a **Curios-style accessory inventory API for Paper** (api-version `1.21`).
 It adds a **separate accessory GUI** with configurable slots (back, rings, charms, etc.) and exposes a clean **Java API** so other plugins can register and manage accessories without touching NBT or custom inventories themselves.
