@@ -265,7 +265,7 @@ api.clearEquippedItems(player, "bracelet");
 ### Register resource pack sources
 
 ```java
-api.registerResourcePackSource(plugin, getFile());
+api.registerResourcePackAssetsFromJar(plugin);
 ```
 
 ---
