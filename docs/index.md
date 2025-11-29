@@ -59,7 +59,9 @@ It provides a **dedicated accessory GUI** (rings, charms, back-slot, etc.) and a
 ## Get CuriosPaper
 
 - GitHub repo: [Brothergaming52/CuriosPaper](https://github.com/Brothergaming52/CuriosPaper)  
-- Release downloads & plugin builds: check the Releases section on GitHub or the platform where you publish your plugin  
+- SpigotMc: [CuriosPaper](spigotmc.org/resources/curiospaper.130346/)
+- Modrinth: [CuriosPaper](https://modrinth.com/plugin/curiospaper)
+- PMC: [CuriosPaper](planetminecraft.com/mod/plugin-curiospaper/)
 
 --- 
 
