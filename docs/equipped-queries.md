@@ -1,12 +1,13 @@
+````markdown
 ---
 layout: default
-title: Equipped items & Queries
-parent: Developer API # **Links it to the Developer Guide parent**
-nav_order: 3
+title: Equipped Items & Queries
+parent: Developer API
+nav_order: 4
 ---
 # Developer API – Equipped Items & Queries
 
-This page explains how to **read** and **modify** what players have equipped in CuriosPaper, using the `CuriosPaperAPI`.
+This page covers how to **read** and **modify** what players have equipped in CuriosPaper using `CuriosPaperAPI`.
 
 You’ll learn how to:
 
@@ -15,64 +16,71 @@ You’ll learn how to:
 - Check if players have anything equipped.
 - Count equipped items.
 - Set, replace, and clear equipped accessories.
-- Use UUID-based queries (offline-safe).
-- Build practical systems on top (requirements, stats, passives).
+- Use UUID-based (offline-safe) queries.
+- Build real systems on top (requirements, stats, passives, class builds).
 
-If you’re not familiar with **slot types** and **tagging items**, read the **Accessory Items & Slot Types** page first.
+If you don’t understand **slot types** or **tagging items**, read **Accessory Items & Slot Types** first.
 
 ---
 
-## 1. Basics – What You’re Working With
+## 1. What CuriosPaper Stores Internally
 
-CuriosPaper internally stores, per **player**:
+For each **player**, CuriosPaper maintains something conceptually like:
 
-- A map: `slotType` → `List<ItemStack>`
-  - Example: `"ring"` → list of ring items.
-  - Example: `"charm"` → list of charm items.
+```text
+slotType -> List<ItemStack>
+````
 
-You never touch this map directly.  
-You always go through `CuriosPaperAPI` methods like:
+Examples:
 
-- `getEquippedItems(...)`
-- `getEquippedItem(...)`
-- `hasEquippedItems(...)`
-- `countEquippedItems(...)`
-- `setEquippedItem(...)`
-- `setEquippedItems(...)`
-- `removeEquippedItemAt(...)`
-- `removeEquippedItem(...)`
-- `clearEquippedItems(...)`
+* `"ring"` → `[ring1, ring2, ...]`
+* `"charm"` → `[charm1, charm2, charm3, charm4]`
 
-All of them use **slot type IDs** like `"head"`, `"back"`, `"ring"`, `"charm"` — same as in `config.yml`.
+You never touch this directly.
+You use `CuriosPaperAPI` methods:
+
+* Reads:
+
+    * `getEquippedItems(...)`
+    * `getEquippedItem(...)`
+    * `hasEquippedItems(...)`
+    * `countEquippedItems(...)`
+* Writes:
+
+    * `setEquippedItem(...)`
+    * `setEquippedItems(...)`
+    * `removeEquippedItemAt(...)`
+    * `removeEquippedItem(...)`
+    * `clearEquippedItems(...)`
+
+All of these take **slot type IDs** like `"head"`, `"back"`, `"ring"`, `"charm"`.
 
 ---
 
 ## 2. Reading Equipped Items
 
-### 2.1 Get All Items for a Slot Type
+### 2.1 Get all items for a slot type
 
 ```java
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-
-import java.util.List;
-
 public void logRings(Player player, CuriosPaperAPI curiosApi) {
     List<ItemStack> rings = curiosApi.getEquippedItems(player, "ring");
 
     player.sendMessage("§eYou have " + rings.size() + " ring(s) equipped:");
     for (ItemStack ring : rings) {
         if (ring == null || !ring.hasItemMeta()) continue;
-        player.sendMessage(" - " + ring.getItemMeta().getDisplayName());
+        player.sendMessage(" §7• " + ring.getItemMeta().getDisplayName());
     }
 }
-````
+```
+
+This is the pattern HeadBound’s effect handlers use internally:
+**pull equipped items → inspect → apply logic.**
 
 ---
 
-### 2.2 Get a Single Item at a Specific Index
+### 2.2 Get a single item at a specific index
 
-Index is **0-based** and must be `< slot amount`.
+Index is **0-based** and must be `< slot capacity`.
 
 ```java
 ItemStack backItem = curiosApi.getEquippedItem(player, "back", 0);
@@ -84,11 +92,11 @@ if (backItem != null) {
 }
 ```
 
-If the index is out of bounds or slot is empty, this will return `null`.
+If the index is out of bounds or slot is empty, you get `null`.
 
 ---
 
-### 2.3 Check If Any Items Are Equipped
+### 2.3 Check if any items are equipped
 
 ```java
 boolean hasBack = curiosApi.hasEquippedItems(player, "back");
@@ -99,118 +107,129 @@ if (!hasBack) {
 }
 ```
 
+This is cheap and should be your default “do they have X at all?” check.
+
 ---
 
-### 2.4 Count Equipped Items
+### 2.4 Count equipped items
 
 ```java
-int ringCount = curiosApi.countEquippedItems(player, "ring");
+int ringCount  = curiosApi.countEquippedItems(player, "ring");
 int charmCount = curiosApi.countEquippedItems(player, "charm");
 
 player.sendMessage("§eRings: " + ringCount + " | Charms: " + charmCount);
 ```
 
+Use this when you want **scaling bonuses** (e.g., stats that increase per accessory).
+
 ---
 
 ## 3. UUID-Based Queries (Offline-Safe)
 
-All the main query methods have **UUID variants**, useful when:
+Most read methods have **UUID variants**. Use them when:
 
-* You’re running logic on offline players.
-* You want to avoid storing `Player` references.
+* You’re running scheduled tasks not bound to an online `Player`.
+* You’re calculating stats for stored data (not just live players).
+* You don’t want to keep `Player` references around.
 
 ```java
-import java.util.UUID;
-
 UUID uuid = player.getUniqueId();
 
-boolean hasCharms = curiosApi.hasEquippedItems(uuid, "charm");
-int charmCount = curiosApi.countEquippedItems(uuid, "charm");
+boolean hasCharms  = curiosApi.hasEquippedItems(uuid, "charm");
+int charmCount     = curiosApi.countEquippedItems(uuid, "charm");
 List<ItemStack> backItems = curiosApi.getEquippedItems(uuid, "back");
 ```
 
-Use UUID variants whenever you’re not in a strictly online-only context.
+If you’re not tied to events like `AccessoryEquipEvent`, prefer UUID access.
 
 ---
 
 ## 4. Modifying Equipped Items
 
-These methods let you **change** what the player has equipped, without touching the GUI directly.
+These API calls **change** what CuriosPaper has stored.
+Use them instead of trying to hack the GUI inventory.
 
-### 4.1 Set One Item in a Slot
+### 4.1 Set one item in a specific slot index
 
 ```java
-ItemStack ringItem = ...; // must be tagged for "ring" slot
+ItemStack ringItem = ...; // must be a tagged "ring" accessory
 curiosApi.setEquippedItem(player, "ring", 0, ringItem);
 ```
 
-* If there was an item previously at index `0`, it's replaced.
-* If the index is out of bounds, the call will be ignored / safely handled.
+* Replaces the item at index `0` if present.
+* If index >= capacity, call is ignored / safely handled.
+
+Typical uses:
+
+* Class loadouts
+* Auto-equipping rewards
+* Scripted transformations
 
 ---
 
-### 4.2 Replace All Items for a Slot Type
+### 4.2 Replace all items for a slot type
 
 ```java
-List<ItemStack> newBracelets = ...; // validated & tagged
+List<ItemStack> newBracelets = ...; // tagged & validated
 curiosApi.setEquippedItems(player, "bracelet", newBracelets);
 ```
 
-Use this when you:
+Use this when:
 
-* Load your own data format.
-* Run mass transformations (e.g., upgrade all items).
-* Resync state after some external change.
+* Loading an external save format.
+* Migrating item data.
+* Performing “mass upgrades” (all items converted in one shot).
 
 ---
 
-### 4.3 Remove by Index
+### 4.3 Remove by index
 
 ```java
 curiosApi.removeEquippedItemAt(player, "necklace", 0);
 ```
 
-Removes the item at index 0 (if present).
-Remaining items are shifted down.
+* Removes the item at index `0` if present.
+* Elements after index 0 shift down.
+
+Good for “unequip the first necklace” type logic.
 
 ---
 
-### 4.4 Remove First Matching Item
+### 4.4 Remove first matching item
 
 ```java
 curiosApi.removeEquippedItem(player, "necklace", itemStack);
 ```
 
-This will:
+* Searches the `"necklace"` slot list for the first occurrence of `itemStack`.
+* Removes it if found.
 
-* Locate the first occurrence of `itemStack` in the `"necklace"` slot list.
-* Remove it if found.
+Use when:
 
-Useful when:
-
-* You have a reference to the actual equipped item.
-* You want to unequip “the same item” you previously gave/modified.
+* You have a direct reference to the equipped item.
+* You’re undoing a previous equip/change done by your plugin.
 
 ---
 
-### 4.5 Clear All Items in a Slot Type
+### 4.5 Clear all items in a slot type
 
 ```java
 curiosApi.clearEquippedItems(player, "charm");
 ```
 
-Completely empties the slot type (`charm` in this case).
-You can use this for:
+Blows away all equipped charms.
 
-* Purge commands.
-* Class change / respec logic.
-* Special events (e.g., “void storm” stripping accessories).
+Use cases:
+
+* Reset commands (`/curios reset` style).
+* Class respecs (unequip everything before applying new set).
+* Special events (“curse strip all your charms” etc.).
 
 ---
 
-## 5. Recipes – Practical Use Cases
+## 5. Recipes – Real Use Cases
 
-### Recipe 1 – Check Requirement: “Must Have Back Item to Use Ability”
+### 5.1 Requirement: “Must have back item to use ability”
 
 ```java
 public boolean canUseGlideAbility(Player player, CuriosPaperAPI curiosApi) {
@@ -218,13 +237,14 @@ public boolean canUseGlideAbility(Player player, CuriosPaperAPI curiosApi) {
 }
 ```
 
-You’d call this in your ability system and block activation when `false`.
+Hook this into your ability/skills system.
+If `false`, block the action.
 
 ---
 
-### Recipe 2 – Count Accessories for a Scaling Bonus
+### 5.2 Scaling bonus based on amount equipped
 
-Example: Each **ring** gives +2% crit chance.
+Example: each **ring** gives +2% crit chance:
 
 ```java
 public double getCritBonusFromRings(Player player, CuriosPaperAPI curiosApi) {
@@ -233,11 +253,14 @@ public double getCritBonusFromRings(Player player, CuriosPaperAPI curiosApi) {
 }
 ```
 
-Then integrate this into your damage or combat calculations.
+Integrate this into your damage or combat calc.
+
+HeadBound does the same type of thing but per-item:
+each effect handler checks “is my item equipped?” and applies flat or scaling bonuses.
 
 ---
 
-### Recipe 3 – Summarize All Equipped Accessories
+### 5.3 Full equipped summary (config-aware)
 
 ```java
 public void showEquippedSummary(Player player, CuriosPaperAPI curiosApi) {
@@ -248,7 +271,7 @@ public void showEquippedSummary(Player player, CuriosPaperAPI curiosApi) {
         List<ItemStack> items = curiosApi.getEquippedItems(player, slotType);
         if (items.isEmpty()) continue;
 
-        player.sendMessage("§f- " + slotType + " (§a" + items.size() + "§f):");
+        player.sendMessage("§f- §e" + slotType + " §7(" + items.size() + "):");
         for (ItemStack item : items) {
             if (item == null || !item.hasItemMeta()) continue;
             player.sendMessage("   §7• " + item.getItemMeta().getDisplayName());
@@ -257,13 +280,13 @@ public void showEquippedSummary(Player player, CuriosPaperAPI curiosApi) {
 }
 ```
 
-This adapts automatically to custom slot types.
+No hardcoded slot IDs. Works with any custom config.
 
 ---
 
-### Recipe 4 – “Unequip All on Death”
+### 5.4 Unequip all on death (or move elsewhere)
 
-If you want Curios accessories to be removed on death (or dropped / moved elsewhere), you can hook into `PlayerDeathEvent` and use the API:
+If you want Curios accessories to **drop** on death, or be moved to a special inventory, hook `PlayerDeathEvent`:
 
 ```java
 @EventHandler
@@ -274,26 +297,36 @@ public void onDeath(PlayerDeathEvent event) {
     List<String> slotTypes = curiosApi.getAllSlotTypes();
     for (String slotType : slotTypes) {
         List<ItemStack> items = curiosApi.getEquippedItems(player, slotType);
+
         for (ItemStack item : items) {
             if (item == null) continue;
-            // Example: drop them on death
+            // Example: drop them
             player.getWorld().dropItemNaturally(player.getLocation(), item);
         }
+
         curiosApi.clearEquippedItems(player, slotType);
     }
 }
 ```
 
+You can easily swap “drop” for:
+
+* Store into a custom death chest
+* Store into a database
+* Wipe them completely
+
 ---
 
-### Recipe 5 – Force Equip a Set (Class System / Loadouts)
-
-Example: When a player chooses “Fire Mage” class, equip a specific set:
+### 5.5 Force equip a build (class / kit / loadout)
 
 ```java
-public void applyFireMageSet(Player player, CuriosPaperAPI curiosApi,
-                             ItemStack ring, ItemStack charm, ItemStack backItem) {
-
+public void applyFireMageSet(
+        Player player,
+        CuriosPaperAPI curiosApi,
+        ItemStack ring,
+        ItemStack charm,
+        ItemStack backItem
+) {
     curiosApi.clearEquippedItems(player, "ring");
     curiosApi.clearEquippedItems(player, "charm");
     curiosApi.clearEquippedItems(player, "back");
@@ -304,30 +337,60 @@ public void applyFireMageSet(Player player, CuriosPaperAPI curiosApi,
 }
 ```
 
----
-
-## 6. Good Practices & Pitfalls
-
-### ✅ Good Practices
-
-* Always use **slot type IDs** that exist in config; check with `isValidSlotType(...)`.
-* Use `countEquippedItems`, `hasEquippedItems`, and `getEquippedItems` instead of storing your own duplication of that data.
-* Prefer **UUID-based** API when you don’t need the live `Player`.
+HeadBound could use this pattern for “sets” or rituals; your addon can too.
 
 ---
 
-### ❌ Pitfalls to Avoid
+### 5.6 Back-slot Elytra synergy (high level)
 
-* Don’t assume specific slot counts (like “ring slots are always 2”) — read `getSlotAmount("ring")`.
-* Don’t manipulate Curios NBT directly. Always use the API.
-* Don’t store references to `ItemStack`s and assume they will stay valid forever; state can change via GUI or other plugins.
+If you’re integrating with CuriosPaper’s **elytra/back-slot system**:
+
+* You’ll typically check if a back-slot accessory is the one that grants gliding.
+* Then let CuriosPaper’s internal elytra handler handle data components, durability, and asset IDs.
+
+Example (pseudo):
+
+```java
+public boolean hasGliderBackItem(Player player, CuriosPaperAPI curiosApi) {
+    ItemStack backItem = curiosApi.getEquippedItem(player, "back", 0);
+    // your identification logic (display name, key, PDC, etc.)
+    return isYourGlider(backItem);
+}
+```
+
+You don’t reimplement gliding logic; you just decide **which** back items should count as gliders.
 
 ---
 
-## 7. Where to Go Next
+## 6. Good Practices vs Trash Practices
 
-For deeper integration:
+### ✅ Good practices
 
-* **Accessory Items & Slot Types** – How items become accessories and how slots are defined.
-* **Events** – Use `AccessoryEquipEvent` to react on equip/unequip.
-* **Resource Pack Integration** – Custom models and icons for your accessory items.
+* Always check the slot configuration via:
+
+    * `isValidSlotType(slotType)`
+    * `getSlotAmount(slotType)`
+* Use the Curios API as the **single source of truth** for equipped accessories.
+* When working with offline players or background tasks, use the **UUID-based** methods.
+
+---
+
+### ❌ Trash practices (don’t do this)
+
+* Hardcoding assumptions like “ring slots are always 2” instead of reading `getSlotAmount("ring")`.
+* Bypassing Curios and trying to use the GUI inventory directly.
+* Caching `ItemStack` references long-term and assuming they never change.
+* Modifying Curios-related NBT or persistent data yourself instead of using the API.
+
+You do any of that, you’re just setting yourself up for bugs.
+
+---
+
+## 7. Next Steps
+
+To fully wire your addon like HeadBound:
+
+* Use **Events** (especially `AccessoryEquipEvent`) to react instantly when equipment changes.
+* Use **Resource Pack Integration** to give your accessories proper models.
+* Combine **tagging**, **equipped item queries**, and **events** to implement actual gameplay effects cleanly.
+
