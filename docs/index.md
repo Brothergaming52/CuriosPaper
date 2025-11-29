@@ -3,67 +3,140 @@ layout: default
 title: Home
 nav_order: 1 # This controls its position in the sidebar
 ---
-# CuriosPaper
+# **CuriosPaper**
 
-**CuriosPaper** is a **Curios-style accessory inventory API for Paper (Minecraft 1.21+)**.  
-It provides a **dedicated accessory GUI** (rings, charms, back-slot, etc.) and a clean, plugin-friendly **Java API** — letting server owners and plugin developers manage extra equipment slots *without messing with NBT or custom inventories*.
+**CuriosPaper** is a **Curios-style accessory inventory API for Paper 1.21+**.
+It adds a **dedicated accessory equipment system** (head, back, rings, charms, etc.) and exposes a clean **Java API** so other plugins can register items, define slots, add models, or implement gameplay effects — *without ever touching NBT or hacking Minecraft inventories*.
 
-> ⚠️ *CuriosPaper does **not** add its own items or stats — it’s an API layer.*  
-> If you want actual gear or stat-boosting items, you (or another plugin) need to supply them.*
-
----
-
-## Why use CuriosPaper?
-
-- ✅ Adds extra equipment slot support to your server — head, neck, back, rings, charms, etc.  
-- ✅ Full customization: slot types, names, icons, GUI layout, slot counts.  
-- ✅ Automatic resource-pack generation + hosting — no manual pack building required.  
-- ✅ Persistent player accessory data with optional backups and config-driven save intervals.  
-- ✅ Lightweight and plugin-friendly: other devs can hook in via API.  
+> ⚠ **This plugin is an API.**
+> CuriosPaper **does NOT add items, stats, or abilities**.
+> Addons (like your *HeadBound* plugin) provide the actual gear and gameplay.
 
 ---
 
-## At a glance
+## **Why CuriosPaper exists**
 
-| Category | Info |
-| -------- | ---- |
-| **Supported Minecraft version** | 1.21+ |
-| **Server platform** | Paper or any compatible fork |
-| **Default slot types** | head, necklace, back, body, belt, hands, bracelet, charm, ring |
-| **Installation** | Drop the JAR into `plugins/`, then restart or reload server |
-| **Access GUI** | `/baubles`, `/b`, `/bbag` |
-| **Config file** | Auto-generated `config.yml` on first run |
-| **Data storage** | YAML (with caching + optional backups) |
-| **Resource-pack hosting** | Built-in HTTP server (configurable IP/port) |
+Paper plugins have:
+
+* No native accessory system
+* No safe way to bind items to custom slot types
+* No built-in resource-pack merging
+* No clean API for other plugins to extend equipment
+
+**CuriosPaper fixes all of that** by providing:
+
+* **Dedicated Accessory GUI**
+  9 slot types by default (fully configurable), each with its own page.
+
+* **Full customization**
+  Slot names, icons, counts, item models, GUI layout, borders — all configurable.
+
+* **Automatic Resource Pack Pipeline**
+  Built-in:
+
+    * Pack builder
+    * Namespace conflict checker
+    * File merge rules
+    * HTTP server for hosting
+    * Automatic combination of external packs (add-on plugins)
+
+* **Elytra–Back-Slot System**
+  Advanced support for giving chestplates gliding capability,
+  custom asset IDs per armor material, and full trim-aware 3D models.
+
+* **Addon-Ready API**
+  Register accessories, listen to equip events, add effects, or inject models.
+  (*HeadBound* is a real example of a complete addon.)
 
 ---
 
-## Quick Start
+## **Fast Overview**
 
-1. Install on a Paper 1.21+ server → drop JAR.  
-2. Restart server — `config.yml` is generated.  
-3. Configure resource-pack host IP/port (if needed).  
-4. Players run `/baubles` (or alias) to open the accessory GUI.  
-5. Plugin developers: hook into `CuriosPaperAPI` to tag items or query equipped accessories.  
-
----
-
-## Where to go from here 📚
-
-- **Configuration** — tweak slot types, slot counts, GUI layout, pack hosting, storage & performance settings.  
-- **Developer API** — learn how to tag items, equip accessories programmatically, listen for equip/unequip events, and integrate resource-pack assets.  
-- (In Future Updates)
+| Category                 | Details                                                        |
+| ------------------------ | -------------------------------------------------------------- |
+| **Minecraft Version**    | 1.21+                                                          |
+| **Platform**             | Paper / Folia-compatible forks                                 |
+| **Slot Types (default)** | head, necklace, back, body, belt, hands, bracelet, charm, ring |
+| **GUI Access**           | `/baubles`, `/b`, `/bbag`                                      |
+| **Resource Pack**        | Built-in HTTP server + automatic merging                       |
+| **Data Storage**         | YAML with caching + optional timed backups                     |
+| **API Access**           | `CuriosPaperAPI` (auto registered)                             |
+| **Addon Example**        | *HeadBound* uses this API for real items, effects & models     |
 
 ---
 
-## Get CuriosPaper
+## **Quick Start (Server Admins)**
 
-- GitHub repo: [Brothergaming52/CuriosPaper](https://github.com/Brothergaming52/CuriosPaper)  
-- SpigotMc: [CuriosPaper](spigotmc.org/resources/curiospaper.130346/)
-- Modrinth: [CuriosPaper](https://modrinth.com/plugin/curiospaper)
-- PMC: [CuriosPaper](planetminecraft.com/mod/plugin-curiospaper/)
+1. Drop **CuriosPaper.jar** into `plugins/`.
+2. Start server → `config.yml` is created.
+3. Configure resource-pack host IP & port if needed.
+4. Restart. Players can now open `/baubles`.
+5. Install addon plugins (e.g., HeadBound) to add actual items.
 
---- 
+---
 
-> 💡 _Pro tip for server admins or devs:_ read the [Configuration docs](https://brothergaming52.github.io/CuriosPaper/configuration.html) and [Developer API docs](https://brothergaming52.github.io/CuriosPaper/developer.html) **before you touch anything**, especially the resource-pack settings. A wrong IP or port will break icon loading for all players.
+## **Quick Start (Developers)**
 
+1. Add CuriosPaper as a dependency.
+2. Grab the API using:
+
+   ```java
+   CuriosPaperAPI api = CuriosPaperAPI.get();
+   ```
+3. Tag an item:
+
+   ```java
+   api.tagAccessory(item, "head");
+   ```
+4. Listen for events:
+
+   ```java
+   @EventHandler
+   void onEquip(AccessoryEquipEvent event) { ... }
+   ```
+5. Add models:
+   Place your assets under
+   `resources/assets/curiospaper/`
+   and CuriosPaper merges them automatically.
+
+This is exactly how **HeadBound** implements its items, models, effects, and droptables.
+
+---
+
+## **Documentation Roadmap**
+
+* **Configuration**
+  Slot editing, counts, GUI, RP hosting, backups, debug logging.
+
+* **Resource Pack Guide**
+  Namespaces, merging rules, file conflicts, custom slot icons, elytra/chestplate models.
+
+* **Developer API Guide**
+  Tagging items, querying slots, equip/unequip events, player data, custom models.
+
+* **Addon Example: HeadBound**
+  Real-world reference implementation using CuriosPaper’s full feature set.
+
+---
+
+## **Downloads**
+
+* GitHub Repo: *[Brothergaming52/CuriosPaper](https://github.com/Brothergaming52/CuriosPaper)*
+* Releases: latest builds + source code
+* SpigotMc: [CuriosPaper](spigotmc.org/resources/curiospaper.130346/)
+* Modrinth: [CuriosPaper](https://modrinth.com/plugin/curiospaper)
+* PMC: [CuriosPaper](planetminecraft.com/mod/plugin-curiospaper/)
+
+---
+
+## **Before You Continue**
+
+If you're a server owner:
+→ Read **[Configuration docs](https://brothergaming52.github.io/CuriosPaper/configuration.html)** first.
+A wrong host IP or blocked port = broken icons for every player.
+
+If you're a developer:
+→ Read **[Developer API docs](https://brothergaming52.github.io/CuriosPaper/developer.html)** + **Resource Pack** sections.
+It prevents 90% of mistakes addons usually make.
+
+---
