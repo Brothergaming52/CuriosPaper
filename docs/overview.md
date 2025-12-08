@@ -48,13 +48,8 @@ resource-pack:
   # Base material for custom icons (usually PAPER or LEATHER_HORSE_ARMOR)
   base-material: "PAPER"
 
-  allow-minecraft-namespace: false
-
-  allow-namespace-conflicts: false
-
 # Slot configurations - 9 total slot types
 slots:
-  # Head slot for helmets, crowns, circlets
   head:
     name: "&e⚜ Head Slot ⚜"
     icon: "GOLDEN_HELMET"
@@ -64,7 +59,6 @@ slots:
       - "&7Equip crowns, circlets, or magical headpieces."
       - "&7Enhances mental abilities."
 
-  # Necklace slot for amulets and pendants
   necklace:
     name: "&b✦ Necklace Slot ✦"
     icon: "NAUTILUS_SHELL"
@@ -74,7 +68,6 @@ slots:
       - "&7Wear powerful amulets and pendants."
       - "&7Grants mystical protection."
 
-  # Back slot for capes and cloaks
   back:
     name: "&5☾ Back Slot ☾"
     icon: "ELYTRA"
@@ -84,7 +77,6 @@ slots:
       - "&7Equip magical capes and cloaks."
       - "&7Provides mobility and defense."
 
-  # Body slot for chest accessories
   body:
     name: "&c❖ Body Slot ❖"
     icon: "DIAMOND_CHESTPLATE"
@@ -94,7 +86,6 @@ slots:
       - "&7Wear chest talismans and armor attachments."
       - "&7Strengthens your core vitality."
 
-  # Belt slot for utility items
   belt:
     name: "&6⚔ Belt Slot ⚔"
     icon: "LEATHER"
@@ -104,7 +95,6 @@ slots:
       - "&7Equip utility belts and sashes."
       - "&7Increases carrying capacity."
 
-  # Hands/Gloves slots
   hands:
     name: "&f✋ Hand Slots ✋"
     icon: "LEATHER_CHESTPLATE"
@@ -114,7 +104,6 @@ slots:
       - "&7Magical gloves for both hands."
       - "&7Enhances dexterity and grip strength."
 
-  # Bracelet slots for wrists
   bracelet:
     name: "&3◈ Bracelet Slots ◈"
     icon: "CHAIN"
@@ -124,7 +113,6 @@ slots:
       - "&7Wear enchanted bracelets and bangles."
       - "&7Mystical bands of power."
 
-  # Ring slots for fingers
   ring:
     name: "&6◆ Ring Slots ◆"
     icon: "GOLD_NUGGET"
@@ -134,7 +122,6 @@ slots:
       - "&7Holds powerful magical rings."
       - "&7Ancient bands of arcane energy."
 
-  # Charm slots for misc trinkets
   charm:
     name: "&d✧ Charm Slots ✧"
     icon: "EMERALD"
@@ -146,89 +133,45 @@ slots:
 
 # Feature toggles
 features:
-  # Add lore line to tagged items showing required slot
   add-slot-lore-to-items: true
-
-  # Allow elytra equipping in back slots
   allow-elytra-on-back-slot: true
-
-  # Allow players to see empty accessory slots in GUI
   show-empty-slots: true
-
-  # Play sound when opening GUI
   play-gui-sound: true
   gui-sound: "BLOCK_CHEST_OPEN"
-
-  # Play sound when equipping item
   play-equip-sound: true
   equip-sound: "ENTITY_ITEM_PICKUP"
-
-  # Play sound when unequipping item
   play-unequip-sound: true
   unequip-sound: "ENTITY_ITEM_PICKUP"
 
 # Storage settings
 storage:
-  # Storage type (currently only 'yaml' is supported)
   type: "yaml"
-
-  # Auto-save interval in seconds (300 = 5 minutes)
-  # Set to 0 to disable auto-save
   save-interval: 300
-
-  # Save data when inventory is closed
   save-on-close: true
-
-  # Create backup before saving
   create-backups: false
-  backup-interval: 3600  # seconds (1 hour)
+  backup-interval: 3600
   max-backups: 5
 
 # Performance settings
 performance:
-  # Cache player data in memory
   cache-player-data: true
-
-  # Unload player data after disconnect (saves memory)
   unload-on-quit: true
-
-  # Maximum items per slot type (safety limit)
   max-items-per-slot: 54
 
 # GUI customization
 gui:
-  # Main menu title (Tier 1)
   main-title: "&8✦ Accessory Slots ✦"
-
-  # Slot inventory title prefix (Tier 2)
   slot-title-prefix: "&8Slots: "
-
-  # Filler material for GUI decoration
   filler-material: "GRAY_STAINED_GLASS_PANE"
-
-  # Border material for GUI edges
   border-material: "BLACK_STAINED_GLASS_PANE"
-
-  # Filler item display name
   filler-name: "&r"
-
-  # Main GUI always uses double chest (54 slots)
   main-gui-size: 54
-
-  # Use beautiful patterns for slot arrangements
   use-patterns: true
 
 # Debug settings
 debug:
-  # Enable debug logging
   enabled: false
-
-  # Log all API calls
   log-api-calls: false
-
-  # Log inventory interactions
   log-inventory-events: false
-
-  # Log slot position calculations
   log-slot-positions: false
 ```

@@ -117,6 +117,7 @@ public class ConfigManager {
             }
         }
 
+
         // Load lore (optional)
         List<String> lore = section.getStringList("lore");
         if (lore.isEmpty()) {
@@ -149,44 +150,6 @@ public class ConfigManager {
         slotConfigurations.clear();
         plugin.getLogger().info("Reloading slot configurations...");
         loadConfigurations();
-    }
-
-    /**
-     * Adds a slot configuration at runtime (does not persist to config.yml)
-     */
-    public boolean addSlotConfiguration(String key, SlotConfiguration config) {
-        if (key == null || key.trim().isEmpty() || config == null) {
-            return false;
-        }
-
-        String normalizedKey = key.toLowerCase();
-        if (slotConfigurations.containsKey(normalizedKey)) {
-            plugin.getLogger().warning("Slot type '" + key + "' already exists!");
-            return false;
-        }
-
-        slotConfigurations.put(normalizedKey, config);
-        plugin.getLogger().info("✓ Registered dynamic slot: '" + key + "' (" + config.getAmount() + " slots)");
-        return true;
-    }
-
-    /**
-     * Removes a slot configuration at runtime
-     */
-    public boolean removeSlotConfiguration(String key) {
-        if (key == null) {
-            return false;
-        }
-
-        String normalizedKey = key.toLowerCase();
-        SlotConfiguration removed = slotConfigurations.remove(normalizedKey);
-
-        if (removed != null) {
-            plugin.getLogger().info("✓ Unregistered slot: '" + key + "'");
-            return true;
-        }
-
-        return false;
     }
 
     /**

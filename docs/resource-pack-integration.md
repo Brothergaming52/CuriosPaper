@@ -1,59 +1,50 @@
 ---
 layout: default
 title: Resource Pack Integration
-parent: Developer API
+parent: Developer API # **Links it to the Developer Guide parent**
 nav_order: 6
 ---
 # Developer API – Resource Pack Integration
 
-CuriosPaper ships with a **full automatic resource pack pipeline** and lets **addons inject their own assets** into that same pack.
+CuriosPaper ships with its **own auto-generated resource pack**, and it lets **other plugins** inject their own assets into that same pack.
 
-This page shows how your plugin can:
+This page explains how **your plugin** can:
 
-- Ship models/textures/icons inside its JAR (HeadBound-style).
-- Register those assets with CuriosPaper’s pack builder.
-- Reference your models via `item-model` in config.
-- Respect CuriosPaper’s **namespace and conflict rules**.
-- Debug conflicts using the CuriosPaper tooling.
+- Ship textures/models/icons inside its JAR.
+- Have CuriosPaper extract and merge them into the server resource pack.
+- Reference your models from `config.yml` via `item-model`.
+- Keep everything automatic for server owners.
 
-If you’re looking for admin config, read  
+If you’re looking for admin-facing config, see:  
 **Configuration → Resource Pack**.  
-This page is for **developers** only.
+This page is strictly for **developers**.
 
 ---
 
-## 1. How CuriosPaper’s Pack Works (Dev View)
+## 1. How CuriosPaper’s Pack Works (Dev Perspective)
 
-CuriosPaper builds and serves a pack at:
+CuriosPaper builds a pack into:
 
 ```text
 plugins/CuriosPaper/resource-pack-build/
 plugins/CuriosPaper/resource-pack.zip
 ````
 
-On startup / rebuild it:
+It:
 
-1. Extracts **its own assets** (`assets/curiospaper/...`).
-2. Extracts **assets from registered plugins**.
-3. Enforces **namespace rules**:
+* Extracts its own assets (`assets/curiospaper/...`).
+* Merges resources from *other plugins* that register assets.
+* Hosts `resource-pack.zip` via an embedded HTTP server.
+* Advertises that pack to clients (if enabled in config).
 
-    * Reserved `curiospaper` namespace.
-    * Optional `minecraft` namespace usage.
-    * Optional namespace conflict allowance.
-4. Applies **curated JSON merging** for a few whitelisted files only.
-5. Writes a final `resource-pack.zip`.
-6. Hosts it via an embedded HTTP server.
-
-Your job is just:
-
-* Put files in the **right layout**.
-* Call the **API** to register them.
+Your job:
+Provide assets in the **right folder structure** and call the **API hook**.
 
 ---
 
-## 2. Asset Layout Inside Your Plugin JAR
+## 2. Folder Layout Inside Your Plugin JAR
 
-Inside *your* project, put assets here:
+Inside *your* plugin project, place Curios-related assets in:
 
 ```text
 src/main/resources/resources/
@@ -65,33 +56,28 @@ src/main/resources/resources/
          ├─ textures/
          │   └─ item/
          │       └─ my_custom_icon.png
-         └─ ... (sounds, lang, whatever you need)
+         └─ ... (any other asset folders)
 ```
 
-Important:
+Key points:
 
-* Top-level folder must be **`resources/`**.
-  CuriosPaper scans and extracts from there.
-* Everything under that follows **normal Minecraft layout**:
-  `assets/<namespace>/...`.
-* `<your_namespace>` should be unique, e.g.:
+* The **root** must be `resources/` (CuriosPaper extracts from that).
+* Then standard Minecraft layout: `assets/<namespace>/...`.
+* `<your_namespace>` can be your plugin name or any valid namespace, e.g.:
 
-    * `headbound`
-    * `myaddon`
-    * `myserver`
+  * `myaddon`
+  * `myserver`
+  * `coolcurios`
 
-**Do NOT** hijack `curiospaper` or `minecraft` without knowing what you’re doing (see §7).
-
-You **do not** ship `pack.mcmeta` here; CuriosPaper builds that.
+You **do not** need your own `pack.mcmeta` here – CuriosPaper handles that.
 
 ---
 
-## 3. Registering Your Assets With the API
+## 3. Registering Assets from Your JAR
 
-In your plugin `onEnable`, after you have the API:
+In your plugin `onEnable`, after CuriosPaper is available, call:
 
 ```java
-import org.bg52.curiospaper.CuriosPaper;
 import org.bg52.curiospaper.api.CuriosPaperAPI;
 
 public class MyCuriosAddon extends JavaPlugin {
@@ -109,251 +95,121 @@ public class MyCuriosAddon extends JavaPlugin {
             return;
         }
 
-        // Register assets from this plugin's JAR
-        File root = curiosApi.registerResourcePackSource(this, getFile());
-        getLogger().info("Registered CuriosPaper resource assets from: " + root.getAbsolutePath());
-
-        // now register listeners, commands, etc.
+        // Register your resource pack assets from this plugin's JAR
+        File root = curiosApi.registerResourcePackAssetsFromJar(this);
+        getLogger().info("Registered Curios assets from: " + root.getAbsolutePath());
     }
 }
 ```
 
 What this does:
 
-* Scans your plugin JAR for `/resources/...`.
-* Copies everything under `resources/` into CuriosPaper’s build directory.
-* Marks the resource pack as “dirty” so it’s rebuilt once.
-* Your assets become part of the **unified server pack**.
+* Looks inside your plugin JAR for `/resources/...`.
+* Extracts all files under `resources/` into CuriosPaper’s build folder.
+* Merges them with CuriosPaper’s own `assets/` tree.
+* Marks the pack for rebuild.
 
-Server owner doesn’t touch anything. Exactly how HeadBound integrates.
+From the server owner’s perspective, it’s **zero extra setup**.
 
 ---
 
-## 4. Referencing Your Models via `item-model`
+## 4. Referencing Your Models in `config.yml`
 
-Once your assets are registered, you can reference them in CuriosPaper’s `config.yml` (slot icons, etc.).
+Once your assets are registered, you can reference your models via `item-model` in CuriosPaper’s `config.yml`.
 
-Say your plugin provides:
+Example: your plugin provides:
 
 ```text
-resources/assets/headbound/models/item/scouts_lens_icon.json
-resources/assets/headbound/textures/item/scouts_lens_icon.png
+assets/myaddon/models/item/backpack_icon.json
+assets/myaddon/textures/item/backpack_icon.png
 ```
 
-Then in CuriosPaper’s `config.yml`:
+Then in `config.yml`:
 
 ```yaml
 slots:
-  head:
-    name: "&e⚜ Head Slot ⚜"
-    icon: "GLASS"
-    item-model: "headbound:scouts_lens_icon"
+  back:
+    name: "&5☾ Back Slot ☾"
+    icon: "LEATHER_CHESTPLATE"
+    item-model: "myaddon:backpack_icon"
     amount: 1
     lore:
-      - "&7Equip magical lenses and circlets."
+      - "&7Carries your relic backpack."
 ```
 
 Rules:
 
-* `item-model: "<namespace>:<path>"` (no `.json` extension).
-* Path must resolve to:
-  `assets/<namespace>/models/item/<path>.json`.
-* Texture paths are defined inside your JSON as usual.
-
-This is the pattern your HeadBound-like addons should follow.
+* `item-model` uses `<namespace>:<path>` (no `.json`).
+* Must match `assets/<namespace>/models/item/<path>.json`.
+* Texture paths are defined inside the JSON, as usual.
 
 ---
 
-## 5. Example Item Model JSON
+## 5. Example Model JSON
 
-Simple icon model:
+Basic `backpack_icon.json`:
 
 ```json
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "headbound:item/scouts_lens_icon"
+    "layer0": "myaddon:item/backpack_icon"
   }
 }
 ```
 
-Texture goes in:
+Texture file path in your JAR:
 
 ```text
-resources/assets/headbound/textures/item/scouts_lens_icon.png
+resources/assets/myaddon/textures/item/backpack_icon.png
 ```
 
-CuriosPaper merges this into its pack and the client sees it when:
-
-* `resource-pack.enabled: true`
-* `host-ip` / `port` are valid and reachable
+CuriosPaper will merge this into its pack and clients will receive it automatically (assuming `resource-pack.enabled = true` and `host-ip`/`port` are set correctly).
 
 ---
 
 ## 6. Runtime Flow for Your Addon
 
-What actually happens:
+1. **Server starts.**
+2. CuriosPaper loads and builds/updates its resource pack.
+3. Your plugin loads, gets `CuriosPaperAPI`.
+4. Your plugin calls `registerResourcePackAssetsFromJar(this)`.
+5. CuriosPaper:
 
-1. **CuriosPaper starts.**
+   * Extracts `resources/assets/myaddon/...` from your JAR.
+   * Merges with its `resource-pack-build`.
+   * Rebuilds `resource-pack.zip`.
+6. Players join:
 
-    * Reads its config.
-    * Prepares the build directory.
-2. **CuriosPaper runs its pack builder** (dirty-flag controlled).
-3. **Your addon enables.**
-
-    * Grabs `CuriosPaperAPI`.
-    * Calls `registerResourcePackSource(this, getFile())`.
-4. CuriosPaper:
-
-    * Extracts `/resources/...` from your plugin JAR.
-    * Writes them into `resource-pack-build/assets/<namespace>/...`.
-    * Schedules (or executes) a single rebuild.
-5. Resource pack is zipped as `resource-pack.zip`.
-6. Embedded HTTP server serves it.
-7. Client joins, downloads the unified pack, sees:
-
-    * CuriosPaper’s own slot icons, trims, elytra models.
-    * Your addon’s custom icons/models.
+   * CuriosPaper serves the merged resource pack.
+   * Curios GUIs can display icons using your models.
 
 ---
 
-## 7. Namespaces, Safety Flags & Conflicts
+## 7. Using Different Namespaces or Multiple Addons
 
-CuriosPaper enforces **strict namespace rules** so one trash addon doesn’t wreck everyone.
+You can use **any namespace** you want. Good patterns:
 
-Relevant config:
+* One namespace per plugin:
 
-```yaml
-resource-pack:
-  allow-minecraft-namespace: false
-  allow-namespace-conflicts: false
-```
+  * `assets/myaddon1/...`
+  * `assets/myaddon2/...`
+* Or shared namespace for a suite:
 
-### 7.1 Reserved `curiospaper` namespace
+  * `assets/myserver/...`
 
-* The `curiospaper:` namespace is **owned by CuriosPaper itself**.
-* Do NOT stick your random models in there unless you intend to override CuriosPaper assets and accept the risk.
-* For normal addons, **use your own namespace** (e.g. `headbound`).
+If multiple plugins use the **same namespace and paths**, standard resource-pack override rules apply:
 
-If CuriosPaper detects another plugin trying to “own” the `curiospaper` namespace as its primary source, it will:
-
-* Log a **reserved namespace violation**.
-* Ignore or block that plugin’s conflicting assets (depending on version/rules).
-
-### 7.2 `minecraft:` namespace
-
-Controlled by:
-
-```yaml
-allow-minecraft-namespace: false
-```
-
-* When `false` (default):
-  Plugins are **not allowed** to ship assets in `assets/minecraft/...` through CuriosPaper.
-  This prevents accidental overrides of vanilla textures/models.
-* When `true`:
-  Plugins can override vanilla assets **on purpose**. Dangerous but sometimes useful.
-
-If a plugin uses `minecraft:` while it’s disabled, CuriosPaper logs the violation and skips those assets.
-
-### 7.3 Namespace conflicts
-
-Controlled by:
-
-```yaml
-allow-namespace-conflicts: false
-```
-
-* When `false`:
-
-    * If two plugins both register the same namespace, CuriosPaper treats it as a conflict.
-    * One of them gets blocked and you get a loud error telling you to change your namespace.
-* When `true`:
-
-    * Multiple plugins can dump assets into the same namespace.
-    * Standard pack override rules apply (last in wins).
-    * This is only sane when you intentionally design for overrides.
-
-### 7.4 Conflict inspection
-
-Admins (and you, while testing) can run:
-
-```text
-/curios rp conflicts
-```
-
-It shows:
-
-* Reserved namespace violations
-* `minecraft:` namespace violations
-* Duplicate namespace owners
-* Allowed conflicts (if config permits)
-
-If your addon is misbehaving with assets, this is your first stop.
+* Last one merged “wins” for conflicting files.
+* Design for that if you intend override behavior.
 
 ---
 
-## 8. Curated JSON Merging vs Hard Conflicts
+## 8. Debugging Your Asset Integration
 
-CuriosPaper does **NOT** try to “merge everything”.
-That always ends in broken packs.
+If icons/models don’t show:
 
-Only specific, curated files are merge-allowed (example names):
-
-* `curios_item_base.json`
-* `curios_combined_override.json`
-
-For those:
-
-* Multiple plugins can contribute entries.
-* CuriosPaper merges their contents.
-
-For **all other files**:
-
-* **Strict copy-or-skip**:
-
-    * If a file with the same path already exists, the later one is treated as a conflict.
-    * CuriosPaper logs the conflict clearly.
-    * It either skips the later file or obeys the configured conflict rules.
-
-As an addon dev, don’t assume blind merging.
-Design your assets so collisions either:
-
-* Never happen (unique namespace + paths), or
-* Are intentional overrides.
-
----
-
-## 9. Using a Custom Pack Folder (Optional)
-
-If CuriosPaper exposes a folder-based variant (depends on version), you may see something like:
-
-```java
-File externalPackFolder = new File(getDataFolder(), "pack");
-File root = curiosApi.registerResourcePackSource(this, externalPackFolder);
-```
-
-Pattern:
-
-* You ship a default set in your JAR (under `/resources/`).
-* You let server owners drop overrides into `plugins/MyAddon/pack/`.
-* You call `registerResourcePackSource` on both (JAR + folder).
-
-Same rules:
-
-* Must have `assets/<namespace>/...`.
-* Same namespace safety + conflict rules apply.
-
-Use this when you explicitly want server owners to override your textures/models without repacking the JAR.
-
----
-
-## 10. Debugging When Things Don’t Show Up
-
-If models/icons are broken, here’s the checklist:
-
-1. **Check your JAR structure**
-
+1. **Check folder structure inside JAR**
    Open your plugin JAR and verify:
 
    ```text
@@ -361,77 +217,51 @@ If models/icons are broken, here’s the checklist:
    /resources/assets/<namespace>/textures/item/...
    ```
 
-   If `resources/` is missing or you put assets under just `/assets`, CuriosPaper won’t see them.
+2. **Check server console logs**
 
-2. **Check CuriosPaper logs on startup**
+   * Does CuriosPaper log any error while extracting/merging?
+   * Does your plugin confirm registration?
 
-   Look for:
+3. **Check `resource-pack-build`**
 
-    * Resource pack build status
-    * Namespace conflict errors
-    * Minecraft-namespace violations
-    * Reserved namespace usage
+   * After startup, verify files are present in:
 
-3. **Check build directory**
+     ```text
+     plugins/CuriosPaper/resource-pack-build/assets/<namespace>/...
+     ```
 
-   After server start:
+4. **Check `item-model` strings**
 
-   ```text
-   plugins/CuriosPaper/resource-pack-build/assets/<namespace>/...
-   ```
+   * Make sure `item-model: "myaddon:backpack_icon"` matches your JSON path.
 
-   If your files aren’t there, your registration is wrong.
+5. **Test pack URL**
 
-4. **Verify `item-model` IDs**
-
-    * `item-model: "headbound:scouts_lens_icon"`
-    * Must match JSON path:
-      `assets/headbound/models/item/scouts_lens_icon.json`.
-
-5. **Test the pack URL directly**
-
-   In a browser:
-
-   ```text
-   http://<host-ip>:<port>/resource-pack.zip
-   ```
-
-    * If it doesn’t download → host/port/firewall issue.
-    * If it downloads but models still broken → your paths / JSON are wrong.
-
-6. **Use `/curios rp conflicts`**
-
-   If there’s a namespace or file conflict, CuriosPaper will tell you.
+   * Visit `http://<host-ip>:<port>/resource-pack.zip` in a browser.
+   * If you can’t download, your hosting config is wrong.
 
 ---
 
-## 11. Good vs Bad Integration
+## 9. Advanced: Registering from External Folder (If Available)
 
-### ✅ Do this
+If you also have a **development resource pack folder** outside your JAR, CuriosPaper may expose a method like:
 
-* Use a **unique namespace** (`headbound`, `myaddon`, etc.).
-* Put assets under `src/main/resources/resources/assets/<namespace>/...`.
-* Call `registerResourcePackSource(this, getFile())` in `onEnable`.
-* Reference models by `item-model` IDs in CuriosPaper config.
-* Use `/curios rp conflicts` when debugging.
+```java
+File externalPackFolder = new File(getDataFolder(), "my-addon-resources");
+File root = curiosApi.registerResourcePackAssetsFromFolder(this, externalPackFolder);
+```
 
-### ❌ Don’t do this
+(Depends on the exact API version; if present, it works similar to the JAR variant but reads from the filesystem.)
 
-* Dump assets into `assets/curiospaper` unless you *intentionally* override CuriosPaper’s models.
-* Use `minecraft:` namespace while `allow-minecraft-namespace: false`.
-* Assume CuriosPaper will “smart-merge” all your JSON.
-* Ship packs separately and then complain that players have to accept 2–3 packs.
+Use this pattern when:
+
+* You want server owners to drop/override files.
+* You’re iterating on assets without rebuilding the plugin JAR.
 
 ---
 
-## 12. Summary
+## 10. Summary
 
-* CuriosPaper owns the **resource pack pipeline**: build, merge, host.
-* Your addon:
-
-    * Provides assets under `resources/assets/<namespace>/...`.
-    * Registers them via `curiosApi.registerResourcePackSource(...)`.
-    * References models with `item-model` in CuriosPaper config.
-* Respect **namespace rules** and use the **conflict tooling** instead of blindly overriding everything.
-
-If you follow this pattern (like a properly built HeadBound-style addon), server owners get **one clean pack**, and your accessories look exactly how you intended.
+* Put your assets in `src/main/resources/resources/assets/<namespace>/...`.
+* Call `curiosApi.registerResourcePackAssetsFromJar(this);` on startup.
+* Reference models in CuriosPaper’s `config.yml` via `item-model: "<namespace>:<path>"`.
+* CuriosPaper handles extraction, merging, zipping, and hosting.

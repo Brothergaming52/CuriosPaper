@@ -4,29 +4,27 @@ title: Developer Overview
 parent: Developer API # **Links it to the Developer Guide parent**
 nav_order: 1 
 ---
----
+# Developer API – Overview
 
-# **Developer API – Overview**
+CuriosPaper is a **Curios-style accessory inventory API for Paper** (`api-version: 1.21`).
 
-CuriosPaper is a **slot-based accessory API for Paper 1.21+**.
-It provides clean entrypoints for:
+It provides:
 
-* Tagging + defining accessory items
-* Reading & modifying equipped items
-* Listening to equip / unequip events
-* Registering resource-pack assets
-* Using the built-in slot system (9 types by default)
-* Integrating with the back-slot elytra pipeline
+- A **separate accessory GUI** with configurable slot types (back, rings, charms, etc.).
+- A clean **Java API** so other plugins can register and manage accessories **without touching NBT or custom inventories**.
 
-**It is NOT an item/modifier system.**
-Your addon provides the items, logic, effects, and models.
-CuriosPaper only provides the *slots, data, and API layer*.
+> CuriosPaper **does not add its own items or stats**.  
+> It is an **API layer** for servers and plugins that want extra equipment slots.
 
 ---
 
-# **Getting CuriosPaper as a Dependency**
+## Getting CuriosPaper as a Dependency
 
-## Maven
+CuriosPaper is distributed via **JitPack**.
+
+### Maven
+
+**Step 1 – Add the JitPack repository**
 
 ```xml
 <repositories>
@@ -35,295 +33,334 @@ CuriosPaper only provides the *slots, data, and API layer*.
         <url>https://jitpack.io</url>
     </repository>
 </repositories>
-```
+````
+
+**Step 2 – Add the dependency**
 
 ```xml
 <dependency>
     <groupId>com.github.Brothergaming52</groupId>
     <artifactId>CuriosPaper</artifactId>
-    <version>Tag</version> <!-- replace with a release/tag -->
+    <version>Tag</version> <!-- replace with release tag -->
 </dependency>
 ```
 
-## Gradle (Groovy)
+---
+
+### Gradle (Groovy)
+
+**Step 1 – Add JitPack to repositories** (usually in `settings.gradle` or `build.gradle`):
 
 ```groovy
-repositories {
-    mavenCentral()
-    maven { url 'https://jitpack.io' }
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
 }
 ```
+
+**Step 2 – Add the dependency**
 
 ```groovy
 dependencies {
-    implementation 'com.github.Brothergaming52:CuriosPaper:Tag'
+    implementation 'com.github.Brothergaming52:CuriosPaper:Tag' // replace Tag with version
 }
 ```
 
 ---
 
-# **How Addons Actually Use CuriosPaper**
+## Features (Developer-Focused)
 
-If you want to know how to build a proper CuriosPaper addon, look at **HeadBound**:
+### ✅ Dedicated Accessory GUI
 
-* Uses an enum (`HeadItems`) to define all its items
-* Tags items via CuriosPaper API (`tagAccessoryItem`)
-* Listens to `AccessoryEquipEvent` to enable effects
-* Registers its custom models through the CuriosPaper resource-pack API
-* Places assets into `resources/assets/curiospaper/…`
-* Relies entirely on CuriosPaper’s slot validation + GUI
-* NEVER touches NBT manually
-* NEVER builds its own accessory GUI
+Commands: `/baubles`, `/b`, `/bbag`
 
-This is the correct development pattern.
+* Tiered menus:
+
+  * Main accessory menu → per-slot pages.
+* Fully configurable:
+
+  * Titles, filler items, borders, layout, patterns.
 
 ---
 
-# **Developer Features (API-Focused)**
+### ✅ 9 Slot Types by Default (Fully Configurable)
 
-## **✔ Slot System**
+All defined in `config.yml`:
 
-CuriosPaper exposes all configured slots automatically:
+* `head`
+* `necklace`
+* `back`
+* `body`
+* `belt`
+* `hands`
+* `bracelet`
+* `charm`
+* `ring`
 
-```
-head, necklace, back, body,
-belt, hands, bracelet, charm, ring
-```
-
-You reference these IDs from Java:
-
-```java
-api.tagAccessoryItem(item, "head", true);
-```
-
-Everything — counts, GUI layout, naming — is controlled by the server’s config.
+Each slot type can be renamed, repurposed, or expanded via config.
 
 ---
 
-## **✔ Accessory Tagging**
+### ✅ Config-Driven Slot Behavior
 
-Every accessory must be tagged with the slot type.
+Per slot type:
 
-### Correct:
+* `name` – GUI display name.
+* `icon` – base material used for that slot’s icon in the main GUI.
+* `item-model` – model ID used in the resource pack.
+* `amount` – how many internal slots the player gets for that type.
+* `lore` – tooltip text.
 
-```java
-ItemStack item = ...;
-ItemStack tagged = curiosApi.tagAccessoryItem(item, "ring", true);
+Example:
+
+```yaml
+slots:
+  head:
+    name: "&e⚜ Head Slot ⚜"
+    icon: "GOLDEN_HELMET"
+    item-model: "curiospaper:head_slot"
+    amount: 1
+    lore:
+      - "&7Equip crowns, circlets, or magical headpieces."
+      - "&7Enhances mental abilities."
 ```
-
-### HeadBound example (simplified):
-
-```java
-ItemStack lens = ItemUtil.buildItem(HeadItems.SCOUTS_LENS);
-curiosApi.tagAccessoryItem(lens, "head", true);
-```
-
-**Don’t reinvent your own NBT.
-Don’t create fake lore tags.
-Always use the API.**
 
 ---
 
-## **✔ Reading Equipped Items**
+### ✅ Automatic Resource Pack Generation & Hosting
 
-```java
-List<ItemStack> items = curiosApi.getEquippedItems(player, "back");
+CuriosPaper can:
+
+* Build its own resource pack from:
+
+  * `resources/assets/curiospaper/` (plugin’s built-in assets).
+  * Additional assets provided by other plugins via API.
+* Host the final ZIP via an embedded HTTP server.
+
+Key config:
+
+```yaml
+resource-pack:
+  enabled: true
+  port: 8080
+  host-ip: "your.public.ip.or.domain"
+  base-material: "PAPER"
 ```
-
-Examples from HeadBound (real pattern):
-
-* Effects check if an item is equipped every tick
-* Apply/remove PotionEffects or statuses
-* Use CuriosPaper’s slot queries, never the player’s own inventory
 
 ---
 
-## **✔ Modifying Equipped Items**
+### ✅ Persistent Player Data
 
-```java
-curiosApi.setEquippedItem(player, "ring", 0, ringItem);
-curiosApi.clearEquippedItems(player, "charm");
+* Storage type: `yaml` (per-player files).
+* Auto-save interval in seconds.
+* Optional backup system:
+
+  * `backup-interval`
+  * `max-backups`
+
+Example:
+
+```yaml
+storage:
+  type: "yaml"
+  save-interval: 300
+  save-on-close: true
+  create-backups: false
+  backup-interval: 3600
+  max-backups: 5
 ```
-
-Used in addons to:
-
-* Replace items after upgrades
-* Remove items on ability cooldown
-* Force-slot constraints
 
 ---
 
-## **✔ Equip / Unequip Events**
+### ✅ Performance Controls
+
+* `cache-player-data` – hold player accessory data in memory while online.
+* `unload-on-quit` – clear cached data when the player leaves.
+* `max-items-per-slot` – safety cap per slot type.
+
+```yaml
+performance:
+  cache-player-data: true
+  unload-on-quit: true
+  max-items-per-slot: 54
+```
+
+---
+
+### ✅ Quality-of-Life Toggles
+
+* Add slot lore to items.
+* Show or hide empty slots in GUI.
+* Sounds on open/equip/unequip.
+
+```yaml
+features:
+  add-slot-lore-to-items: true
+  show-empty-slots: true
+  play-gui-sound: true
+  gui-sound: "BLOCK_CHEST_OPEN"
+  play-equip-sound: true
+  equip-sound: "ENTITY_ITEM_PICKUP"
+  play-unequip-sound: true
+  unequip-sound: "ENTITY_ITEM_PICKUP"
+```
+
+---
+
+### ✅ Debug / Dev Tools
+
+Debug logging for:
+
+* API calls.
+* Inventory interactions.
+* Slot position calculations.
+
+```yaml
+debug:
+  enabled: false
+  log-api-calls: false
+  log-inventory-events: false
+  log-slot-positions: false
+```
+
+Useful when developing addons or diagnosing conflicts with other plugins.
+
+---
+
+## Requirements
+
+* **Server:** Paper or any Paper-compatible fork.
+* **Minecraft:** **1.21+** (`api-version: 1.21`).
+* **Client:** Must accept the server resource pack if `resource-pack.enabled = true`.
+
+---
+
+## Commands
+
+### `/baubles`
+
+* **Aliases:** `/b`, `/bbag`
+* **Action:** Opens the player’s **accessory GUI**.
+* All other behavior (which slots exist, how many, what they do) is controlled via:
+
+  * `config.yml`
+  * CuriosPaper API.
+
+There are no complicated admin commands; integration happens via code.
+
+---
+
+## Configuration Overview (For Developers)
+
+As a plugin developer, you mainly care about:
+
+1. **Slot IDs**
+   The keys under `slots:` (`head`, `back`, `ring`, etc.) are the **slot type IDs** you’ll pass into the API:
+
+   ```java
+   // Example slot types:
+   "head", "necklace", "back", "body", "belt",
+   "hands", "bracelet", "charm", "ring"
+   ```
+
+2. **Slot Counts**
+   `amount` defines how many internal slots that type has:
+
+   ```yaml
+   ring:
+     amount: 2
+   ```
+
+   This value is used when you:
+
+   * Check how many items are equipped.
+   * Validate slot indices in your code.
+
+3. **Resource Pack Integration**
+   The `item-model` field connects config to visual models.
+   Your plugin can register its own models via the CuriosPaper API and refer to them in config.
+
+For full details, see the dedicated config pages:
+
+* **Configuration / Slots & GUI**
+* **Configuration / Resource Pack**
+* **Configuration / Storage & Backups**
+* **Configuration / Performance & Caching**
+* **Configuration / Features & Debug**
+
+---
+
+## Developer API – High-Level Overview
+
+CuriosPaper exposes:
+
+* Main plugin class:
+  `org.bg52.curiospaper.CuriosPaper`
+* API interface:
+  `org.bg52.curiospaper.api.CuriosPaperAPI`
+
+### Getting the API Instance
 
 ```java
-@EventHandler
-public void onEquip(AccessoryEquipEvent event) {
-    Player p = event.getPlayer();
-    ItemStack item = event.getItem();
-    String slot = event.getSlotType();
+import org.bg52.curiospaper.CuriosPaper;
+import org.bg52.curiospaper.api.CuriosPaperAPI;
+
+public class MyPlugin extends JavaPlugin {
+
+    private CuriosPaperAPI curiosApi;
+
+    @Override
+    public void onEnable() {
+        CuriosPaper curiosPaper = CuriosPaper.getInstance();
+        this.curiosApi = curiosPaper.getCuriosPaperAPI();
+    }
 }
 ```
 
-HeadBound uses this to:
+Once you have `curiosApi`, you can:
 
-* Activate abilities
-* Trigger particles/sounds
-* Apply attributes or potion effects
+* **Tag items** as accessories for a specific slot type:
 
-You should too.
+  ```java
+  ItemStack tagged = curiosApi.tagAccessoryItem(item, "necklace", true);
+  ```
+* **Inspect** which slot an item belongs to:
 
----
+  ```java
+  String slotType = curiosApi.getAccessorySlotType(itemStack);
+  ```
+* **Validate** slot types & accessories:
 
-## **✔ Resource Pack Injection**
+  ```java
+  boolean valid = curiosApi.isValidAccessory(itemStack, "ring");
+  boolean exists = curiosApi.isValidSlotType("back");
+  int maxSlotCount = curiosApi.getSlotAmount("ring");
+  ```
+* **Query equipped items**:
 
-CuriosPaper exposes an API for addon assets:
+  ```java
+  List<ItemStack> rings = curiosApi.getEquippedItems(player, "ring");
+  boolean hasBackItem = curiosApi.hasEquippedItems(player, "back");
+  int charmCount = curiosApi.countEquippedItems(player, "charm");
+  ```
+* **Modify equipped items**:
 
-```java
-File root = curiosApi.registerResourcePackSource(this, getFile());
-```
+  ```java
+  curiosApi.setEquippedItem(player, "ring", 0, ringItem);
+  curiosApi.clearEquippedItems(player, "charm");
+  ```
+* **React to equip/unequip events** via `AccessoryEquipEvent`.
+* **Register extra resource pack assets** from your plugin JAR.
 
-If you ship:
-
-```
-resources/assets/myaddon/models/item/my_item.json
-resources/assets/myaddon/textures/item/my_item.png
-```
-
-CuriosPaper automatically merges it into the server’s pack.
-
-HeadBound example:
-
-```
-resources/assets/curiospaper/items/scouts-lens.json
-resources/assets/curiospaper/models/item/scouts-lens.json
-```
-
-Because it places everything into the `curiospaper:` namespace,
-CuriosPaper merges those assets seamlessly.
-
----
-
-## **✔ Full Elytra / Back-Slot Integration**
-
-Your API handles:
-
-* Elytra as back-slot items
-* Auto-adding gliding capability
-* Auto-swapping chestplate model to custom 3D models
-* Full trim-aware assets (all materials + trims)
-* Durability rules
-* Preventing dupes, resets, and invalid swaps
-
-Addons can react or override behavior using `AccessoryEquipEvent`.
-
----
-
-# **Core API Access**
-
-Get the API instance:
-
-```java
-CuriosPaperAPI api = CuriosPaper.getInstance().getCuriosPaperAPI();
-```
-
-Once you have it → you can:
-
-### Tag items
-
-```java
-api.tagAccessoryItem(item, "back", true);
-```
-
-### Check what slot an item belongs to
-
-```java
-String slot = api.getAccessorySlotType(stack);
-```
-
-### Validate items / slots
-
-```java
-api.isValidAccessory(stack, "belt");
-api.isValidSlotType("ring");
-```
-
-### Query equipped accessories
-
-```java
-api.getEquippedItems(player, "charm");
-api.hasEquippedItems(player, "back");
-api.countEquippedItems(player, "ring");
-```
-
-### Modify what a player has equipped
-
-```java
-api.setEquippedItem(player, "head", 0, item);
-api.clearEquippedItems(player, "bracelet");
-```
-
-### Register resource pack sources
-
-```java
-api.registerResourcePackSource(plugin, getFile());
-```
-
----
-
-# **Developer Requirements**
-
-| Requirement                                   | Reason                                       |
-| --------------------------------------------- | -------------------------------------------- |
-| Paper 1.21+                                   | CuriosPaper uses Data Components + 1.21 APIs |
-| Must not bypass CuriosPaper’s slot rules      | Causing corruption or dupe bugs              |
-| Must register assets using CuriosPaper        | Otherwise models won’t load                  |
-| Plugin namespace must be unique               | Conflict system will block you               |
-| Must wrap all items using CuriosPaper tag API | Otherwise GUI won’t accept them              |
-
----
-
-# **Quick Guidelines for Building Addons**
-
-If you want your addon to not be trash:
-
-### 1. Define your items cleanly
-
-Use an enum like HeadBound (`HeadItems`).
-
-### 2. Build your items *then tag*
-
-Always tag AFTER creating the `ItemStack`.
-
-### 3. Use `AccessoryEquipEvent`
-
-Handle everything on equip/unequip.
-Do NOT jankily poll player inventories.
-
-### 4. Put all your models inside:
-
-```
-resources/assets/<your-namespace>/
-```
-
-### 5. Register your pack folder via API
-
-Do NOT hand-build your pack.
-
-### 6. Never use `minecraft:` namespace
-
-Unless you're intentionally overriding vanilla assets.
-
----
-
-# **Where to go next**
-
-Developer API Sections:
+Detailed usage and examples are covered in the dedicated Developer API pages:
 
 * **Quickstart**
 * **Accessory Items & Slot Types**
-* **Equipping & Querying Items**
+* **Equipped Items & Queries**
 * **Events**
 * **Resource Pack Integration**
-* **Full Example Addon (HeadBound)**
 
 ---

@@ -4,51 +4,51 @@ title: Resource Pack Config
 parent: Configuration # **CRITICAL: Links it to the parent page**
 nav_order: 3 # Position within the Configuration drop-down
 ---
----
+# Resource Pack Configuration
 
-# **Resource Pack Configuration**
+CuriosPaper includes a **fully automatic resource pack system** that generates, merges, and serves a custom pack containing:
 
-CuriosPaper includes a **full automatic resource pack pipeline** that:
+- Slot icons (`item-model`)
+- Textures and model files shipped by CuriosPaper
+- Assets registered by other plugins using the API
+- Your own custom additions (if placed in the correct folder)
 
-* Builds a pack from CuriosPaper’s internal assets
-* Registers & merges assets from *other plugins*
-* Enforces namespace rules (conflict prevention)
-* Applies merging rules for specific JSON files
-* Hosts the final ZIP through an embedded HTTP server
-
-This system is **not optional** if you want custom slot icons, elytra-overrides, or addon plugin assets to work correctly.
+This page explains how the resource pack system works, how to configure the host IP/port, and how to safely integrate your own models.
 
 ---
 
-# **What the Resource Pack Actually Does**
+## 📦 What the Resource Pack Does
 
-CuriosPaper generates and serves a pack that contains:
+CuriosPaper’s resource pack is responsible for all visual elements:
 
-* ✔ Slot icons (`item-model`)
-* ✔ Slot GUI items
-* ✔ All built-in elytra/chestplate models (trim-aware)
-* ✔ Built-in accessory models
-* ✔ Assets added by other plugins (like HeadBound)
-* ✔ Overrides for atlas + trim JSON files
-* ✔ JSON merges for Curios-specific curated files
+✔ Slot icons  
+✔ Per-slot item models  
+✔ Plugin-registered asset overrides  
+✔ Patterns and GUI textures (if provided)  
 
-The build output is:
+Players **must download the pack** for your slot icons and models to appear correctly.
+
+The pack is generated into:
 
 ```
+
 plugins/CuriosPaper/resource-pack-build/
-```
-
-The hosted pack:
 
 ```
+
+and served as:
+
+```
+
 plugins/CuriosPaper/resource-pack.zip
-```
 
-CuriosPaper rebuilds the pack only **once per startup** using a **dirty-flag build system** so startup doesn’t get spammed by repeated builds.
+````
 
 ---
 
-# **Resource-Pack Section in config.yml**
+## ⚙ Resource Pack Config Section
+
+You will find this section at the top of `config.yml`:
 
 ```yaml
 resource-pack:
@@ -56,16 +56,15 @@ resource-pack:
   port: 8080
   host-ip: "localhost"
   base-material: "PAPER"
+````
 
-  allow-minecraft-namespace: false
-  allow-namespace-conflicts: false
-```
-
-Below is the **full, accurate explanation** of every setting.
+Below is a detailed explanation of each option.
 
 ---
 
-# **`enabled` – Toggle Pack System**
+## 🟢 `enabled`
+
+Controls whether CuriosPaper builds and serves the resource pack.
 
 ```yaml
 enabled: true
@@ -73,249 +72,232 @@ enabled: true
 
 If disabled:
 
-* No pack will be created
-* No pack will be hosted
-* Slot icons will **NOT** use custom models
-* Addon plugins’ models will be ignored
-* Any `item-model:` config values are useless
+* No pack will be generated
+* Slot icons will fall back to vanilla items
+* Any `item-model:` values will not work
 
-**Do NOT disable this unless you are providing your own custom, full replacement resource pack.**
+**You should keep this enabled unless you are manually providing your own pack.**
 
 ---
 
-# **`port` – Embedded HTTP Server Port**
+## 🔌 `port`
+
+Defines the port used by CuriosPaper’s built-in HTTP server.
 
 ```yaml
 port: 8080
 ```
 
-CuriosPaper hosts the pack via a lightweight built-in HTTP server.
+### Important notes:
 
-Rules you MUST follow:
+* **You MUST use a port different from your server’s main port.**
+  Example: if your server runs on 25565 → use 8080, 9090, etc.
+* If the port is blocked by a firewall, players won’t receive the pack.
+* If the port is in use by another process → startup will warn you.
 
-* It **cannot** be your server’s main port
-* It MUST be open in the firewall
-* It MUST NOT be used by another program
-* If the port is blocked → players cannot download the pack
+### Example safe ports:
 
-Safe examples: `8080`, `8081`, `9000`, `1337`.
+* 8080
+* 8081
+* 9000
+* 1337
 
 ---
 
-# **`host-ip` – Public IP or Domain**
+## 🌐 `host-ip`
+
+This is the IP or hostname players download the pack from.
 
 ```yaml
 host-ip: "localhost"
 ```
 
-This is the address sent to clients as:
+Change this to match your server’s public address:
 
-```
-http://<host-ip>:<port>/resource-pack.zip
-```
-
-Examples:
+### Examples:
 
 ```yaml
-host-ip: "123.45.67.89"
-host-ip: "play.example.com"
-host-ip: "mc.yourserver.net"
+host-ip: "your.server.ip.here"
+host-ip: "play.example.net"
+host-ip: "mc.myserver.com"
 ```
 
-If wrong → players see **“Failed to download resource pack”**.
+### If set incorrectly:
 
-ALWAYS use a domain if you have one.
+Players will get a “resource pack failed to download” message.
+
+**Tip:** Use your domain whenever possible.
 
 ---
 
-# **`base-material` – Base Item for Slot Icons**
+## 🧱 `base-material`
+
+Defines which Minecraft item is used as the base material for slot icons.
 
 ```yaml
 base-material: "PAPER"
 ```
 
-This is the underlying vanilla item used for slot icons.
+This maps to the item used to display custom `item-model` textures.
 
-Popular options:
+### Recommended options:
 
-* `PAPER`
-* `LEATHER_HORSE_ARMOR`
-* `TOTEM_OF_UNDYING`
+* `PAPER` (simple, clean, safe)
+* `LEATHER_HORSE_ARMOR` (good for 3D slot icons)
+* `FEATHER` (light decorative base)
+* `TOTEM_OF_UNDYING` (stylized icons)
 
-This affects ONLY the underlying item model parent — all icon rendering still uses your custom `item-model` JSON.
+Changing this allows for completely different visual styles.
 
 ---
 
-# **`allow-minecraft-namespace` – Control Use of `minecraft:` Namespace**
+## 🗂 Resource Pack Structure
 
-```yaml
-allow-minecraft-namespace: false
+CuriosPaper builds a complete pack using:
+
+```
+resource-pack-build/
+ ├─ assets/
+ │   ├─ curiospaper/
+ │   │   └─ models/item/...
+ │   ├─ <other plugins>/
+ │   │   └─ models/item/...
+ │   └─ minecraft/
+ │       └─ textures/...   (if overridden)
+ └─ pack.mcmeta
 ```
 
-The `minecraft:` namespace is **dangerous** because addon plugins can accidentally override **vanilla game assets**.
+CuriosPaper automatically:
 
-If:
+* Extracts its internal assets
+* Merges any registered plugin assets
+* Rebuilds the pack when needed
+* Serves the ZIP via embedded HTTP
 
-* `false` → Addons **cannot** use `minecraft:` namespace
-* `true` → Addons may override vanilla files (use cautiously)
-
-If a plugin attempts to use `minecraft:` while this option is `false`, CuriosPaper:
-
-* Logs a namespace violation
-* Ignores the addon’s conflicting assets
-* Starts normally (no crashes)
+You never need to manually zip or host anything.
 
 ---
 
-# **`allow-namespace-conflicts` – Prevent Plugin Conflicts**
+## 🔧 How Item Models Work
+
+Each slot type has an `item-model` value:
 
 ```yaml
-allow-namespace-conflicts: false
+item-model: "curiospaper:back_slot"
 ```
 
-When two plugins use the same namespace, it creates guaranteed file collisions and model conflicts.
+This corresponds to a JSON model file inside:
 
-If:
+```
+assets/curiospaper/models/item/back_slot.json
+```
 
-* `false` → CuriosPaper **blocks the plugin from loading**, logs a clear error, and tells the server owner to change the namespace
-* `true` → Both plugins load, but their assets may conflict (not recommended)
+CuriosPaper injects these into the pack.
 
-This protects server owners from “silent texture overrides” that are a nightmare to debug.
+### If you want your **own custom model**:
+
+Place your model file in:
+
+```
+src/main/resources/resources/assets/<namespace>/models/item/
+```
+
+Then reference it in config:
+
+```yaml
+item-model: "myplugin:custom_back_slot"
+```
+
+CuriosPaper will detect and merge this automatically.
 
 ---
 
-# **How the Resource Pack Build Pipeline Works**
+## 🔌 How Other Plugins Register Pack Assets
 
-### ✔ Extract CuriosPaper internal assets
-
-Includes:
-
-* Slot icons
-* Back-slot elytra models
-* Material + trim variants
-* Required atlas overrides
-
-### ✔ Extract assets from other plugins
-
-Only when added via:
+If another plugin wants to add models, textures, or icons to CuriosPaper’s resource pack, they can use the API:
 
 ```java
-api.registerResourcePackAssetsFromJar(plugin);
+File root = curiosApi.registerResourcePackAssetsFromJar(this);
 ```
 
-Plugins must include:
+They just need to include a directory inside their JAR:
 
 ```
 resources/assets/<namespace>/...
 ```
 
-### ✔ Enforce namespace rules
+CuriosPaper handles:
 
-Violations are logged through:
+* Extraction
+* Merging
+* Cleanup
+* Repackaging
 
-```
-/curios rp conflicts
-```
+---
 
-### ✔ Curated JSON Merges
+## 🧪 Testing Your Setup
 
-Only specific CuriosPaper JSON files allow merges
-All other files:
+### Check the pack builds:
 
-* Strict copy-or-skip
-* No auto-merging
-* Conflicts reported in the conflict log
-
-### ✔ Final ZIP creation
-
-Built into:
+Start the server → look for:
 
 ```
-resource-pack.zip
+[CuriosPaper] Resource pack built successfully.
 ```
 
-Served as:
+### Check serving:
+
+Open this in a browser:
 
 ```
 http://<host-ip>:<port>/resource-pack.zip
 ```
 
----
+If the file downloads → pack hosting works.
 
-# **Plugin Integration (Example: HeadBound)**
+### Check client behavior:
 
-HeadBound adds dozens of custom models:
+Join the server with resource packs enabled:
 
-```
-resources/assets/curiospaper/models/item/...
-```
-
-CuriosPaper:
-
-* Detects the assets
-* Extracts them
-* Merges them
-* Assigns the correct namespace
-* Injects them into the final server pack
-
-This is EXACTLY how every addon should integrate with your system.
+* If icons appear → everything is correct.
+* If icons appear as missing textures → `item-model` paths are wrong.
+* If pack fails to download → `host-ip` or `port` is wrong.
 
 ---
 
-# **Testing Your Pack**
+## ✔ Common Issues & Fixes
 
-### Test hosting:
+### **“Resource pack failed to download”**
 
-Open in a browser:
+* Wrong `host-ip`
+* Port blocked by firewall
+* Wrong IP behind proxy
+* Wrong port
 
-```
-http://<host-ip>:<port>/resource-pack.zip
-```
+### **“Icons look like vanilla paper instead of custom icons”**
 
-### Test client:
+* Pack disabled
+* Wrong `item-model` path
+* Wrong base-material
+* Host IP unreachable
 
-* Missing textures → wrong `item-model`
-* Pack download failure → host-ip or port wrong
-* Vanilla icons show → pack disabled or load failure
-* Wrong custom models → namespace conflict
+### **“My plugin’s custom models aren’t showing up”**
 
----
-
-# **Common Issues & Fixes**
-
-### ❌ “Pack failed to download”
-
-* Invalid `host-ip`
-* Firewall blocking port
-* Using server’s main port
-* Reverse proxy not forwarding correctly
-
-### ❌ “My plugin’s models don’t show”
-
-* Wrong folder structure
+* Incorrect folder structure
 * Wrong namespace
-* Not registered via API
-* `allow-minecraft-namespace: false` blocking them
-
-### ❌ “Two plugins are overwriting each other”
-
-* Both using same namespace
-* `allow-namespace-conflicts: true`
+* Forgot to register assets via API
 
 ---
 
-# **Final Summary**
+## 📌 Summary
 
-| Setting                     | Purpose                                            |
-| --------------------------- | -------------------------------------------------- |
-| `enabled`                   | Enables the entire pack system                     |
-| `port`                      | Embedded HTTP server port                          |
-| `host-ip`                   | Public host for the ZIP                            |
-| `base-material`             | Base item material for slot icons                  |
-| `allow-minecraft-namespace` | Allow/disallow vanilla namespace overrides         |
-| `allow-namespace-conflicts` | Prevent or allow multi-plugin namespace collisions |
+| Setting         | Controls                               |
+| --------------- | -------------------------------------- |
+| `enabled`       | Turns CuriosPaper’s pack system on/off |
+| `port`          | Web server port for pack hosting       |
+| `host-ip`       | Where clients download the ZIP from    |
+| `base-material` | Base item used for custom icons        |
 
-CuriosPaper’s resource pack system is **strict**, **safe**, and **addon-ready**.
-Use it to build a unified, conflict-free visual experience for all accessories on your server.
+The resource pack system is one of CuriosPaper’s most powerful features — use it to deliver seamless visual integration for your accessory system.
 
 ---

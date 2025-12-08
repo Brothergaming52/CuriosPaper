@@ -36,7 +36,7 @@ public class AccessoryGUI {
         Map<String, SlotConfiguration> configs = plugin.getConfigManager().getSlotConfigurations();
 
         // Double chest size for beautiful layout
-        int size = getMainGUISize(configs.size());
+        int size = 45;
         Inventory mainGUI = Bukkit.createInventory(null, size, MAIN_GUI_TITLE);
 
         // Create border
@@ -108,44 +108,32 @@ public class AccessoryGUI {
      * Get the positions for main GUI buttons (9 slot types)
      * Beautiful arrangement in double chest
      */
-    /**
-     * Get the positions for main GUI buttons
-     * Uses 3x3 grid for default (9 items)
-     * Uses 7x4 inner box for custom (>9 items)
-     */
     private int[] getMainGUIButtonPositions(int count) {
-        // For 9 items or fewer: 3x3 grid centered in 5-row inventory (45 slots)
-        if (count <= 9) {
+        // For 9 items: 3x3 grid centered in double chest
+        if (count == 9) {
             return new int[] {
                     10, 13, 16,
                     21, 22, 23,
                     28, 31, 34
             };
         } else {
-            // For > 9 items: Use 7x4 inner box in 6-row inventory (54 slots)
-            // Rows 1-4, Cols 1-7 (Indices: 10-16, 19-25, 28-34, 37-43)
+            // Fallback: as many as needed in grid
             List<Integer> positions = new ArrayList<>();
-            int[] innerBoxRows = { 1, 2, 3, 4 };
-            int[] innerBoxCols = { 1, 2, 3, 4, 5, 6, 7 }; // 7 columns wide
+            int startRow = 2;
+            int itemsPerRow = 3;
+            int row = startRow;
+            int col = 2;
 
-            for (int row : innerBoxRows) {
-                for (int col : innerBoxCols) {
-                    if (positions.size() >= count)
-                        break;
-                    positions.add(row * 9 + col);
+            for (int i = 0; i < count; i++) {
+                positions.add(row * 9 + col);
+                col++;
+                if (col >= 2 + itemsPerRow) {
+                    col = 2;
+                    row++;
                 }
             }
 
             return positions.stream().mapToInt(Integer::intValue).toArray();
-        }
-    }
-
-    private int getMainGUISize(int size) {
-        // Use pattern-based sizing
-        if (size <= 9) {
-            return 45; // 3 rows for clean single-row layout
-        } else {
-            return 54; // Double chest for many items
         }
     }
 

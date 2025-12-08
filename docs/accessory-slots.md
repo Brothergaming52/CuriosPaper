@@ -1,28 +1,29 @@
 ---
 layout: default
-title: Accessory Items & Slot Types
-parent: Developer API
+title: Accessary items & Slot items
+parent: Developer API # **Links it to the Developer Guide parent**
 nav_order: 3
 ---
 # Developer API – Accessory Items & Slot Types
 
-This page explains how **accessory items** and **slot types** work together in CuriosPaper, and how to use the API (and patterns from **HeadBound**) to:
+This page explains how **accessory items** and **slot types** work together in CuriosPaper, and how to use the API to:
 
 - Define what items count as accessories.
 - Bind items to specific slot types (`head`, `back`, `ring`, etc.).
-- Validate and inspect slot metadata safely.
-- Build your own systems (effects, stats, passives) on top.
+- Validate and inspect slot metadata.
+- Build your own systems (stats, passives, abilities) on top of accessories.
 
-If you haven’t read **Quickstart** and **Configuration / Slots & GUI** yet, do that first.
+If you haven’t read the **Quickstart** and **Configuration / Slots & GUI** pages yet, do that first – they explain how slots are defined in `config.yml`.
 
 ![Accessary Example](assets/Accessary_Example.png)
+
 ---
 
 ## 1. Slot Types – The Core Concept
 
-Every accessory in CuriosPaper is tied to a **slot type ID**, a `String` that matches a key under the `slots:` section of `config.yml`.
+Every accessory in CuriosPaper is tied to a **slot type ID**, which is just a `String` matching a key under the `slots:` section of `config.yml`.
 
-Example:
+Example `config.yml`:
 
 ```yaml
 slots:
@@ -45,245 +46,158 @@ slots:
     amount: 4
 ````
 
-From the API perspective, what matters is:
+From the API’s perspective, the important pieces are:
 
-* **Slot IDs:** `"head"`, `"ring"`, `"charm"`, …
-* **Slot capacity:** `amount` = how many internal slots of that type each player has.
+* Slot IDs: `"head"`, `"ring"`, `"charm"`, …
+* Slot amounts: `amount` (how many slots of that type a player has).
 
-These IDs are what you pass into methods as `String slotType`.
+These are what you pass into API methods as `String slotType`.
 
 ---
 
-## 2. Discovering Slot Types at Runtime
+## 2. Getting Slot Types from the API
 
-Don’t hardcode assumptions unless you want your addon to break on custom configs.
+You can query which slot types are currently configured:
 
 ```java
 List<String> slotTypes = curiosApi.getAllSlotTypes();
 
 for (String type : slotTypes) {
-    getLogger().info("Curios slot type: " + type
-            + " (capacity: " + curiosApi.getSlotAmount(type) + ")");
+    getLogger().info("Curios slot type: " + type);
 }
 ```
 
-Use this when:
+This is useful when:
 
-* You want to support **any** server config.
-* You’re writing generic systems like “add stats for every accessory in any slot”.
+* You want to dynamically support whatever the server owner configured.
+* You’re writing generic systems (e.g., “apply bonuses for all slots”).
 
 ---
 
-## 3. HeadBound-Style Item Definition (What You Should Copy)
+## 3. Tagging Items as Accessories
 
-HeadBound doesn’t create random `ItemStack`s all over the place.
-It defines items in a single enum, then has a factory to build them.
-
-**Pattern you should use too:**
+To make an item equippable in a particular slot type, you **tag** it.
 
 ```java
-public enum MyAccessoryDef {
+ItemStack base = ...; // Your custom item
+String slotType = "necklace"; // MUST match config.yml
 
-    SCOUTS_LENS(
-            "scouts-lens",
-            "§eScout's Lens",
-            Material.GLASS,
-            "Reveals nearby mobs while sneaking."
-    ),
-
-    MINERS_CHARMBAND(
-            "miners-charmband",
-            "§bMiner's Charmband",
-            Material.BLACK_BANNER,
-            "Gives night vision while underground."
-    );
-
-    private final String key;
-    private final String displayName;
-    private final Material baseMaterial;
-    private final String description;
-
-    MyAccessoryDef(String key, String displayName, Material baseMaterial, String description) {
-        this.key = key;
-        this.displayName = displayName;
-        this.baseMaterial = baseMaterial;
-        this.description = description;
-    }
-
-    public String getKey() { return key; }
-    public String getDisplayName() { return displayName; }
-    public Material getBaseMaterial() { return baseMaterial; }
-    public String getDescription() { return description; }
-}
-```
-
-Then a small factory, similar to HeadBound’s `ItemManager` / `ItemUtil`:
-
-```java
-public final class AccessoryItemFactory {
-
-    private AccessoryItemFactory() {}
-
-    public static ItemStack buildBaseItem(MyAccessoryDef def) {
-        ItemStack stack = new ItemStack(def.getBaseMaterial());
-        ItemMeta meta = stack.getItemMeta();
-
-        meta.setDisplayName(def.getDisplayName());
-        meta.setLore(List.of("§7" + def.getDescription()));
-        // You can also set custom model data if you want, but CuriosPaper prefers item-model IDs.
-
-        stack.setItemMeta(meta);
-        return stack;
-    }
-}
-```
-
-This keeps definitions in one place and makes your code not a mess.
-
----
-
-## 4. Tagging Items as Accessories
-
-Tagging is where an item **becomes** a Curios accessory.
-
-```java
-ItemStack base = AccessoryItemFactory.buildBaseItem(MyAccessoryDef.SCOUTS_LENS);
-
-// MUST match a key under `slots:` in config.yml
-String slotType = "head";
-
+// Add Curios metadata so the item becomes a valid accessory
 ItemStack tagged = curiosApi.tagAccessoryItem(base, slotType, true);
 ```
 
 Parameters:
 
-* `base` – your base `ItemStack` (no Curios data yet).
-* `slotType` – e.g. `"head"`, `"back"`, `"ring"`, `"charm"`, or a custom slot type from `config.yml`.
-* `true` – whether to auto-add a “Required Slot” lore line (if that feature is enabled).
+* `base` – original `ItemStack`.
+* `slotType` – slot ID, e.g. `"head"`, `"back"`, `"ring"`, `"charm"` or a custom one you added to `config.yml`.
+* `true` – whether to add the “slot lore” line, if enabled in `features.add-slot-lore-to-items`.
 
-The returned item:
+The returned `tagged` item:
 
-* Has Curios-specific metadata.
-* Will only be treated as an accessory for that slot type.
-* Will show up in Curios GUI and API queries.
-
-**HeadBound pattern:**
-
-* Builds items using its enum.
-* Calls `tagAccessoryItem(item, "head", true)` when creating them.
-* Never manually writes Curios metadata.
+* Carries internal metadata so CuriosPaper knows its slot type.
+* Will only be equippable in appropriate Curios slots.
+* Can be recognized by other plugins using the API.
 
 ---
 
-## 5. Inspecting the Slot Type from an Item
+## 4. Inspecting Slot Type from an Item
 
-You can ask CuriosPaper which slot an item is for:
+You can check which slot an item belongs to:
 
 ```java
 String slotType = curiosApi.getAccessorySlotType(itemStack);
 
 if (slotType != null) {
-    player.sendMessage("§7This accessory is for slot: §e" + slotType);
+    player.sendMessage("This is a Curios accessory for slot: " + slotType);
 } else {
-    player.sendMessage("§cThis item is not a Curios accessory.");
+    player.sendMessage("This item is not a Curios accessory.");
 }
 ```
 
-That works for:
+This works for:
 
-* Items from your addon.
-* Items from other CuriosPaper-based plugins.
+* Items you created.
+* Items created by *other* plugins that use CuriosPaper.
 
 ---
 
-## 6. Validating Slot Types & Accessories
+## 5. Validating Slot Types & Accessories
 
-Don’t assume anything. Use the API.
+Before doing anything serious, **validate**:
 
-### 6.1 Check if a slot type exists
+### Check if a slot type exists
 
 ```java
-if (!curiosApi.isValidSlotType("ring")) {
-    getLogger().warning("Ring slot not defined in Curios config. Disable ring-related features.");
+boolean exists = curiosApi.isValidSlotType("ring");
+if (!exists) {
+    getLogger().warning("Config does not define 'ring' slot!");
 }
 ```
 
-### 6.2 Get slot capacity
+### Get slot capacity
 
 ```java
 int ringSlots = curiosApi.getSlotAmount("ring"); // e.g. 2
-int charmSlots = curiosApi.getSlotAmount("charm"); // e.g. 4
 ```
 
-Use this to:
-
-* Respect configured limits.
-* Scale bonuses based on how many slots exist.
-
-### 6.3 Validate an item for a given slot
+### Validate an item for a given slot
 
 ```java
-boolean validRingAccessory = curiosApi.isValidAccessory(itemStack, "ring");
+boolean valid = curiosApi.isValidAccessory(itemStack, "ring");
 
-if (!validRingAccessory) {
+if (!valid) {
     player.sendMessage("§cThat item cannot be equipped in the ring slot.");
 }
 ```
 
-You should use this in:
+Use these checks in:
 
-* Custom GUIs (if you build your own).
-* Commands that auto-equip stuff.
-* Any system that manipulates equipment directly.
+* Custom GUIs.
+* Command handlers.
+* Custom equip logic or stat calculators.
 
 ---
 
-## 7. Recipes / Patterns
+## 6. Recipes: Common Patterns
 
-### 7.1 Starter Accessory (HeadBound-style)
+### Recipe 1 – Grant a Starter Accessory
 
-This is the “give item → tagged → done” pattern used in HeadBound.
+Give a player a “Starter Charm” that goes into the `charm` slot:
 
 ```java
 public void giveStarterCharm(Player player, CuriosPaperAPI curiosApi) {
-    ItemStack base = AccessoryItemFactory.buildBaseItem(MyAccessoryDef.MINERS_CHARMBAND);
+    ItemStack base = new ItemStack(Material.EMERALD);
+    ItemMeta meta = base.getItemMeta();
+    meta.setDisplayName("§dStarter Charm");
+    base.setItemMeta(meta);
 
-    // Charm slot (must exist in config)
-    ItemStack taggedCharm = curiosApi.tagAccessoryItem(base, "charm", true);
-
-    player.getInventory().addItem(taggedCharm);
+    ItemStack charm = curiosApi.tagAccessoryItem(base, "charm", true);
+    player.getInventory().addItem(charm);
 }
 ```
 
 ---
 
-### 7.2 Restricting Accessories Beyond Slot Type
+### Recipe 2 – Only Allow Specific Items in a Slot
 
-CuriosPaper enforces **“this item belongs to slot X”**.
-If you want extra rules like “only certain rings are allowed in ring slot”, that’s on you.
+If you want to restrict accessories further than “slot type”, combine tagging + your own checks.
 
-Example: only allow items whose name begins with a prefix:
+Example: Only allow custom-named rings in the `ring` slot:
 
 ```java
-private boolean isAllowedRing(ItemStack item) {
+public boolean isAllowedRing(ItemStack item) {
     if (item == null || !item.hasItemMeta()) return false;
-
     ItemMeta meta = item.getItemMeta();
     if (!meta.hasDisplayName()) return false;
-
     String name = meta.getDisplayName();
-    return name.startsWith("§6Ring of ") || name.startsWith("§bAncient Band");
+
+    return name.contains("§6Ring of") || name.contains("§bRare Band");
 }
-```
 
-Use it with `AccessoryEquipEvent`:
-
-```java
 @EventHandler
 public void onAccessoryEquip(AccessoryEquipEvent event) {
     if (!"ring".equalsIgnoreCase(event.getSlotType())) return;
     if (event.getNewItem() == null) return;
-
     if (!isAllowedRing(event.getNewItem())) {
         event.setCancelled(true);
         event.getPlayer().sendMessage("§cYou cannot equip that ring.");
@@ -291,35 +205,57 @@ public void onAccessoryEquip(AccessoryEquipEvent event) {
 }
 ```
 
-HeadBound does similar logic per-item: handlers check exactly which accessory was equipped and apply their own effects.
-
 ---
 
-### 7.3 Bonuses Per Slot Type
+### Recipe 3 – Give Bonuses Based on Slot Type
 
-You can build “slot-based” bonuses, not item-based.
+React to all accessories in a particular slot, regardless of which items they are.
 
-Example: each **charm** gives +1 max health.
+Example: Each **charm** gives +1 max health:
 
 ```java
-public double getCharmHealthBonus(Player player, CuriosPaperAPI curiosApi) {
+public void applyCharmBonus(Player player, CuriosPaperAPI curiosApi) {
     List<ItemStack> charms = curiosApi.getEquippedItems(player, "charm");
-    int count = charms.size();
-    return count; // 1 heart per charm, or whatever your system uses
+    int bonus = charms.size();
+
+    // apply bonus via your own stat system / attributes
 }
 ```
 
-Then integrate this with your own stat system or attributes.
-HeadBound does this conceptually (per-item, not per-slot) across its handlers.
+You could call this:
+
+* On login.
+* On equip/unequip (`AccessoryEquipEvent`).
+* On periodic stat recalculation.
 
 ---
 
-### 7.4 Generic Accessory Summary (Config-Aware)
+## 7. Accessory Items vs “Normal” Items
 
-Let your addon auto-adapt to any slot configuration:
+CuriosPaper does **not** stop other plugins or vanilla from creating random items.
+How does it know which ones are accessories?
+
+An item is treated as a Curios accessory if:
+
+* It has been tagged by `tagAccessoryItem`, **or**
+* Another plugin marked it using internal Curios metadata.
+
+Any item without this metadata:
+
+* Won’t appear in Curios slots.
+* Won’t be equippable through the Curios GUI.
+* Won’t be returned by `getEquippedItems`, etc.
+
+---
+
+## 8. Dynamic Slot-Aware Logic
+
+If you want your addon to adapt to **any** config, don’t hardcode slot IDs.
+
+Example: Show a summary of all accessories, grouped by slot:
 
 ```java
-public void sendAccessorySummary(Player player, CuriosPaperAPI curiosApi) {
+public void showAccessorySummary(Player player, CuriosPaperAPI curiosApi) {
     List<String> slotTypes = curiosApi.getAllSlotTypes();
 
     player.sendMessage("§8[§dCurios§8] §7Your accessories:");
@@ -327,92 +263,36 @@ public void sendAccessorySummary(Player player, CuriosPaperAPI curiosApi) {
         int count = curiosApi.countEquippedItems(player, slotType);
         if (count <= 0) continue;
 
-        player.sendMessage("§f- §e" + slotType + "§7: " + count + " item(s)");
+        player.sendMessage("§f- " + slotType + ": §a" + count);
     }
 }
 ```
 
-You’re not hardcoding `"ring"`, `"charm"`, etc., so it doesn’t explode if the admin renames or removes stuff.
+This keeps your plugin compatible even if server owners:
+
+* Add custom slot types.
+* Rename or remove defaults.
 
 ---
 
-## 8. Accessory vs Normal Items (How CuriosPaper Decides)
+## 9. Anti-Patterns (What Not to Do)
 
-CuriosPaper doesn’t care what an item **looks** like.
-It only cares about the **metadata it wrote itself**.
+Don’t do this trash:
 
-An item is a Curios accessory if:
+❌ Hardcoding assumptions like “ring slots always exist and are 2”:
+Use `isValidSlotType("ring")` and `getSlotAmount("ring")`.
 
-* You tagged it via `tagAccessoryItem`, or
-* Another addon tagged it using the same API.
+❌ Manually editing Curios NBT or persistent data:
+Always use the API (`tagAccessoryItem`, etc.), or you’ll break compatibility.
 
-If it’s not tagged:
-
-* It won’t be accepted by the Curios GUI.
-* It won’t be stored in Curios save data.
-* `getAccessorySlotType(item)` returns `null`.
-* `isValidAccessory(item, slotType)` returns `false`.
-
-Don’t try to fake it. You’ll just break things.
-
----
-
-## 9. Anti-Patterns (Don’t Do This)
-
-If you do any of this, your addon is asking for pain:
-
-### ❌ Manually editing Curios metadata / NBT
-
-You are not smarter than the plugin. Use:
-
-* `tagAccessoryItem`
-* `getAccessorySlotType`
-* `isValidAccessory`
-
-Anything else risks corrupt data or breaking future updates.
-
----
-
-### ❌ Hardcoding slot assumptions
-
-“Ring slot always exists and has 2 slots” – no.
-
-Use:
-
-* `isValidSlotType("ring")`
-* `getSlotAmount("ring")`
-* `getAllSlotTypes()`
-
-Server owners **will** change these.
-
----
-
-### ❌ Treating “item looks like a ring” as “this is a ring accessory”
-
-Lore, display name, material – none of that makes it a Curios accessory.
-Only the Curios metadata does.
-
-Always validate:
-
-```java
-boolean valid = curiosApi.isValidAccessory(item, "ring");
-```
+❌ Assuming an item is valid just because it looks like one:
+Always validate with `isValidAccessory(item, slotType)`.
 
 ---
 
 ## 10. Summary
 
-* Slot types are **IDs from `slots:` in config.yml**.
-* Accessories are **ItemStacks tagged via `tagAccessoryItem`**.
-* Use the API to:
-
-    * Discover slot types: `getAllSlotTypes()`
-    * Check validity: `isValidSlotType`, `isValidAccessory`
-    * Get capacity: `getSlotAmount`
-    * Inspect items: `getAccessorySlotType`
-* Follow the **HeadBound pattern**:
-
-    * Central enum for item definitions
-    * Factory to build items
-    * Tag with CuriosPaper API
-    * Use events + queries for behavior
+* **Slot types** are string IDs from `config.yml` under `slots:`.
+* **Accessories** are `ItemStack`s tagged via `CuriosPaperAPI`.
+* Use `tagAccessoryItem`, `getAccessorySlotType`, `isValidSlotType`, `isValidAccessory`, and `getSlotAmount` to work safely.
+* Build your own logic on top of slots and accessories – CuriosPaper just handles storage, rules, and GUI.
