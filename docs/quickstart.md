@@ -1,33 +1,32 @@
 ---
 layout: default
 title: QuickStart
-parent: Developer API # **Links it to the Developer Guide parent**
+parent: Developer API
 nav_order: 2
 ---
 # Developer API – Quickstart
 
-This page is for **plugin developers** who want to hook into CuriosPaper as fast as possible.
+This page is for **addon developers** who want to hook into CuriosPaper **right now**.
 
-By the end of this page you will:
+By the end, you will:
 
-- Add CuriosPaper as a dependency (Maven / Gradle).
-- Declare it as a plugin dependency in `plugin.yml`.
-- Get a `CuriosPaperAPI` instance.
-- Tag an item as an accessory.
-- Read and modify equipped accessories.
+- Add CuriosPaper as a **build dependency** (Maven / Gradle).
+- Declare it as a **plugin dependency** in `plugin.yml`.
+- Grab a `CuriosPaperAPI` instance.
+- Tag items as accessories for specific slots.
+- Read & modify equipped accessories.
 - Listen to `AccessoryEquipEvent`.
+- Follow the same structural patterns used by **HeadBound**.
 
-If you’re looking for **what CuriosPaper is** or **how to configure it**, see the **Overview** and **Configuration** docs instead.
+If you need the big-picture explanation, read **Developer Overview** first.
 
 ---
 
 ## 1. Add CuriosPaper via JitPack
 
-CuriosPaper is available through **JitPack**.
+CuriosPaper is published on **JitPack**.
 
 ### Maven
-
-**Step 1 – Add JitPack repository**
 
 ```xml
 <repositories>
@@ -38,8 +37,6 @@ CuriosPaper is available through **JitPack**.
 </repositories>
 ````
 
-**Step 2 – Add CuriosPaper dependency**
-
 ```xml
 <dependency>
     <groupId>com.github.Brothergaming52</groupId>
@@ -48,25 +45,14 @@ CuriosPaper is available through **JitPack**.
 </dependency>
 ```
 
----
-
 ### Gradle (Groovy)
 
-**Step 1 – Add JitPack to repositories**
-
 ```groovy
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
-    }
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
 }
-```
 
-**Step 2 – Add CuriosPaper dependency**
-
-```groovy
 dependencies {
     implementation 'com.github.Brothergaming52:CuriosPaper:Tag' // Replace Tag with a release version
 }
@@ -74,9 +60,9 @@ dependencies {
 
 ---
 
-## 2. Declare Dependency in `plugin.yml`
+## 2. Declare CuriosPaper in `plugin.yml`
 
-CuriosPaper must be loaded **before** your plugin.
+CuriosPaper **must load before** your addon.
 
 ```yaml
 name: MyCuriosAddon
@@ -88,18 +74,13 @@ depend:
   - CuriosPaper
 ```
 
-Use `depend` instead of `softdepend` if your plugin **requires** CuriosPaper to function.
+Use `depend`, not `softdepend`, if your plugin is useless without CuriosPaper (like HeadBound).
 
 ---
 
 ## 3. Getting the `CuriosPaperAPI`
 
-CuriosPaper exposes:
-
-* Main plugin: `org.bg52.curiospaper.CuriosPaper`
-* API: `org.bg52.curiospaper.api.CuriosPaperAPI`
-
-Get the API once on enable and store it:
+You only need to grab the API **once** and reuse it.
 
 ```java
 import org.bg52.curiospaper.CuriosPaper;
@@ -121,7 +102,8 @@ public class MyCuriosAddon extends JavaPlugin {
             return;
         }
 
-        // register listeners, commands, etc. here
+        // Register listeners, commands, etc.
+        getServer().getPluginManager().registerEvents(new CuriosListener(curiosApi), this);
     }
 
     public CuriosPaperAPI getCuriosApi() {
@@ -130,131 +112,195 @@ public class MyCuriosAddon extends JavaPlugin {
 }
 ```
 
-From here on, you’ll use `curiosApi` for everything.
+HeadBound does the same thing: grabs the API once on enable, then passes it into managers/listeners.
 
 ---
 
-## 4. Tagging Items as Accessories
+## 4. Define Your Items (HeadBound-Style Pattern)
 
-Core concept:
-You **tag** an `ItemStack` as belonging to a slot type defined in `config.yml` (`head`, `necklace`, `back`, `ring`, `charm`, etc.).
+Don’t scatter random `ItemStack` builders everywhere.
+HeadBound uses an **enum** to define all its items.
 
-Example: create a custom necklace item and tag it:
+Minimal version:
 
 ```java
-import org.bukkit.Material;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
+public enum MyCuriosItems {
 
-public void giveStarterNecklace(Player player, CuriosPaperAPI curiosApi) {
-    // 1) Create base item
-    ItemStack base = new ItemStack(Material.NAUTILUS_SHELL);
-    ItemMeta meta = base.getItemMeta();
-    meta.setDisplayName("§bStarter Amulet");
-    base.setItemMeta(meta);
+    RING_OF_SPEED(
+            "ring-of-speed",
+            "§bRing of Speed",
+            Material.GOLD_NUGGET,
+            "Grants a small speed boost while equipped."
+    );
 
-    // 2) Tag as accessory for "necklace" slot (must match config.yml key)
-    ItemStack tagged = curiosApi.tagAccessoryItem(base, "necklace", true);
-    // third param: whether to auto-add slot lore (if configured)
+    private final String key;
+    private final String displayName;
+    private final Material material;
+    private final String description;
 
-    // 3) Give to player
-    player.getInventory().addItem(tagged);
+    MyCuriosItems(String key, String displayName, Material material, String description) {
+        this.key = key;
+        this.displayName = displayName;
+        this.material = material;
+        this.description = description;
+    }
+
+    public String getKey() { return key; }
+    public String getDisplayName() { return displayName; }
+    public Material getMaterial() { return material; }
+    public String getDescription() { return description; }
 }
 ```
 
-You can inspect which slot type an item was tagged for:
+Then create a tiny **ItemFactory** like HeadBound’s `ItemManager` / `ItemUtil`:
 
 ```java
-String slotType = curiosApi.getAccessorySlotType(itemStack); // may be null if not an accessory
-```
+public final class ItemFactory {
 
----
+    private ItemFactory() {}
 
-## 5. Checking & Validating Slot Types
-
-Before using a slot type ID, validate it:
-
-```java
-boolean slotExists = curiosApi.isValidSlotType("ring");
-int ringSlots = curiosApi.getSlotAmount("ring"); // how many ring slots exist per player
-```
-
-Validate an accessory item against a slot type:
-
-```java
-boolean validRingAccessory = curiosApi.isValidAccessory(itemStack, "ring");
-```
-
----
-
-## 6. Reading Equipped Accessories
-
-Use the API to see what a player has equipped.
-
-```java
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-
-import java.util.List;
-
-public void logPlayerAccessories(Player player, CuriosPaperAPI curiosApi) {
-    // All rings
-    List<ItemStack> rings = curiosApi.getEquippedItems(player, "ring");
-
-    // Single back-slot item (index 0)
-    ItemStack backItem = curiosApi.getEquippedItem(player, "back", 0);
-
-    boolean hasBack = curiosApi.hasEquippedItems(player, "back");
-    int ringCount = curiosApi.countEquippedItems(player, "ring");
-
-    player.sendMessage("You have " + ringCount + " ring(s) equipped.");
+    public static ItemStack buildItem(MyCuriosItems def) {
+        ItemStack stack = new ItemStack(def.getMaterial());
+        ItemMeta meta = stack.getItemMeta();
+        meta.setDisplayName(def.getDisplayName());
+        meta.setLore(List.of("§7" + def.getDescription()));
+        stack.setItemMeta(meta);
+        return stack;
+    }
 }
 ```
 
-There are UUID-based variants if you don’t have a live `Player` instance:
+---
+
+## 5. Tag Items as Accessories
+
+Tagging is the **core** operation.
+Without it, CuriosPaper will treat your item as a normal vanilla item.
 
 ```java
-UUID uuid = player.getUniqueId();
+public class StarterGiver {
+
+    private final CuriosPaperAPI curiosApi;
+
+    public StarterGiver(CuriosPaperAPI curiosApi) {
+        this.curiosApi = curiosApi;
+    }
+
+    public void giveSpeedRing(Player player) {
+        // 1) Build base item
+        ItemStack base = ItemFactory.buildItem(MyCuriosItems.RING_OF_SPEED);
+
+        // 2) Tag as accessory for the "ring" slot
+        ItemStack tagged = curiosApi.tagAccessoryItem(base, "ring", true);
+        // 3rd param: whether to add slot lore (if enabled in config)
+
+        // 3) Give to player
+        player.getInventory().addItem(tagged);
+    }
+}
+```
+
+You can inspect the slot type later:
+
+```java
+String slotType = curiosApi.getAccessorySlotType(itemStack); // null if not tagged
+```
+
+HeadBound uses this exact pattern:
+**build item → tag with `tagAccessoryItem` → give/drop/trade it.**
+
+---
+
+## 6. Check Slot Types & Limits
+
+Use the API to respect server config:
+
+```java
+boolean exists = curiosApi.isValidSlotType("ring");
+int ringSlots = curiosApi.getSlotAmount("ring"); // e.g. 2
+```
+
+Validate that an item is a proper accessory for a given slot:
+
+```java
+boolean valid = curiosApi.isValidAccessory(itemStack, "ring");
+```
+
+HeadBound does similar checks internally when deciding what items are allowed and how they behave.
+
+---
+
+## 7. Read Equipped Accessories
+
+Never guess from the player’s vanilla inventory.
+Use CuriosPaper’s accessors like HeadBound does.
+
+```java
+public class AccessoryDebug {
+
+    private final CuriosPaperAPI curiosApi;
+
+    public AccessoryDebug(CuriosPaperAPI curiosApi) {
+        this.curiosApi = curiosApi;
+    }
+
+    public void logAccessories(Player player) {
+        List<ItemStack> rings = curiosApi.getEquippedItems(player, "ring");
+        ItemStack backItem = curiosApi.getEquippedItem(player, "back", 0);
+
+        boolean hasBack = curiosApi.hasEquippedItems(player, "back");
+        int ringCount = curiosApi.countEquippedItems(player, "ring");
+
+        player.sendMessage("§eYou have " + ringCount + " ring(s) equipped.");
+        if (hasBack && backItem != null) {
+            player.sendMessage("§eBack slot: " + backItem.getItemMeta().getDisplayName());
+        }
+    }
+}
+```
+
+UUID-based variants exist if you only have the player’s UUID:
+
+```java
 boolean hasCharms = curiosApi.hasEquippedItems(uuid, "charm");
 int charmCount = curiosApi.countEquippedItems(uuid, "charm");
 ```
 
 ---
 
-## 7. Modifying Equipped Accessories
+## 8. Modify Equipped Accessories Programmatically
 
-You can programmatically equip/unequip items without touching CuriosPaper’s GUI logic.
+You can equip/unequip **without** touching GUI internals.
 
 ```java
-// Equip into a specific slot index
-curiosApi.setEquippedItem(player, "ring", 0, ringItem);
+// Equip into ring slot index 0
+curiosApi.setEquippedItem(player, "ring", 0, taggedRing);
 
-// Equip multiple bracelets at once
+// Bulk equip bracelets
 curiosApi.setEquippedItems(player, "bracelet", braceletList);
 
-// Remove a specific index
+// Remove specific index
 curiosApi.removeEquippedItemAt(player, "necklace", 0);
 
-// Remove the first occurrence of a specific item
+// Remove first matching item
 curiosApi.removeEquippedItem(player, "necklace", targetItem);
 
 // Clear all charms
 curiosApi.clearEquippedItems(player, "charm");
 ```
 
-This is where you plug in:
+This is where you hook in:
 
-* Stat systems
+* Leveling systems
 * Class systems
-* Custom ability unlocks
-* Accessories-as-keys or tokens
+* Unlockable bonuses
+* Unlockable slot expansions
 
 ---
 
-## 8. Listening to `AccessoryEquipEvent`
+## 9. Listen to `AccessoryEquipEvent` (HeadBound-Style)
 
-Use `AccessoryEquipEvent` to react when accessories are equipped, swapped, or removed.
+This is where you attach **actual gameplay**.
 
 ```java
 import org.bg52.curiospaper.event.AccessoryEquipEvent;
@@ -263,86 +309,119 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 public class CuriosListener implements Listener {
+
+    private final CuriosPaperAPI curiosApi;
+
+    public CuriosListener(CuriosPaperAPI curiosApi) {
+        this.curiosApi = curiosApi;
+    }
 
     @EventHandler
     public void onAccessoryEquip(AccessoryEquipEvent event) {
         Player player = event.getPlayer();
         String slotType = event.getSlotType();
-        int slotIndex = event.getSlotIndex();
+        Action action = event.getAction();
 
-        ItemStack previous = event.getPreviousItem();
-        ItemStack current  = event.getNewItem();
-        Action action      = event.getAction(); // EQUIP, UNEQUIP, SWAP
+        ItemStack oldItem = event.getPreviousItem();
+        ItemStack newItem = event.getNewItem();
 
-        // Example: simple restriction
-        if (action == Action.EQUIP && isForbidden(current)) {
+        // Example: react only to ring equips
+        if (!"ring".equalsIgnoreCase(slotType)) return;
+
+        // Simple restriction example
+        if (action == Action.EQUIP && isForbidden(newItem)) {
             player.sendMessage("§cYou cannot equip that accessory.");
             event.setCancelled(true);
             return;
         }
 
-        // Example: notify on equip
-        if (action == Action.EQUIP) {
-            player.sendMessage("§aEquipped " + current.getItemMeta().getDisplayName()
-                    + " in " + slotType + " slot.");
+        // Effect example: give speed when our example ring is equipped
+        if (action == Action.EQUIP && isSpeedRing(newItem)) {
+            player.addPotionEffect(new PotionEffect(
+                    PotionEffectType.SPEED,
+                    20 * 15, // 15 seconds
+                    0
+            ));
+            player.sendMessage("§aYou feel lighter on your feet.");
+        }
+
+        // Optional: remove effect when unequipped
+        if (action == Action.UNEQUIP && isSpeedRing(oldItem)) {
+            player.removePotionEffect(PotionEffectType.SPEED);
         }
     }
 
+    private boolean isSpeedRing(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return false;
+        String name = item.getItemMeta().getDisplayName();
+        return name != null && name.contains("Ring of Speed");
+    }
+
     private boolean isForbidden(ItemStack item) {
-        // your logic
+        // Your own rules
         return false;
     }
 }
 ```
 
-Register the listener in `onEnable`:
+HeadBound uses this exact model but split per-item:
 
-```java
-getServer().getPluginManager().registerEvents(new CuriosListener(), this);
-```
+* `ScoutsLensHandler`
+* `MinersCharmbandHandler`
+* `WandererHoodHandler`
+* etc.
+
+Each handler listens for equip/unequip and applies its own logic.
 
 ---
 
-## 9. Minimal “Hello Curios” Example
+## 10. Register Your Resource Pack Assets
 
-Putting it all together:
+If you ship models/textures, follow the same pattern as HeadBound:
 
-* Tag a custom ring.
-* Give it to the player.
-* Apply a small effect when equipped.
+```
+src/main/resources/resources/assets/<your-namespace>/models/item/...
+src/main/resources/resources/assets/<your-namespace>/textures/item/...
+```
+
+Then, during plugin init:
 
 ```java
-public void giveAndHookRing(Player player, CuriosPaperAPI curiosApi) {
-    ItemStack base = new ItemStack(Material.GOLD_NUGGET);
-    ItemMeta meta = base.getItemMeta();
-    meta.setDisplayName("§6Ring of Example");
-    base.setItemMeta(meta);
-
-    ItemStack ring = curiosApi.tagAccessoryItem(base, "ring", true);
-    player.getInventory().addItem(ring);
+@Override
+public void onEnable() {
+    // ... get curiosApi first
+    curiosApi.registerResourcePackSource(this, getFile());
 }
 ```
 
-Then, in your listener:
+In your config (or CuriosPaper’s if you’re targeting its namespace):
 
-```java
-@EventHandler
-public void onAccessoryEquip(AccessoryEquipEvent event) {
-    if (event.getAction() != Action.EQUIP) return;
-    if (!"ring".equalsIgnoreCase(event.getSlotType())) return;
-
-    ItemStack newItem = event.getNewItem();
-    if (newItem == null || !newItem.hasItemMeta()) return;
-
-    String name = newItem.getItemMeta().getDisplayName();
-    if (!name.contains("Ring of Example")) return;
-
-    // Example effect: give temporary speed
-    Player player = event.getPlayer();
-    player.sendMessage("§eYou feel lighter on your feet.");
-    player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 20 * 10, 0)); // 10 seconds
-}
+```yaml
+item-model: "myaddon:ring_of_speed"
 ```
-```
+
+CuriosPaper will:
+
+* Merge your assets into its pack
+* Handle namespace rules
+* Host the final ZIP
+
+---
+
+## 11. Minimal “Hello Curios” Flow
+
+1. Add CuriosPaper via JitPack.
+2. Declare `depend: [CuriosPaper]` in `plugin.yml`.
+3. Grab `CuriosPaperAPI` in `onEnable`.
+4. Create an enum for your items.
+5. Build + tag items using `tagAccessoryItem`.
+6. Listen to `AccessoryEquipEvent` and apply effects.
+7. (Optional but recommended) Ship models + register them with the RP API.
+
+You now have the same basic architecture that HeadBound uses, just with your own content.
+
+---

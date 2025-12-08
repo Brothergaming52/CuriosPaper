@@ -13,6 +13,5 @@ public class AutoSaveTask extends BukkitRunnable {
     @Override
     public void run() {
         plugin.getSlotManager().saveAllPlayerData();
-        plugin.getLogger().info("Auto-saved all player accessory data.");
     }
 }

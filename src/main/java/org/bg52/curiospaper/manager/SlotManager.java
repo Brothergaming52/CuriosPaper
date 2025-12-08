@@ -168,9 +168,6 @@ public class SlotManager {
                 failed++;
             }
         }
-
-        plugin.getLogger().info("Saved data for " + saved + " player(s)" +
-                (failed > 0 ? " (" + failed + " failed)" : ""));
     }
 
     public List<ItemStack> getAccessories(UUID playerId, String slotType) {
