@@ -239,6 +239,283 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
                 .count();
     }
 
+    // ========== SLOT REGISTRATION ==========
+
+    @Override
+    public boolean registerSlot(String slotType, String displayName, org.bukkit.Material icon,
+            String itemModel, int amount, java.util.List<String> lore) {
+        if (slotType == null || slotType.trim().isEmpty()) {
+            plugin.getLogger().warning("Cannot register slot with null or empty type");
+            return false;
+        }
+
+        if (displayName == null || displayName.trim().isEmpty()) {
+            displayName = slotType;
+        }
+
+        if (icon == null || !icon.isItem()) {
+            plugin.getLogger().warning("Invalid icon material for slot: " + slotType);
+            return false;
+        }
+
+        if (amount < 1) {
+            plugin.getLogger().warning("Slot amount must be at least 1");
+            return false;
+        }
+
+        if (amount > 54) {
+            plugin.getLogger().warning("Slot amount cannot exceed 54. Capping at 54.");
+            amount = 54;
+        }
+
+        // Parse item model
+        NamespacedKey modelKey = null;
+        if (itemModel != null && !itemModel.isEmpty()) {
+            if (itemModel.contains(":")) {
+                modelKey = NamespacedKey.fromString(itemModel);
+            } else {
+                modelKey = new NamespacedKey(plugin, itemModel);
+            }
+        }
+
+        SlotConfiguration config = new SlotConfiguration(
+                slotType, displayName, icon, modelKey, amount,
+                lore != null ? lore : new java.util.ArrayList<>());
+
+        return plugin.getConfigManager().addSlotConfiguration(slotType, config);
+    }
+
+    @Override
+    public boolean unregisterSlot(String slotType) {
+        if (slotType == null) {
+            return false;
+        }
+        return plugin.getConfigManager().removeSlotConfiguration(slotType);
+    }
+
+    // ========== ITEM DATA MANAGEMENT ==========
+
+    @Override
+    public boolean registerItemRecipe(String itemId, org.bg52.curiospaper.data.RecipeData recipe) {
+        org.bg52.curiospaper.manager.ItemDataManager itemDataManager = plugin.getItemDataManager();
+        if (itemDataManager == null) {
+            plugin.getLogger().warning("ItemDataManager not initialized");
+            return false;
+        }
+
+        org.bg52.curiospaper.data.ItemData itemData = itemDataManager.getItemData(itemId);
+        if (itemData == null) {
+            plugin.getLogger().warning("Item '" + itemId + "' not found");
+            return false;
+        }
+
+        if (recipe == null || !recipe.isValid()) {
+            plugin.getLogger().warning("Invalid recipe data for item: " + itemId);
+            return false;
+        }
+
+        itemData.setRecipe(recipe);
+        if (itemDataManager.saveItemData(itemId)) {
+            // Register the new recipe in the server immediately
+            plugin.getRecipeListener().registerRecipe(itemData);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean registerItemLootTable(String itemId, org.bg52.curiospaper.data.LootTableData lootTable) {
+        org.bg52.curiospaper.manager.ItemDataManager itemDataManager = plugin.getItemDataManager();
+        if (itemDataManager == null) {
+            plugin.getLogger().warning("ItemDataManager not initialized");
+            return false;
+        }
+
+        org.bg52.curiospaper.data.ItemData itemData = itemDataManager.getItemData(itemId);
+        if (itemData == null) {
+            plugin.getLogger().warning("Item '" + itemId + "' not found");
+            return false;
+        }
+
+        if (lootTable == null || !lootTable.isValid()) {
+            plugin.getLogger().warning("Invalid loot table data for item: " + itemId);
+            return false;
+        }
+
+        // Check if this loot table is already registered to avoid duplicates
+        for (org.bg52.curiospaper.data.LootTableData existing : itemData.getLootTables()) {
+            if (isSameLootTable(existing, lootTable)) {
+                return true;
+            }
+        }
+
+        itemData.addLootTable(lootTable);
+        return itemDataManager.saveItemData(itemId);
+    }
+
+    /**
+     * Helper method to check if two loot tables are effectively the same
+     */
+    private boolean isSameLootTable(org.bg52.curiospaper.data.LootTableData lt1,
+            org.bg52.curiospaper.data.LootTableData lt2) {
+        if (lt1 == lt2)
+            return true;
+        if (lt1 == null || lt2 == null)
+            return false;
+
+        return lt1.getLootTableType().equalsIgnoreCase(lt2.getLootTableType()) &&
+                Double.compare(lt1.getChance(), lt2.getChance()) == 0 &&
+                lt1.getMinAmount() == lt2.getMinAmount() &&
+                lt1.getMaxAmount() == lt2.getMaxAmount();
+    }
+
+    @Override
+    public boolean registerItemMobDrop(String itemId, org.bg52.curiospaper.data.MobDropData mobDrop) {
+        org.bg52.curiospaper.manager.ItemDataManager itemDataManager = plugin.getItemDataManager();
+        if (itemDataManager == null) {
+            plugin.getLogger().warning("ItemDataManager not initialized");
+            return false;
+        }
+
+        org.bg52.curiospaper.data.ItemData itemData = itemDataManager.getItemData(itemId);
+        if (itemData == null) {
+            plugin.getLogger().warning("Item '" + itemId + "' not found");
+            return false;
+        }
+
+        if (mobDrop == null || !mobDrop.isValid()) {
+            plugin.getLogger().warning("Invalid mob drop data for item: " + itemId);
+            return false;
+        }
+
+        // Check if this mob drop is already registered to avoid duplicates
+        for (org.bg52.curiospaper.data.MobDropData existing : itemData.getMobDrops()) {
+            if (isSameMobDrop(existing, mobDrop)) {
+                return true;
+            }
+        }
+
+        itemData.addMobDrop(mobDrop);
+        return itemDataManager.saveItemData(itemId);
+    }
+
+    /**
+     * Helper method to check if two mob drops are effectively the same
+     */
+    private boolean isSameMobDrop(org.bg52.curiospaper.data.MobDropData md1,
+            org.bg52.curiospaper.data.MobDropData md2) {
+        if (md1 == md2)
+            return true;
+        if (md1 == null || md2 == null)
+            return false;
+
+        return md1.getEntityType().equalsIgnoreCase(md2.getEntityType()) &&
+                Double.compare(md1.getChance(), md2.getChance()) == 0 &&
+                md1.getMinAmount() == md2.getMinAmount() &&
+                md1.getMaxAmount() == md2.getMaxAmount();
+    }
+
+    @Override
+    public org.bg52.curiospaper.data.ItemData getItemData(String itemId) {
+        org.bg52.curiospaper.manager.ItemDataManager itemDataManager = plugin.getItemDataManager();
+        if (itemDataManager == null) {
+            return null;
+        }
+        return itemDataManager.getItemData(itemId);
+    }
+
+    @Override
+    public org.bg52.curiospaper.data.ItemData createItem(String itemId) {
+        org.bg52.curiospaper.manager.ItemDataManager itemDataManager = plugin.getItemDataManager();
+        if (itemDataManager == null) {
+            plugin.getLogger().warning("ItemDataManager not initialized");
+            return null;
+        }
+        return itemDataManager.createItem(itemId);
+    }
+
+    @Override
+    public boolean saveItemData(String itemId) {
+        org.bg52.curiospaper.manager.ItemDataManager itemDataManager = plugin.getItemDataManager();
+        if (itemDataManager == null) {
+            return false;
+        }
+        return itemDataManager.saveItemData(itemId);
+    }
+
+    @Override
+    public boolean registerItemVillagerTrade(String itemId, org.bg52.curiospaper.data.VillagerTradeData trade) {
+        org.bg52.curiospaper.manager.ItemDataManager itemDataManager = plugin.getItemDataManager();
+        if (itemDataManager == null) {
+            plugin.getLogger().warning("ItemDataManager not initialized");
+            return false;
+        }
+
+        org.bg52.curiospaper.data.ItemData itemData = itemDataManager.getItemData(itemId);
+        if (itemData == null) {
+            plugin.getLogger().warning("Item '" + itemId + "' not found");
+            return false;
+        }
+
+        if (trade == null || !trade.isValid()) {
+            plugin.getLogger().warning("Invalid villager trade data for item: " + itemId);
+            return false;
+        }
+
+        // Check if this villager trade is already registered to avoid duplicates
+        for (org.bg52.curiospaper.data.VillagerTradeData existing : itemData.getVillagerTrades()) {
+            if (isSameVillagerTrade(existing, trade)) {
+                return true;
+            }
+        }
+
+        itemData.addVillagerTrade(trade);
+        return itemDataManager.saveItemData(itemId);
+    }
+
+    /**
+     * Helper method to check if two villager trades are effectively the same
+     */
+    private boolean isSameVillagerTrade(org.bg52.curiospaper.data.VillagerTradeData vt1,
+            org.bg52.curiospaper.data.VillagerTradeData vt2) {
+        if (vt1 == vt2)
+            return true;
+        if (vt1 == null || vt2 == null)
+            return false;
+
+        // Compare professions, chance, and levels
+        if (!vt1.getProfessions().equals(vt2.getProfessions()))
+            return false;
+        if (Double.compare(vt1.getChance(), vt2.getChance()) != 0)
+            return false;
+        if (!vt1.getTradeLevels().equals(vt2.getTradeLevels()))
+            return false;
+
+        // Compare cost items
+        if (vt1.getCostItems().size() != vt2.getCostItems().size())
+            return false;
+        for (int i = 0; i < vt1.getCostItems().size(); i++) {
+            org.bg52.curiospaper.data.VillagerTradeData.TradeCost c1 = vt1.getCostItems().get(i);
+            org.bg52.curiospaper.data.VillagerTradeData.TradeCost c2 = vt2.getCostItems().get(i);
+            if (!c1.getMaterial().equals(c2.getMaterial()) ||
+                    c1.getMinAmount() != c2.getMinAmount() ||
+                    c1.getMaxAmount() != c2.getMaxAmount()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
+    public boolean deleteItem(String itemId) {
+        org.bg52.curiospaper.manager.ItemDataManager itemDataManager = plugin.getItemDataManager();
+        if (itemDataManager == null) {
+            return false;
+        }
+        return itemDataManager.deleteItem(itemId);
+    }
+
     @Override
     public void registerResourcePackAssets(org.bukkit.plugin.Plugin plugin, java.io.File folder) {
         this.plugin.getResourcePackManager().registerResource(plugin, folder);

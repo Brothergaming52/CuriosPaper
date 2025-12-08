@@ -32,7 +32,7 @@ public interface CuriosPaperAPI {
      * Tags an item as an accessory for a specific slot type (no lore added)
      */
     default ItemStack tagAccessoryItem(ItemStack itemStack, String slotType) {
-        return tagAccessoryItem(itemStack, slotType, false);
+        return tagAccessoryItem(itemStack, slotType, true);
     }
 
     /**
@@ -163,6 +163,103 @@ public interface CuriosPaperAPI {
      * Counts the number of non-empty slots for a player in a slot type
      */
     int countEquippedItems(UUID playerId, String slotType);
+
+    // ========== SLOT REGISTRATION ==========
+
+    /**
+     * Registers a new custom slot type at runtime.
+     * This allows plugins to dynamically add slot types without modifying
+     * config.yml.
+     * 
+     * @param slotType    The unique identifier for the slot type
+     * @param displayName The display name shown in the GUI
+     * @param icon        The material to use as the icon
+     * @param itemModel   The item model key (namespace:path format)
+     * @param amount      The number of slots available for this type
+     * @param lore        The lore to display on the slot icon
+     * @return true if registration was successful, false otherwise
+     */
+    boolean registerSlot(String slotType, String displayName, org.bukkit.Material icon,
+            String itemModel, int amount, java.util.List<String> lore);
+
+    /**
+     * Unregisters a custom slot type.
+     * Warning: This will not remove items already equipped in this slot.
+     * 
+     * @param slotType The slot type to unregister
+     * @return true if unregistration was successful, false otherwise
+     */
+    boolean unregisterSlot(String slotType);
+
+    // ========== ITEM DATA MANAGEMENT ==========
+
+    /**
+     * Registers a recipe for a custom item
+     * 
+     * @param itemId The unique item identifier
+     * @param recipe The recipe data
+     * @return true if registration was successful
+     */
+    boolean registerItemRecipe(String itemId, org.bg52.curiospaper.data.RecipeData recipe);
+
+    /**
+     * Registers a loot table entry for a custom item
+     * 
+     * @param itemId    The unique item identifier
+     * @param lootTable The loot table data
+     * @return true if registration was successful
+     */
+    boolean registerItemLootTable(String itemId, org.bg52.curiospaper.data.LootTableData lootTable);
+
+    /**
+     * Registers a mob drop for a custom item
+     * 
+     * @param itemId  The unique item identifier
+     * @param mobDrop The mob drop data
+     * @return true if registration was successful
+     */
+    boolean registerItemMobDrop(String itemId, org.bg52.curiospaper.data.MobDropData mobDrop);
+
+    /**
+     * Gets the item data for a custom item
+     * 
+     * @param itemId The unique item identifier
+     * @return The item data, or null if not found
+     */
+    org.bg52.curiospaper.data.ItemData getItemData(String itemId);
+
+    /**
+     * Creates a new custom item with the given ID
+     * 
+     * @param itemId The unique item identifier
+     * @return The created ItemData, or null if creation failed
+     */
+    org.bg52.curiospaper.data.ItemData createItem(String itemId);
+
+    /**
+     * Saves item data to disk
+     * 
+     * @param itemId The unique item identifier
+     * @return true if save was successful
+     */
+    boolean saveItemData(String itemId);
+
+    /**
+     * Registers a villager trade for a custom item
+     * 
+     * @param itemId The unique item identifier
+     * @param trade  The villager trade data
+     * @return true if registration was successful
+     */
+    boolean registerItemVillagerTrade(String itemId, org.bg52.curiospaper.data.VillagerTradeData trade);
+
+    /**
+     * Deletes a custom item
+     * 
+     * @param itemId The unique item identifier
+     * @return true if deletion was successful
+     */
+    boolean deleteItem(String itemId);
 
     // ========== RESOURCE PACK ==========
 

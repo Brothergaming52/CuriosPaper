@@ -70,6 +70,9 @@ public class InventoryListener implements Listener {
         }
 
         int rawSlot = event.getRawSlot();
+        if (rawSlot < 0) {
+            return;
+        }
         Inventory topInventory = event.getView().getTopInventory();
 
         // Check if clicking in the top (accessory) inventory
@@ -160,13 +163,16 @@ public class InventoryListener implements Listener {
         }
 
         for (int slot : accessorySlots) {
-            if (slot < 0 || slot >= topInventory.getSize()) continue;
+            if (slot < 0 || slot >= topInventory.getSize())
+                continue;
 
             ItemStack item = topInventory.getItem(slot);
-            if (item == null || item.getType().isAir()) continue;
+            if (item == null || item.getType().isAir())
+                continue;
 
             int amount = item.getAmount();
-            if (amount <= 1) continue;
+            if (amount <= 1)
+                continue;
 
             // Keep exactly 1 in the accessory slot
             item.setAmount(1);
@@ -180,13 +186,11 @@ public class InventoryListener implements Listener {
 
             // If inventory is full, drop leftovers on the ground
             if (!leftovers.isEmpty()) {
-                leftovers.values().forEach(leftover ->
-                        player.getWorld().dropItemNaturally(player.getLocation(), leftover)
-                );
+                leftovers.values()
+                        .forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
             }
         }
     }
-
 
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
@@ -295,20 +299,17 @@ public class InventoryListener implements Listener {
             if (!oldEmpty && newEmpty) {
                 // Item was unequipped
                 AccessoryEquipEvent equipEvent = new AccessoryEquipEvent(
-                        player, slotType, i, oldItem, null, AccessoryEquipEvent.Action.UNEQUIP
-                );
+                        player, slotType, i, oldItem, null, AccessoryEquipEvent.Action.UNEQUIP);
                 Bukkit.getPluginManager().callEvent(equipEvent);
             } else if (oldEmpty && !newEmpty) {
                 // Item was equipped
                 AccessoryEquipEvent equipEvent = new AccessoryEquipEvent(
-                        player, slotType, i, null, newItem, AccessoryEquipEvent.Action.EQUIP
-                );
+                        player, slotType, i, null, newItem, AccessoryEquipEvent.Action.EQUIP);
                 Bukkit.getPluginManager().callEvent(equipEvent);
             } else if (!oldItem.equals(newItem)) {
                 // Item was swapped
                 AccessoryEquipEvent equipEvent = new AccessoryEquipEvent(
-                        player, slotType, i, oldItem, newItem, AccessoryEquipEvent.Action.SWAP
-                );
+                        player, slotType, i, oldItem, newItem, AccessoryEquipEvent.Action.SWAP);
                 Bukkit.getPluginManager().callEvent(equipEvent);
             }
         }
