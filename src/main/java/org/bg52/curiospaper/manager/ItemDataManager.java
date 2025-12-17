@@ -53,6 +53,7 @@ public class ItemDataManager {
 
         int loaded = 0;
         int failed = 0;
+        int skipped = 0;
 
         for (File file : files) {
             try {
@@ -60,6 +61,25 @@ public class ItemDataManager {
                 ItemData data = ItemData.loadFromConfig(config);
 
                 if (data != null && data.isValid()) {
+                    // Check for owning plugin dependency
+                    if (data.getOwningPlugin() != null) {
+                        if (plugin.getServer().getPluginManager().getPlugin(data.getOwningPlugin()) == null) {
+                            // Owning plugin is missing
+                            plugin.getLogger().warning("Skipping item '" + data.getItemId()
+                                    + "' because owning plugin '" + data.getOwningPlugin() + "' is missing.");
+
+                            // Delete the file as requested
+                            if (file.delete()) {
+                                plugin.getLogger().info("Deleted orphan item file: " + file.getName());
+                            } else {
+                                plugin.getLogger().warning("Failed to delete orphan item file: " + file.getName());
+                            }
+
+                            skipped++;
+                            continue;
+                        }
+                    }
+
                     loadedItems.put(data.getItemId(), data);
                     loaded++;
                     plugin.getLogger().info("✓ Loaded item: " + data.getItemId());
@@ -75,6 +95,9 @@ public class ItemDataManager {
 
         plugin.getLogger().info("Item data loading complete:");
         plugin.getLogger().info("  Successfully loaded: " + loaded);
+        if (skipped > 0) {
+            plugin.getLogger().info("  Skipped/Deleted (Missing Dependency): " + skipped);
+        }
         if (failed > 0) {
             plugin.getLogger().warning("  Failed to load: " + failed);
         }
@@ -84,6 +107,13 @@ public class ItemDataManager {
      * Creates a new item with the given ID
      */
     public ItemData createItem(String itemId) {
+        return createItem(null, itemId);
+    }
+
+    /**
+     * Creates a new item with the given ID and owning plugin
+     */
+    public ItemData createItem(org.bukkit.plugin.Plugin owningPlugin, String itemId) {
         if (loadedItems.containsKey(itemId)) {
             plugin.getLogger().warning("Item with ID '" + itemId + "' already exists!");
             return null;
@@ -92,6 +122,11 @@ public class ItemDataManager {
         ItemData data = new ItemData(itemId);
         data.setDisplayName(itemId); // Default display name
         data.setMaterial("PAPER"); // Default material
+
+        if (owningPlugin != null) {
+            data.setOwningPlugin(owningPlugin.getName());
+        }
+
         loadedItems.put(itemId, data);
 
         return data;
@@ -189,10 +224,10 @@ public class ItemDataManager {
         File file = new File(itemsFolder, itemId + ".yml");
         if (file.exists()) {
             if (file.delete()) {
-                plugin.getLogger().info("✓ Deleted item: " + itemId);
+                plugin.getLogger().info("✓ Unloaded item: " + itemId);
                 return true;
             } else {
-                plugin.getLogger().warning("Failed to delete item file: " + itemId + ".yml");
+                plugin.getLogger().warning("Failed to unload item file: " + itemId + ".yml");
                 // Re-add to loaded items since file deletion failed
                 loadedItems.put(itemId, data);
                 return false;
@@ -232,6 +267,27 @@ public class ItemDataManager {
         }
 
         plugin.getLogger().info("Saved " + saved + " items" + (failed > 0 ? " (" + failed + " failed)" : ""));
+    }
+
+    /**
+     * Removes all items that belong to external plugins.
+     * This is used on shutdown to prevent stale data persistence.
+     */
+    public void cleanupExternalItems() {
+        plugin.getLogger().info("Unloading external plugin items...");
+        int count = 0;
+        // Use a copy of keys to avoid ConcurrentModificationException while deleting
+        for (String itemId : new java.util.HashSet<>(loadedItems.keySet())) {
+            ItemData data = loadedItems.get(itemId);
+            if (data != null && data.getOwningPlugin() != null) {
+                if (deleteItem(itemId)) {
+                    count++;
+                }
+            }
+        }
+        if (count > 0) {
+            plugin.getLogger().info("Unloaded " + count + " items registered by external plugins.");
+        }
     }
 
     /**

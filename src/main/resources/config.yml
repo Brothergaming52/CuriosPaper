@@ -113,6 +113,11 @@ features:
   # Add lore line to tagged items showing required slot
   add-slot-lore-to-items: true
 
+  # Enable the in-game item editor and custom item system
+  # If disabled, custom items, recipes, loot tables,(made using this plugin) and the /edit command will be disabled
+  item-editor:
+    enabled: true
+
   # Allow elytra equipping in back slots
   allow-elytra-on-back-slot: true
 

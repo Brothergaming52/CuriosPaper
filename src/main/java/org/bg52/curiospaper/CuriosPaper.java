@@ -49,13 +49,16 @@ public class CuriosPaper extends JavaPlugin {
         slotManager = new SlotManager(this);
 
         // Initialize Item Data Manager
-        itemDataManager = new ItemDataManager(this);
+        boolean itemEditorEnabled = getConfig().getBoolean("features.item-editor.enabled", true);
+        if (itemEditorEnabled) {
+            itemDataManager = new ItemDataManager(this);
 
-        // Initialize Chat Input Manager
-        chatInputManager = new ChatInputManager(this);
-        getServer().getPluginManager().registerEvents(chatInputManager, this);
+            // Initialize Chat Input Manager
+            chatInputManager = new ChatInputManager(this);
+            getServer().getPluginManager().registerEvents(chatInputManager, this);
 
-        editGUI = new EditGUI(this);
+            editGUI = new EditGUI(this);
+        }
 
         // Initialize Resource Pack Manager
         resourcePackManager = new ResourcePackManager(this);
@@ -65,29 +68,34 @@ public class CuriosPaper extends JavaPlugin {
 
         gui = new AccessoryGUI(this);
 
-        // Register RecipeListener and register all recipes
-        recipeListener = new RecipeListener(this, itemDataManager);
-        recipeListener.registerAllRecipes();
+        if (itemEditorEnabled) {
+            // Register RecipeListener and register all recipes
+            recipeListener = new RecipeListener(this, itemDataManager);
+            getServer().getPluginManager().registerEvents(recipeListener, this);
+            recipeListener.registerAllRecipes();
 
-        recipeEditor = new RecipeEditorGUI(this);
-        getServer().getPluginManager().registerEvents(recipeEditor, this);
+            recipeEditor = new RecipeEditorGUI(this);
+            getServer().getPluginManager().registerEvents(recipeEditor, this);
 
-        this.lootTableBrowser = new LootTableBrowser(this);
-        getServer().getPluginManager().registerEvents(this.lootTableBrowser, this);
+            this.lootTableBrowser = new LootTableBrowser(this);
+            getServer().getPluginManager().registerEvents(this.lootTableBrowser, this);
 
-        this.mobDropEditor = new MobDropEditor(this);
-        getServer().getPluginManager().registerEvents(mobDropEditor, this);
+            this.mobDropEditor = new MobDropEditor(this);
+            getServer().getPluginManager().registerEvents(mobDropEditor, this);
+        }
 
         BaublesCommand baublesCommand = new BaublesCommand(this, gui);
         getCommand("baubles").setExecutor(baublesCommand);
 
-        // Register Edit Command
-        org.bg52.curiospaper.command.EditCommand editCommand = new org.bg52.curiospaper.command.EditCommand(this);
-        getCommand("edit").setExecutor(editCommand);
-        getCommand("edit").setTabCompleter(editCommand);
+        if (itemEditorEnabled) {
+            // Register Edit Command
+            org.bg52.curiospaper.command.EditCommand editCommand = new org.bg52.curiospaper.command.EditCommand(this);
+            getCommand("edit").setExecutor(editCommand);
+            getCommand("edit").setTabCompleter(editCommand);
 
-        // Register EditGUI listener
-        getServer().getPluginManager().registerEvents(editGUI, this);
+            // Register EditGUI listener
+            getServer().getPluginManager().registerEvents(editGUI, this);
+        }
 
         getCommand("curios").setExecutor(
                 new org.bg52.curiospaper.command.CuriosCommand(this, this.api()));
@@ -97,25 +105,28 @@ public class CuriosPaper extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new InventoryListener(this, gui), this);
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
 
-        // Register loot table and mob drop listeners
-        getServer().getPluginManager()
-                .registerEvents(new org.bg52.curiospaper.listener.LootTableListener(this, itemDataManager), this);
-        getServer().getPluginManager()
-                .registerEvents(new org.bg52.curiospaper.listener.MobDropListener(this, itemDataManager), this);
+        if (itemEditorEnabled) {
+            // Register loot table and mob drop listeners
+            getServer().getPluginManager()
+                    .registerEvents(new org.bg52.curiospaper.listener.LootTableListener(this, itemDataManager), this);
+            getServer().getPluginManager()
+                    .registerEvents(new org.bg52.curiospaper.listener.MobDropListener(this, itemDataManager), this);
 
-        // Register TradeEditor
-        this.tradeEditor = new TradeEditor(this);
-        getServer().getPluginManager().registerEvents(tradeEditor, this);
+            // Register TradeEditor
+            this.tradeEditor = new TradeEditor(this);
+            getServer().getPluginManager().registerEvents(tradeEditor, this);
 
-        // Register VillagerTradeListener
-        getServer().getPluginManager()
-                .registerEvents(new org.bg52.curiospaper.listener.VillagerTradeListener(this, itemDataManager), this);
+            // Register VillagerTradeListener
+            getServer().getPluginManager()
+                    .registerEvents(new org.bg52.curiospaper.listener.VillagerTradeListener(this, itemDataManager),
+                            this);
 
-        this.abilityEditor = new AbilityEditorGUI(this);
-        getServer().getPluginManager().registerEvents(this.abilityEditor, this);
+            this.abilityEditor = new AbilityEditorGUI(this);
+            getServer().getPluginManager().registerEvents(this.abilityEditor, this);
 
-        this.abilityListener = new AbilityListener(this);
-        getServer().getPluginManager().registerEvents(this.abilityListener, this);
+            this.abilityListener = new AbilityListener(this);
+            getServer().getPluginManager().registerEvents(this.abilityListener, this);
+        }
 
         // Register Elytra Back Slot Handler if enabled
         if (getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
@@ -168,6 +179,16 @@ public class CuriosPaper extends JavaPlugin {
     public void onDisable() {
         if (autoSaveTask != null) {
             autoSaveTask.cancel();
+        }
+
+        // Unregister recipes before cleaning up items
+        if (recipeListener != null) {
+            recipeListener.unregisterAllRecipes();
+        }
+
+        // Clean up external items to prevent stale data on restart
+        if (itemDataManager != null) {
+            itemDataManager.cleanupExternalItems();
         }
 
         if (resourcePackManager != null) {

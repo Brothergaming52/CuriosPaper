@@ -15,3 +15,7 @@ commands:
     description: Open the accessory inventory
     aliases: [b, bbag]
     usage: /<command>
+  edit:
+    description: CuriosPaper item Adder
+    usage: /edit <create|gui|delete|list|give>
+    permission: curiospaper.admin

@@ -23,7 +23,7 @@ public interface CuriosPaperAPI {
 
     /**
      * Tags an item as an accessory for a specific slot type
-     * 
+     *
      * @param addLore If true, adds a lore line indicating the required slot
      */
     ItemStack tagAccessoryItem(ItemStack itemStack, String slotType, boolean addLore);
@@ -39,6 +39,21 @@ public interface CuriosPaperAPI {
      * Gets the slot type an item is tagged for, or null if not tagged
      */
     String getAccessorySlotType(ItemStack itemStack);
+
+    /**
+     * Gets the NamespacedKey used for identifying custom items
+     */
+    NamespacedKey getItemIdKey();
+
+    /**
+     * Creates an ItemStack for a custom item by its ID.
+     * Use this instead of manually creating items to ensure they
+     * have the correct NBT data for recipes.
+     *
+     * @param itemId The unique item identifier
+     * @return The ItemStack, or null if the item doesn't exist
+     */
+    ItemStack createItemStack(String itemId);
 
     // ========== EQUIPPED ITEMS ACCESS ==========
 
@@ -86,28 +101,28 @@ public interface CuriosPaperAPI {
 
     /**
      * Removes the first matching item from a player's equipped accessories
-     * 
+     *
      * @return true if an item was removed, false otherwise
      */
     boolean removeEquippedItem(Player player, String slotType, ItemStack itemToRemove);
 
     /**
      * Removes the first matching item from a player's equipped accessories
-     * 
+     *
      * @return true if an item was removed, false otherwise
      */
     boolean removeEquippedItem(UUID playerId, String slotType, ItemStack itemToRemove);
 
     /**
      * Removes an item at a specific index
-     * 
+     *
      * @return The removed item, or null if the slot was empty
      */
     ItemStack removeEquippedItemAt(Player player, String slotType, int index);
 
     /**
      * Removes an item at a specific index
-     * 
+     *
      * @return The removed item, or null if the slot was empty
      */
     ItemStack removeEquippedItemAt(UUID playerId, String slotType, int index);
@@ -170,7 +185,7 @@ public interface CuriosPaperAPI {
      * Registers a new custom slot type at runtime.
      * This allows plugins to dynamically add slot types without modifying
      * config.yml.
-     * 
+     *
      * @param slotType    The unique identifier for the slot type
      * @param displayName The display name shown in the GUI
      * @param icon        The material to use as the icon
@@ -180,12 +195,12 @@ public interface CuriosPaperAPI {
      * @return true if registration was successful, false otherwise
      */
     boolean registerSlot(String slotType, String displayName, org.bukkit.Material icon,
-            String itemModel, int amount, java.util.List<String> lore);
+                         String itemModel, int amount, java.util.List<String> lore);
 
     /**
      * Unregisters a custom slot type.
      * Warning: This will not remove items already equipped in this slot.
-     * 
+     *
      * @param slotType The slot type to unregister
      * @return true if unregistration was successful, false otherwise
      */
@@ -195,7 +210,7 @@ public interface CuriosPaperAPI {
 
     /**
      * Registers a recipe for a custom item
-     * 
+     *
      * @param itemId The unique item identifier
      * @param recipe The recipe data
      * @return true if registration was successful
@@ -204,7 +219,7 @@ public interface CuriosPaperAPI {
 
     /**
      * Registers a loot table entry for a custom item
-     * 
+     *
      * @param itemId    The unique item identifier
      * @param lootTable The loot table data
      * @return true if registration was successful
@@ -213,7 +228,7 @@ public interface CuriosPaperAPI {
 
     /**
      * Registers a mob drop for a custom item
-     * 
+     *
      * @param itemId  The unique item identifier
      * @param mobDrop The mob drop data
      * @return true if registration was successful
@@ -222,7 +237,7 @@ public interface CuriosPaperAPI {
 
     /**
      * Gets the item data for a custom item
-     * 
+     *
      * @param itemId The unique item identifier
      * @return The item data, or null if not found
      */
@@ -230,15 +245,26 @@ public interface CuriosPaperAPI {
 
     /**
      * Creates a new custom item with the given ID
-     * 
+     *
      * @param itemId The unique item identifier
      * @return The created ItemData, or null if creation failed
      */
     org.bg52.curiospaper.data.ItemData createItem(String itemId);
 
     /**
+     * Creates a new custom item with the given ID and owning plugin.
+     * Use this when creating items from an external plugin to ensure they are
+     * cleaned up if the plugin is removed.
+     *
+     * @param plugin The plugin creating the item
+     * @param itemId The unique item identifier
+     * @return The created ItemData, or null if creation failed
+     */
+    org.bg52.curiospaper.data.ItemData createItem(org.bukkit.plugin.Plugin plugin, String itemId);
+
+    /**
      * Saves item data to disk
-     * 
+     *
      * @param itemId The unique item identifier
      * @return true if save was successful
      */
@@ -246,7 +272,7 @@ public interface CuriosPaperAPI {
 
     /**
      * Registers a villager trade for a custom item
-     * 
+     *
      * @param itemId The unique item identifier
      * @param trade  The villager trade data
      * @return true if registration was successful
@@ -255,7 +281,7 @@ public interface CuriosPaperAPI {
 
     /**
      * Deletes a custom item
-     * 
+     *
      * @param itemId The unique item identifier
      * @return true if deletion was successful
      */
@@ -268,7 +294,7 @@ public interface CuriosPaperAPI {
      * generated pack.
      * The folder should contain the 'assets' directory structure (e.g.
      * assets/minecraft/textures/...)
-     * 
+     *
      * @param plugin The plugin registering the assets
      * @param folder The folder containing the assets
      */
