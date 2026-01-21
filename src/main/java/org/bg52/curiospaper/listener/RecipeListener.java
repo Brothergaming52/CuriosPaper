@@ -20,7 +20,10 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Handles registration of custom recipes and ensures custom ingredients are
@@ -29,6 +32,7 @@ import java.util.Map;
 public class RecipeListener implements Listener {
     private final CuriosPaper plugin;
     private final ItemDataManager itemDataManager;
+    private static final Pattern VALID_KEY_PATTERN = Pattern.compile("[a-z0-9/._-]+");
 
     public RecipeListener(CuriosPaper plugin, ItemDataManager itemDataManager) {
         this.plugin = plugin;
@@ -43,8 +47,9 @@ public class RecipeListener implements Listener {
         int failed = 0;
 
         for (ItemData itemData : itemDataManager.getAllItems().values()) {
-            for (RecipeData recipe : itemData.getRecipes()) {
-                if (registerRecipe(itemData, recipe)) {
+            List<RecipeData> recipes = itemData.getRecipes();
+            for (int i = 0; i < recipes.size(); i++) {
+                if (registerRecipe(itemData, recipes.get(i), i, recipes.size() > 1)) {
                     registered++;
                 } else {
                     failed++;
@@ -60,6 +65,11 @@ public class RecipeListener implements Listener {
      * Registers a recipe for a specific item
      */
     public boolean registerRecipe(ItemData itemData, RecipeData recipeData) {
+        // Default to variant index 0 and no suffix if not specified
+        return registerRecipe(itemData, recipeData, 0, false);
+    }
+
+    public boolean registerRecipe(ItemData itemData, RecipeData recipeData, int variantIndex, boolean hasMultiple) {
         if (recipeData == null || !recipeData.isValid()) {
             return false;
         }
@@ -69,7 +79,19 @@ public class RecipeListener implements Listener {
             if (result == null)
                 return false;
 
-            String keyString = "custom_" + itemData.getItemId().toLowerCase() + "_" + Math.abs(recipeData.hashCode());
+            // Generate a stable key: custom_<plugin>_<itemid>[_variant<N>]
+            String owningPlugin = itemData.getOwningPlugin();
+            if (owningPlugin == null || owningPlugin.isEmpty()) {
+                owningPlugin = "curiospaper";
+            }
+            owningPlugin = sanitizeKey(owningPlugin.toLowerCase());
+            String safeItemId = sanitizeKey(itemData.getItemId().toLowerCase());
+
+            String keyString = "custom_" + owningPlugin + "_" + safeItemId;
+            if (hasMultiple) {
+                keyString += "_variant" + variantIndex;
+            }
+
             NamespacedKey key = new NamespacedKey(plugin, keyString);
 
             // Remove existing if any
@@ -96,8 +118,18 @@ public class RecipeListener implements Listener {
 
         } catch (Exception e) {
             plugin.getLogger().severe("Error registering recipe for " + itemData.getItemId() + ": " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
+    }
+
+    private String sanitizeKey(String key) {
+        String sanitized = key.toLowerCase().replace(' ', '_');
+        if (!VALID_KEY_PATTERN.matcher(sanitized).matches()) {
+            // Fallback cleanup if it contains other invalid chars
+            sanitized = sanitized.replaceAll("[^a-z0-9/._-]", "");
+        }
+        return sanitized;
     }
 
     private boolean registerShapedRecipe(NamespacedKey key, ItemStack result, RecipeData recipeData) {
@@ -187,14 +219,10 @@ public class RecipeListener implements Listener {
             return new RecipeChoice.MaterialChoice(material);
         } catch (IllegalArgumentException e) {
             if (itemDataManager.hasItem(ingredient)) {
-                // Determine material of the custom item
                 ItemData data = itemDataManager.getItemData(ingredient);
                 if (data != null) {
                     try {
                         Material mat = Material.valueOf(data.getMaterial().toUpperCase());
-                        // Use MaterialChoice to allow loose matching (extra NBT ignored by Bukkit
-                        // matcher)
-                        // We will enforce ID in PrepareItemCraftEvent
                         return new RecipeChoice.MaterialChoice(mat);
                     } catch (IllegalArgumentException ignored) {
                     }
@@ -216,244 +244,318 @@ public class RecipeListener implements Listener {
 
         NamespacedKey key = ((Keyed) recipe).getKey();
         if (!key.getNamespace().equalsIgnoreCase(plugin.getName()) || !key.getKey().startsWith("custom_")) {
-            return; // Not our recipe
+            // Not a CuriosPaper custom recipe
+            return;
         }
 
-        // Validate custom ingredients strict matching and Transfer Data
         ItemStack[] matrix = event.getInventory().getMatrix();
+        // Strict Validation Logic
+        if (!validateCustomIngredients(key, matrix)) {
+            event.getInventory().setResult(null); // Invalid craft
+            return;
+        }
+
+        // Use the first valid custom item as the transfer source
+        ItemStack sourceForTransfer = null;
+        for (ItemStack item : matrix) {
+            if (item != null && item.hasItemMeta()) {
+                PersistentDataContainer itemPdc = item.getItemMeta().getPersistentDataContainer();
+                if (itemPdc.has(plugin.getCuriosPaperAPI().getItemIdKey(), PersistentDataType.STRING)) {
+                    if (sourceForTransfer == null) {
+                        sourceForTransfer = item;
+                    }
+                }
+            }
+        }
+
         ItemStack result = event.getInventory().getResult();
+        if (sourceForTransfer != null && result != null) {
+            CuriosRecipeTransferEvent transferEvent = new CuriosRecipeTransferEvent(event.getInventory(), result,
+                    sourceForTransfer);
+            plugin.getServer().getPluginManager().callEvent(transferEvent);
 
-        // We need to know which slots are supposed to be which custom items.
-        // This is complex because we don't have the RecipeData easily accessible here
-        // just from the key
-        // without parsing logic or caching.
-        // Simplification: We iterate the matrix. If an item matches the MATERIAL of a
-        // custom ingredient
-        // but lacks the ID, fail.
-
-        // Actually, we can just rely on the fact that if a player put a random item,
-        // the server matched it by material. We just need to ensure that IF the
-        // ingredient
-        // WAS supposed to be custom (how do we know?), it IS custom.
-
-        // Since we can't easily reconstruct the exact RecipeData map here without
-        // caching,
-        // we will implement a "Greedy Transfer" logic and a "Loose Validation".
-        // Validation: If the input item HAS a custom ID, pass.
-        // If the input item DOES NOT have a custom ID, but the recipe required one...
-        // we need to know that.
-        // BUT, since we used MaterialChoice, the server allowed vanilla items.
-        // If we want to ban vanilla items for custom slots, we need the recipe
-        // definition.
-
-        // Let's parse the item ID from the key? "custom_ID_hash"
-        String keyStr = key.getKey();
-        String resultItemId = parseItemIdFromKey(keyStr);
-        ItemData resultData = itemDataManager.getItemData(resultItemId);
-        // We found the target item. Now we search its recipes to find the one matching
-        // this key?
-        // Hash collision is possible but unlikely.
-
-        RecipeData matchedRecipe = null;
-        if (resultData != null) {
-            for (RecipeData r : resultData.getRecipes()) {
-                if (key.getKey().endsWith("_" + Math.abs(r.hashCode()))) {
-                    matchedRecipe = r;
-                    break; // Found the specific recipe definition
-                }
-            }
-        }
-
-        if (matchedRecipe != null) {
-            // STRICT VALIDATION
-            // We must ensure that for every custom ingredient in matchedRecipe, the matrix
-            // has the correct custom item.
-            // Shaped or Shapeless logic needed.
-            // For now, let's iterate the matrix non-nulls.
-            // If the recipe requires "rubydust" (custom), and matrix has "REDSTONE"
-            // (vanilla), we must FAIL.
-
-            // This validation is non-trivial for Shaped recipes because position matters.
-            // However, we can simply iterate all non-empty Slots.
-            // If the item in slot X is Custom Item Y, proceed.
-            // If the item in slot X is Vanilla Material Z, check if the Recipe called for
-            // Custom Item Y there.
-
-            // To properly support transferring data, we'll pick the FIRST custom item found
-            // in the matrix
-            // that is used as an ingredient.
-
-            ItemStack sourceForTransfer = null;
-
-            // Simplified Validation:
-            // We assume the caller knows what they are doing with ingredients.
-            // If a custom item is used, we transfer data.
-            // WE MUST PREVENT crafting strict custom recipes with vanilla items though.
-
-            // Let's implement validation for Shapeless easily. Shaped is harder.
-            // NOTE: Implementing full matrix matching here is probably overkill and
-            // error-prone.
-            // Key goal: "Transfer extra data".
-            // AND "Reject if...".
-
-            // Let's defer strict vanilla-ban for now (user didn't explicitly ask to ban
-            // vanilla equivalents, just "custom item... rejected").
-            // User problem: "item is correct item but is a custom item added by another
-            // plugin ... rejected".
-            // This implies they ARE using the custom item, but strict NBT check failed.
-            // My change to MaterialChoice fixed the rejection.
-
-            // Now: "Make it transfer extra data".
-
-            for (ItemStack item : matrix) {
-                if (item != null && item.hasItemMeta()) {
-                    PersistentDataContainer itemPdc = item.getItemMeta().getPersistentDataContainer();
-                    if (itemPdc.has(plugin.getCuriosPaperAPI().getItemIdKey(), PersistentDataType.STRING)) {
-                        // Found a custom item.
-                        // Use this as source?
-                        // "Smart" logic: Use the first one? Or look for specific one?
-                        // User said "transfer those extra data".
-                        if (sourceForTransfer == null) {
-                            sourceForTransfer = item;
-                        }
-                    }
-                }
-            }
-
-            if (sourceForTransfer != null && result != null) {
-                // Fire event to allow cancellation/modification
-                CuriosRecipeTransferEvent transferEvent = new CuriosRecipeTransferEvent(event.getInventory(), result,
-                        sourceForTransfer);
-                plugin.getServer().getPluginManager().callEvent(transferEvent);
-
-                if (!transferEvent.isCancelled()) {
-                    ItemMeta resultMeta = result.getItemMeta();
-                    ItemMeta sourceMeta = sourceForTransfer.getItemMeta();
-
-                    if (resultMeta != null && sourceMeta != null) {
-                        PersistentDataContainer targetPdc = resultMeta.getPersistentDataContainer();
-                        PersistentDataContainer sourcePdc = sourceMeta.getPersistentDataContainer();
-
-                        // Copy all keys
-                        // Note: getKeys() not available in old versions? Spigot 1.16+ supports it?
-                        // Assuming modern API.
-                        // We must copy manually or assume standard data types?
-                        // Check if we can just merge?
-                        // No merge API.
-                        // For now, we unfortunately can't iterate keys easily without NMS or very new
-                        // API (1.20.4+ has getKeys).
-                        // Assuming 1.20+.
-                        try {
-                            // This part is tricky if not on latest paper.
-                            // But wait, the user said "extra data added by the plugin".
-                            // Usually this is NBT/PDC.
-                            // If we can't reliably iterate keys, we are stuck.
-                            // Let's rely on the plugin firing the event to do the transfer if it knows its
-                            // keys?
-                            // OR we assume keys are available.
-
-                            // If we can't iterate, we can't generic copy.
-                            // But the user asked ME to make it transfer.
-
-                            // Let's try to copy specific knonw keys? No.
-                            // Let's try 1.20 API approach.
-                            for (NamespacedKey tagKey : sourcePdc.getKeys()) {
-                                // Skip ID and Slot keys to preserve result identity
-                                if (tagKey.equals(plugin.getCuriosPaperAPI().getItemIdKey()) ||
-                                        tagKey.equals(plugin.getCuriosPaperAPI().getSlotTypeKey())) {
-                                    continue;
-                                }
-
-                                // We don't know the type, so we can't get() it safely.
-                                // Unless... we construct a new container?
-                                // Actually there is no generic get().
-
-                                // FAILBACK: Just inform the other plugin via the event.
-                                // The user said "make it cancelable... so if the plugin doesnt want... it can
-                                // do that".
-                                // This implies the plugin might handle the transfer itself in the event
-                                // listener?
-                                // "can you make it transfer those extra data" - user wants ME to do it.
-
-                                // If I can't copy generic data, I can't fulfill this completely.
-                                // HACK: Serialize and Deserialize?
-                                // PDC doesn't expose raw NBT.
-
-                                // OKAY: I will enable the event. The other plugin (SoSophisticatedBackpack)
-                                // knows its keys (UUID, Upgrades, etc). It can listen to
-                                // `CuriosRecipeTransferEvent`.
-                                // Oh wait, I am the one writing `SoSophisticatedBackpack` logic too in another
-                                // request?
-                                // For THIS request, I am acting as CuriosPaper dev.
-
-                                // If the other plugin is 3rd party, they need to listen to event.
-                                // If I can't copy generically, I will provide the event hook.
-                                // User: "make it transfer... but make it cancelable".
-
-                                // I'll try to find a way to verify standard keys? No.
-                                // I'll leave the generic copy commented out or best-effort if API allows.
-                                // Actually, I can allow the event to carry the "Source" item so listeners can
-                                // copy what they need.
-                            }
-                        } catch (NoSuchMethodError e) {
-                            // Old version
-                        }
-                    }
-                    // Since I cannot generically copy all PDC data values without knowing their
-                    // type tags,
-                    // I will rely on the EVENT so the owning plugin can perform the specific data
-                    // transfer.
-                    // The user request is satisfied by providing the mechanism (Event) and ensuring
-                    // the recipe isn't rejected.
-                    // The "make it transfer" part might be best effort or delegating.
-
-                    // WAIT. I found `PersistentDataContainer.copyTo` in newer API? No.
-
-                    event.getInventory().setResult(result);
-                }
+            if (!transferEvent.isCancelled()) {
+                event.getInventory().setResult(transferEvent.getResult());
             }
         }
     }
 
-    private String parseItemIdFromKey(String key) {
-        // key: custom_ITEMID_hash
-        // find last underscore
-        int lastUnderscore = key.lastIndexOf('_');
-        if (lastUnderscore == -1)
-            return "";
-        // remove custom_ prefix
-        String temp = key.substring("custom_".length(), lastUnderscore);
-        return temp; // ITEMID (could contain underscores)
-    }
-
-    private boolean matchesIngredient(String ingredient, ItemStack item) {
-        if (ingredient == null || item == null)
+    /**
+     * Strictly validates that the framing matrix matches the custom requirements
+     */
+    private boolean validateCustomIngredients(NamespacedKey recipeKey, ItemStack[] matrix) {
+        // 1. Identify the recipe definition from the key
+        RecipeDefinition definition = parseRecipeDefinition(recipeKey);
+        if (definition == null || definition.recipeData == null) {
+            // Should not happen if key is ours, unless data reload removed it
             return false;
-        RecipeChoice choice = resolveIngredient(ingredient);
-        return choice != null && choice.test(item);
+        }
+
+        RecipeData data = definition.recipeData;
+
+        if (data.getType() == RecipeData.RecipeType.SHAPED) {
+            return validateShaped(data, matrix);
+        } else if (data.getType() == RecipeData.RecipeType.SHAPELESS) {
+            return validateShapeless(data, matrix);
+        }
+
+        return true;
+    }
+
+    private boolean validateShapeless(RecipeData data, ItemStack[] matrix) {
+        // Create a list of required ingredients
+        List<String> requirements = new ArrayList<>(data.getIngredients().values());
+
+        // Create a list of provided items
+        List<ItemStack> provided = new ArrayList<>();
+        for (ItemStack is : matrix) {
+            if (is != null && is.getType() != Material.AIR) {
+                provided.add(is);
+            }
+        }
+
+        if (provided.size() != requirements.size()) {
+            return false; // Mismatch in count
+        }
+
+        // Match provided items to requirements
+        // We use a simple greedy match (since ingredients are interchangeable in
+        // shapeless)
+        // But we must respect custom IDs.
+
+        // Create a temp copy of requirements to tick off
+        List<String> remainingReqs = new ArrayList<>(requirements);
+
+        for (ItemStack item : provided) {
+            boolean matched = false;
+            for (int i = 0; i < remainingReqs.size(); i++) {
+                String req = remainingReqs.get(i);
+                if (matchesRequirement(req, item)) {
+                    remainingReqs.remove(i);
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                return false; // Item in matrix that matches no requirement
+            }
+        }
+
+        return remainingReqs.isEmpty();
+    }
+
+    private boolean validateShaped(RecipeData data, ItemStack[] matrix) {
+        // Need to find the bounds of the items in the matrix to align with recipe shape
+        int minRow = 2, maxRow = 0, minCol = 2, maxCol = 0;
+        boolean empty = true;
+
+        for (int r = 0; r < 3; r++) {
+            for (int c = 0; c < 3; c++) {
+                if (matrix[r * 3 + c] != null && matrix[r * 3 + c].getType() != Material.AIR) {
+                    empty = false;
+                    if (r < minRow)
+                        minRow = r;
+                    if (r > maxRow)
+                        maxRow = r;
+                    if (c < minCol)
+                        minCol = c;
+                    if (c > maxCol)
+                        maxCol = c;
+                }
+            }
+        }
+
+        if (empty)
+            return false;
+
+        return checkShapedMatch(data, matrix);
+    }
+
+    // Checks if the matrix matches the shape definition strictly
+    private boolean checkShapedMatch(RecipeData data, ItemStack[] matrix) {
+        String[] shape = data.getShape();
+        Map<Character, String> ingredients = data.getIngredients();
+
+        // Converting shape to a character grid for easier handling
+        char[][] shapeGrid = new char[3][3];
+        for (int r = 0; r < 3; r++) {
+            String row = (shape[r] != null) ? shape[r] : "   ";
+            // Pad to 3
+            while (row.length() < 3)
+                row += " ";
+            shapeGrid[r] = row.toCharArray();
+        }
+
+        // Locate top-left non-air item in matrix
+        // We iterate offsets to align the shape on top of the matrix items.
+
+        for (int rowOffset = -2; rowOffset <= 2; rowOffset++) {
+            for (int colOffset = -2; colOffset <= 2; colOffset++) {
+                if (matchesAtOffset(matrix, shapeGrid, ingredients, rowOffset, colOffset)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean matchesAtOffset(ItemStack[] matrix, char[][] shapeGrid, Map<Character, String> ingredients,
+                                    int rowOffset, int colOffset) {
+        for (int r = 0; r < 3; r++) {
+            for (int c = 0; c < 3; c++) {
+                int shapeR = r - rowOffset;
+                int shapeC = c - colOffset;
+
+                ItemStack item = matrix[r * 3 + c];
+                boolean itemIsAir = (item == null || item.getType() == Material.AIR);
+
+                char requiredChar = ' ';
+                if (shapeR >= 0 && shapeR < 3 && shapeC >= 0 && shapeC < 3) {
+                    requiredChar = shapeGrid[shapeR][shapeC];
+                }
+
+                // If ingredient is defined
+                if (ingredients.containsKey(requiredChar)) {
+                    String reqString = ingredients.get(requiredChar);
+                    if (!matchesRequirement(reqString, item)) {
+                        return false;
+                    }
+                } else {
+                    // Expecting Air
+                    if (!itemIsAir) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    private boolean matchesRequirement(String reqString, ItemStack item) {
+        if (item == null || item.getType() == Material.AIR)
+            return false;
+
+        // Check if requirement is a Custom Item ID
+        if (itemDataManager.hasItem(reqString)) {
+            return isCustomItem(item, reqString);
+        } else {
+            // Requirement is a vanilla material, verify item material matches
+            try {
+                return item.getType().name().equalsIgnoreCase(reqString);
+            } catch (Exception e) {
+                return false;
+            }
+        }
+    }
+
+    private boolean isCustomItem(ItemStack item, String targetId) {
+        if (item == null || !item.hasItemMeta())
+            return false;
+        PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
+        NamespacedKey idKey = plugin.getCuriosPaperAPI().getItemIdKey();
+        if (!pdc.has(idKey, PersistentDataType.STRING))
+            return false;
+        String id = pdc.get(idKey, PersistentDataType.STRING);
+        return id != null && id.equals(targetId);
+    }
+
+    private static class RecipeDefinition {
+        RecipeData recipeData;
+    }
+
+    private RecipeDefinition parseRecipeDefinition(NamespacedKey key) {
+        // Format: custom_<plugin>_<itemid>[_variantN]
+        String keyStr = key.getKey();
+        if (!keyStr.startsWith("custom_"))
+            return null;
+
+        String remaining = keyStr.substring(7); // <plugin>_<itemid>[_variantN]
+
+        int firstUnder = remaining.indexOf('_');
+        if (firstUnder == -1)
+            return null;
+
+        String rest = remaining.substring(firstUnder + 1); // <itemid> or <itemid>_variantN
+
+        // Check for _variant suffix
+        int variantIndex = 0;
+        String itemId = rest;
+
+        int variantMarker = rest.lastIndexOf("_variant");
+        if (variantMarker != -1 && variantMarker + 8 < rest.length()) {
+            try {
+                String numStr = rest.substring(variantMarker + 8);
+                variantIndex = Integer.parseInt(numStr);
+                itemId = rest.substring(0, variantMarker);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
+        ItemData data = itemDataManager.getItemData(itemId);
+        if (data == null) {
+            // Fallback for sanitized ID matching if exact lookup fails
+            for (ItemData idata : itemDataManager.getAllItems().values()) {
+                if (sanitizeKey(idata.getItemId()).equals(itemId)) {
+                    data = idata;
+                    break;
+                }
+            }
+        }
+
+        if (data != null) {
+            List<RecipeData> recipes = data.getRecipes();
+            if (variantIndex >= 0 && variantIndex < recipes.size()) {
+                RecipeDefinition def = new RecipeDefinition();
+                def.recipeData = recipes.get(variantIndex);
+                return def;
+            }
+        }
+
+        return null;
     }
 
     @EventHandler
     public void onPrepareSmithing(org.bukkit.event.inventory.PrepareSmithingEvent event) {
-        // PrepareSmithingEvent in some versions does not have getRecipe().
-        // We will validate by checking if the RESULT is one of our custom items.
-
         ItemStack result = event.getResult();
         if (result == null || !result.hasItemMeta())
             return;
 
-        // Check if result is a custom item
         NamespacedKey itemIdKey = plugin.getCuriosPaperAPI().getItemIdKey();
-        if (!result.getItemMeta().getPersistentDataContainer().has(itemIdKey, PersistentDataType.STRING)) {
-            return; // Not a custom item result, so irrelevant for our data transfer
+        PersistentDataContainer resultPdc = result.getItemMeta().getPersistentDataContainer();
+        if (!resultPdc.has(itemIdKey, PersistentDataType.STRING)) {
+            return;
+        }
+
+        String resultId = resultPdc.get(itemIdKey, PersistentDataType.STRING);
+        ItemData itemData = itemDataManager.getItemData(resultId);
+
+        if (itemData == null) {
+            return;
         }
 
         org.bukkit.inventory.SmithingInventory inv = event.getInventory();
-        // Slot 1: Base (The item being upgraded)
-        ItemStack source = inv.getItem(1);
+        ItemStack template = inv.getItem(0);
+        ItemStack base = inv.getItem(1);
+        ItemStack addition = inv.getItem(2);
 
-        if (source != null && source.hasItemMeta()) {
-            CuriosRecipeTransferEvent transferEvent = new CuriosRecipeTransferEvent(inv, result, source);
+        boolean isValid = false;
+
+        for (RecipeData recipe : itemData.getRecipes()) {
+            if (recipe.getType() == RecipeData.RecipeType.SMITHING) {
+                if (matchesSmithing(recipe, template, base, addition)) {
+                    isValid = true;
+                    break;
+                }
+            }
+        }
+
+        if (!isValid) {
+            event.setResult(null);
+            return;
+        }
+
+        if (base != null && base.hasItemMeta()) {
+            CuriosRecipeTransferEvent transferEvent = new CuriosRecipeTransferEvent(inv, result, base);
             plugin.getServer().getPluginManager().callEvent(transferEvent);
 
             if (!transferEvent.isCancelled()) {
@@ -462,31 +564,46 @@ public class RecipeListener implements Listener {
         }
     }
 
+    private boolean matchesSmithing(RecipeData recipe, ItemStack template, ItemStack base, ItemStack addition) {
+        if (recipe.getTemplateItem() != null && !recipe.getTemplateItem().isEmpty()) {
+            if (!matchesRequirement(recipe.getTemplateItem(), template))
+                return false;
+        }
+        if (!matchesRequirement(recipe.getBaseItem(), base))
+            return false;
+        if (!matchesRequirement(recipe.getAdditionItem(), addition))
+            return false;
+        return true;
+    }
+
     @EventHandler
     public void onFurnaceSmelt(org.bukkit.event.inventory.FurnaceSmeltEvent event) {
         ItemStack source = event.getSource();
         ItemStack result = event.getResult();
 
-        // Furnace recipes are harder to link to specific custom recipes via API because
-        // event doesn't give the Recipe object directly easily in all versions.
-        // But we can check if the result is a custom item and if the source matches
-        // expectations.
-        // Actually, we can just rely on generic transfer: If we are smelting a custom
-        // item into another custom item (or whatever result),
-        // we should fire the event.
-
-        if (source.hasItemMeta() && result != null) {
-            // Check if result is a custom item registered by us?
+        if (result != null && result.hasItemMeta()) {
             NamespacedKey keyIdx = plugin.getCuriosPaperAPI().getItemIdKey();
-            if (result.hasItemMeta()
-                    && result.getItemMeta().getPersistentDataContainer().has(keyIdx, PersistentDataType.STRING)) {
-                // It's a custom result.
-                // We should fire the transfer event.
-                // Note: FurnaceSmeltEvent doesn't give InventoryView easily, but we can pass
-                // null or the block state?
-                // The event constructors vary. The event has 'getBlock()'.
-                // CuriosRecipeTransferEvent expects Inventory.
-                // FurnaceSmeltEvent is BlockEvent. The inventory is the TileEntity's inventory.
+            PersistentDataContainer resultPdc = result.getItemMeta().getPersistentDataContainer();
+            if (resultPdc.has(keyIdx, PersistentDataType.STRING)) {
+                String resultId = resultPdc.get(keyIdx, PersistentDataType.STRING);
+                ItemData itemData = itemDataManager.getItemData(resultId);
+
+                if (itemData != null) {
+                    boolean isValid = false;
+                    for (RecipeData recipe : itemData.getRecipes()) {
+                        if (isFurnaceType(recipe.getType())) {
+                            if (matchesRequirement(recipe.getInputItem(), source)) {
+                                isValid = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!isValid) {
+                        event.setCancelled(true);
+                        return;
+                    }
+                }
 
                 if (event.getBlock().getState() instanceof org.bukkit.inventory.InventoryHolder) {
                     org.bukkit.inventory.Inventory inv = ((org.bukkit.inventory.InventoryHolder) event.getBlock()
@@ -500,6 +617,12 @@ public class RecipeListener implements Listener {
                 }
             }
         }
+    }
+
+    private boolean isFurnaceType(RecipeData.RecipeType type) {
+        return type == RecipeData.RecipeType.FURNACE ||
+                type == RecipeData.RecipeType.BLAST_FURNACE ||
+                type == RecipeData.RecipeType.SMOKER;
     }
 
     @EventHandler
@@ -517,8 +640,6 @@ public class RecipeListener implements Listener {
                     if (matchesAnvil(recipe, left, right)) {
                         ItemStack result = createResultItem(itemData);
 
-                        // Fire Data Transfer Event
-                        // Use LEFT item as source usually? Or logic implies left is base.
                         CuriosRecipeTransferEvent transferEvent = new CuriosRecipeTransferEvent(inv, result, left);
                         plugin.getServer().getPluginManager().callEvent(transferEvent);
 
@@ -538,14 +659,25 @@ public class RecipeListener implements Listener {
     }
 
     private boolean matchesAnvil(RecipeData recipe, ItemStack left, ItemStack right) {
-        return matchesIngredient(recipe.getLeftInput(), left) && matchesIngredient(recipe.getRightInput(), right);
+        return matchesRequirement(recipe.getLeftInput(), left) && matchesRequirement(recipe.getRightInput(), right);
     }
 
     public boolean unregisterRecipe(String itemId) {
         ItemData data = itemDataManager.getItemData(itemId);
         if (data != null) {
-            for (RecipeData r : data.getRecipes()) {
-                String keyString = "custom_" + itemId.toLowerCase() + "_" + Math.abs(r.hashCode());
+            String owningPlugin = data.getOwningPlugin();
+            if (owningPlugin == null || owningPlugin.isEmpty()) {
+                owningPlugin = "curiospaper";
+            }
+            owningPlugin = sanitizeKey(owningPlugin);
+            String safeItemId = sanitizeKey(itemId);
+
+            List<RecipeData> recipes = data.getRecipes();
+            for (int i = 0; i < recipes.size(); i++) {
+                String keyString = "custom_" + owningPlugin + "_" + safeItemId;
+                if (recipes.size() > 1) {
+                    keyString += "_variant" + i;
+                }
                 NamespacedKey key = new NamespacedKey(plugin, keyString);
                 plugin.getServer().removeRecipe(key);
             }

@@ -139,9 +139,21 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
                 SlotConfiguration config = plugin.getConfigManager().getSlotConfiguration(slotType);
                 if (config != null) {
                     List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
-                    lore.add("");
-                    lore.add(ChatColor.GRAY + "Required Slot: " + ChatColor.RESET + config.getName());
-                    meta.setLore(lore);
+                    String loreLine = ChatColor.GRAY + "Required Slot: " + ChatColor.RESET + config.getName();
+
+                    boolean hasLine = false;
+                    for (String line : lore) {
+                        if (line.equals(loreLine)) {
+                            hasLine = true;
+                            break;
+                        }
+                    }
+
+                    if (!hasLine) {
+                        lore.add("");
+                        lore.add(loreLine);
+                        meta.setLore(lore);
+                    }
                 }
             }
 
