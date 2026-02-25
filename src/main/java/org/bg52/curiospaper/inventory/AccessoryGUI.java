@@ -30,33 +30,50 @@ public class AccessoryGUI {
 
     /**
      * Opens the main Tier 1 GUI with all slot type buttons
-     * Always uses double chest (54 slots) with beautiful layout
+     * Size and layout are loaded from configuration
      */
     public void openMainGUI(Player player) {
         Map<String, SlotConfiguration> configs = plugin.getConfigManager().getSlotConfigurations();
-
-        // Double chest size for beautiful layout
-        int size = getMainGUISize(configs.size());
+        int size = plugin.getConfigManager().getMainGuiSize();
         Inventory mainGUI = Bukkit.createInventory(null, size, MAIN_GUI_TITLE);
 
-        // Create border
-        createBorder(mainGUI);
+        Map<String, Integer> layout = plugin.getConfigManager().getMainLayout();
 
-        // Fill remaining with gray glass
-        fillInventory(mainGUI, FILLER_MATERIAL);
-
-        // Get centered positions for buttons
-        int[] buttonPositions = getMainGUIButtonPositions(configs.size());
-
-        int index = 0;
         for (SlotConfiguration config : configs.values()) {
-            if (index >= buttonPositions.length)
-                break;
+            String key = config.getKey();
+            int pos = layout.getOrDefault(key.toLowerCase(), -1);
             ItemStack button = createSlotButton(config);
-            mainGUI.setItem(buttonPositions[index++], button);
+
+            // Check if position is valid and slot is empty (just filler)
+            if (pos >= 0 && pos < size && mainGUI.getItem(pos) == null) {
+                mainGUI.setItem(pos, button);
+            } else {
+                // Fail-safe: Find first available empty slot
+                boolean placed = false;
+                for (int i = 0; i < size; i++) {
+                    if (mainGUI.getItem(i) == null) {
+                        mainGUI.setItem(i, button);
+                        placed = true;
+                        break;
+                    }
+                }
+                if (!placed) {
+                    plugin.getLogger().warning("Could not find a slot for '" + key + "' in main GUI (GUI is full!)");
+                }
+            }
         }
 
+        // Fill remaining empty slots with gray glass
+        fillInventory(mainGUI, FILLER_MATERIAL);
+
         player.openInventory(mainGUI);
+    }
+
+    private boolean isFillerItem(ItemStack item) {
+        if (item == null || item.getType() == Material.AIR)
+            return true;
+        ItemMeta meta = item.getItemMeta();
+        return meta != null && FILLER_NAME.equals(meta.getDisplayName());
     }
 
     /**
@@ -96,7 +113,7 @@ public class AccessoryGUI {
         List<ItemStack> currentItems = plugin.getSlotManager().getAccessories(player.getUniqueId(), slotType);
         for (int i = 0; i < currentItems.size() && i < slotPositions.length; i++) {
             ItemStack item = currentItems.get(i);
-            if (item != null && !item.getType().isAir()) {
+            if (item != null && item.getType() != org.bukkit.Material.AIR) {
                 slotsGUI.setItem(slotPositions[i], item);
             }
         }
@@ -105,49 +122,8 @@ public class AccessoryGUI {
     }
 
     /**
-     * Get the positions for main GUI buttons (9 slot types)
-     * Beautiful arrangement in double chest
+     * Calculate inventory size based on slot count
      */
-    /**
-     * Get the positions for main GUI buttons
-     * Uses 3x3 grid for default (9 items)
-     * Uses 7x4 inner box for custom (>9 items)
-     */
-    private int[] getMainGUIButtonPositions(int count) {
-        // For 9 items or fewer: 3x3 grid centered in 5-row inventory (45 slots)
-        if (count <= 9) {
-            return new int[] {
-                    10, 13, 16,
-                    21, 22, 23,
-                    28, 31, 34
-            };
-        } else {
-            // For > 9 items: Use 7x4 inner box in 6-row inventory (54 slots)
-            // Rows 1-4, Cols 1-7 (Indices: 10-16, 19-25, 28-34, 37-43)
-            List<Integer> positions = new ArrayList<>();
-            int[] innerBoxRows = { 1, 2, 3, 4 };
-            int[] innerBoxCols = { 1, 2, 3, 4, 5, 6, 7 }; // 7 columns wide
-
-            for (int row : innerBoxRows) {
-                for (int col : innerBoxCols) {
-                    if (positions.size() >= count)
-                        break;
-                    positions.add(row * 9 + col);
-                }
-            }
-
-            return positions.stream().mapToInt(Integer::intValue).toArray();
-        }
-    }
-
-    private int getMainGUISize(int size) {
-        // Use pattern-based sizing
-        if (size <= 9) {
-            return 45; // 3 rows for clean single-row layout
-        } else {
-            return 54; // Double chest for many items
-        }
-    }
 
     /**
      * Calculate inventory size based on slot count
@@ -332,7 +308,9 @@ public class AccessoryGUI {
 
             // Set CustomModelData if enabled
             if (useResourcePack) {
-                meta.setItemModel(config.getItemModel());
+                // Use NamespacedKey overload for slot configuration
+                org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, config.getItemModel(),
+                        config.getCustomModelData());
             }
 
             meta.getPersistentDataContainer().set(
@@ -376,7 +354,7 @@ public class AccessoryGUI {
         ItemStack item = inv.getItem(slot);
 
         // Null or air = accessory slot
-        if (item == null || item.getType().isAir()) {
+        if (item == null || item.getType() == org.bukkit.Material.AIR) {
             return true;
         }
 
@@ -397,7 +375,7 @@ public class AccessoryGUI {
         for (int i = 0; i < inv.getSize(); i++) {
             ItemStack item = inv.getItem(i);
 
-            if (item == null || item.getType().isAir()) {
+            if (item == null || item.getType() == org.bukkit.Material.AIR) {
                 // Check if this was supposed to be an accessory slot
                 if (isAccessorySlot(inv, i)) {
                     return true;

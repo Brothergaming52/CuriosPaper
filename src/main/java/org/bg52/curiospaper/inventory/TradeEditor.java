@@ -298,7 +298,7 @@ public class TradeEditor implements Listener {
 
             // Individual profession click
             ItemStack clicked = event.getCurrentItem();
-            if (clicked == null || clicked.getType().isAir())
+            if (clicked == null || clicked.getType() == Material.AIR)
                 return;
 
             ItemMeta meta = clicked.getItemMeta();

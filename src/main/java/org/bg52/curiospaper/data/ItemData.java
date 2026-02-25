@@ -18,8 +18,9 @@ public class ItemData {
     private String material;
     private String itemModel;
     private String slotType;
+    private Integer customModelData;
     private List<String> lore;
-    private RecipeData recipe;
+    private List<RecipeData> recipes;
     private List<LootTableData> lootTables;
     private List<MobDropData> mobDrops;
     private List<VillagerTradeData> villagerTrades;
@@ -27,6 +28,7 @@ public class ItemData {
 
     public ItemData(String itemId) {
         this.itemId = itemId;
+        this.recipes = new ArrayList<>();
         this.lore = new ArrayList<>();
         this.lootTables = new ArrayList<>();
         this.mobDrops = new ArrayList<>();
@@ -56,12 +58,24 @@ public class ItemData {
         return slotType;
     }
 
+    public Integer getCustomModelData() {
+        return customModelData;
+    }
+
     public List<String> getLore() {
         return new ArrayList<>(lore);
     }
 
+    public List<RecipeData> getRecipes() {
+        return new ArrayList<>(recipes);
+    }
+
+    /**
+     * @deprecated Use getRecipes() instead.
+     */
+    @Deprecated
     public RecipeData getRecipe() {
-        return recipe;
+        return recipes.isEmpty() ? null : recipes.get(0);
     }
 
     public List<LootTableData> getLootTables() {
@@ -98,6 +112,10 @@ public class ItemData {
         this.slotType = slotType;
     }
 
+    public void setCustomModelData(Integer customModelData) {
+        this.customModelData = customModelData;
+    }
+
     public void setLore(List<String> lore) {
         this.lore = new ArrayList<>(lore);
     }
@@ -106,8 +124,28 @@ public class ItemData {
         this.lore.add(line);
     }
 
+    public void setRecipes(List<RecipeData> recipes) {
+        this.recipes = new ArrayList<>(recipes);
+    }
+
+    public void addRecipe(RecipeData recipe) {
+        this.recipes.add(recipe);
+    }
+
+    public void removeRecipe(RecipeData recipe) {
+        this.recipes.remove(recipe);
+    }
+
+    /**
+     * @deprecated Use setRecipes() or addRecipe() instead. Replaces all recipes
+     *             with this single one.
+     */
+    @Deprecated
     public void setRecipe(RecipeData recipe) {
-        this.recipe = recipe;
+        this.recipes.clear();
+        if (recipe != null) {
+            this.recipes.add(recipe);
+        }
     }
 
     public void setLootTables(List<LootTableData> lootTables) {
@@ -147,17 +185,52 @@ public class ItemData {
     /**
      * Saves this ItemData to a YamlConfiguration
      */
+    private String owningPlugin;
+
+    // ... existing constructors ...
+
+    // ========== GETTERS ==========
+
+    public String getOwningPlugin() {
+        return owningPlugin;
+    }
+
+    // ... existing getters ...
+
+    // ========== SETTERS ==========
+
+    public void setOwningPlugin(String owningPlugin) {
+        this.owningPlugin = owningPlugin;
+    }
+
+    // ... existing setters ...
+
+    // ========== SERIALIZATION ==========
+
+    /**
+     * Saves this ItemData to a YamlConfiguration
+     */
     public void saveToConfig(YamlConfiguration config) {
         config.set("item-id", itemId);
+        // Only save owning plugin if it is set
+        if (owningPlugin != null) {
+            config.set("owning-plugin", owningPlugin);
+        }
         config.set("display-name", displayName);
         config.set("material", material);
         config.set("item-model", itemModel);
+        if (customModelData != null) {
+            config.set("custom-model-data", customModelData);
+        }
         config.set("slot-type", slotType);
         config.set("lore", lore);
 
-        if (recipe != null) {
-            ConfigurationSection recipeSection = config.createSection("recipe");
-            recipe.saveToConfig(recipeSection);
+        if (!recipes.isEmpty()) {
+            ConfigurationSection recipesSection = config.createSection("recipes");
+            for (int i = 0; i < recipes.size(); i++) {
+                ConfigurationSection entrySection = recipesSection.createSection("entry-" + i);
+                recipes.get(i).saveToConfig(entrySection);
+            }
         }
 
         if (!lootTables.isEmpty()) {
@@ -203,16 +276,38 @@ public class ItemData {
         }
 
         ItemData data = new ItemData(itemId);
+        data.setOwningPlugin(config.getString("owning-plugin"));
         data.setDisplayName(config.getString("display-name"));
         data.setMaterial(config.getString("material", "PAPER"));
         data.setItemModel(config.getString("item-model"));
+        // Load customModelData - try to parse from item-model if it's an integer
+        if (config.contains("custom-model-data")) {
+            data.setCustomModelData(config.getInt("custom-model-data"));
+        } else if (data.getItemModel() != null) {
+            try {
+                data.setCustomModelData(Integer.parseInt(data.getItemModel()));
+            } catch (NumberFormatException e) {
+                // Not an integer, leave as null
+            }
+        }
         data.setSlotType(config.getString("slot-type"));
         data.setLore(config.getStringList("lore"));
 
-        // Load recipe
-        ConfigurationSection recipeSection = config.getConfigurationSection("recipe");
-        if (recipeSection != null) {
-            data.setRecipe(RecipeData.loadFromConfig(recipeSection));
+        // Load recipes
+        ConfigurationSection recipesSection = config.getConfigurationSection("recipes");
+        if (recipesSection != null) {
+            for (String key : recipesSection.getKeys(false)) {
+                ConfigurationSection entrySection = recipesSection.getConfigurationSection(key);
+                if (entrySection != null) {
+                    data.addRecipe(RecipeData.loadFromConfig(entrySection));
+                }
+            }
+        } else {
+            // Legacy support
+            ConfigurationSection recipeSection = config.getConfigurationSection("recipe");
+            if (recipeSection != null) {
+                data.addRecipe(RecipeData.loadFromConfig(recipeSection));
+            }
         }
 
         // Load loot tables
@@ -280,7 +375,7 @@ public class ItemData {
                 "itemId='" + itemId + '\'' +
                 ", displayName='" + displayName + '\'' +
                 ", slotType='" + slotType + '\'' +
-                ", hasRecipe=" + (recipe != null) +
+                ", recipes=" + recipes.size() +
                 ", lootTables=" + lootTables.size() +
                 ", mobDrops=" + mobDrops.size() +
                 ", villagerTrades=" + villagerTrades.size() +

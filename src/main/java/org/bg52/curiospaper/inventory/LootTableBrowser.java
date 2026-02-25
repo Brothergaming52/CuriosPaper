@@ -50,12 +50,13 @@ public class LootTableBrowser implements Listener {
         // --- NMS Reflection approach for wider version compatibility ---
         List<NamespacedKey> keys = LootTableFetcher.fetchAllLootTableKeys(plugin); // 'this' = JavaPlugin instance
 
-        // --- Fallback/Old API approach (Kept for reference if new util fails on a specific version) ---
+        // --- Fallback/Old API approach (Kept for reference if new util fails on a
+        // specific version) ---
         // try {
-        //     Map<NamespacedKey, LootTable> reg = Bukkit.getLootTableRegistry();
-        //     keys = new ArrayList<>(reg.keySet());
+        // Map<NamespacedKey, LootTable> reg = Bukkit.getLootTableRegistry();
+        // keys = new ArrayList<>(reg.keySet());
         // } catch (NoSuchMethodError ignored) {
-        //     // continue with empty list or NMS result
+        // // continue with empty list or NMS result
         // }
 
         keys.sort(Comparator.comparing(NamespacedKey::toString));
@@ -105,10 +106,12 @@ public class LootTableBrowser implements Listener {
         p.openInventory(inv);
     }
 
-    // Inventory click handler — routes interactions for browser and quick-config screens
+    // Inventory click handler — routes interactions for browser and quick-config
+    // screens
     @EventHandler
     public void onClick(InventoryClickEvent e) {
-        if (!(e.getWhoClicked() instanceof Player)) return;
+        if (!(e.getWhoClicked() instanceof Player))
+            return;
         Player p = (Player) e.getWhoClicked();
         String title = e.getView().getTitle();
 
@@ -116,7 +119,8 @@ public class LootTableBrowser implements Listener {
         if (title.startsWith("§8Loot Browser: ")) {
             e.setCancelled(true);
             int raw = e.getRawSlot();
-            if (raw >= e.getView().getTopInventory().getSize()) return;
+            if (raw >= e.getView().getTopInventory().getSize())
+                return;
 
             BrowserState s = states.get(p.getUniqueId());
             if (s == null) {
@@ -182,7 +186,8 @@ public class LootTableBrowser implements Listener {
         if (title.startsWith("§8Configure: ")) {
             e.setCancelled(true);
             int raw = e.getRawSlot();
-            if (raw >= e.getView().getTopInventory().getSize()) return;
+            if (raw >= e.getView().getTopInventory().getSize())
+                return;
 
             QuickConfigState qs = QuickConfigState.forPlayer(p);
             if (qs == null) {
@@ -191,32 +196,33 @@ public class LootTableBrowser implements Listener {
             }
 
             switch (raw) {
-                case 10 -> { // Preset: common chance 10%, amount 1
+                case 10: // Preset: common chance 10%, amount 1
                     addLootToItem(p, qs.itemId, qs.tableKey.toString(), 0.10, 1, 1);
-                }
-                case 12 -> { // Preset: 25%
+                    break;
+                case 12: // Preset: 25%
                     addLootToItem(p, qs.itemId, qs.tableKey.toString(), 0.25, 1, 1);
-                }
-                case 14 -> { // Preset: 50%
+                    break;
+                case 14: // Preset: 50%
                     addLootToItem(p, qs.itemId, qs.tableKey.toString(), 0.50, 1, 1);
-                }
-                case 16 -> { // Preset: 100%
+                    break;
+                case 16: // Preset: 100%
                     addLootToItem(p, qs.itemId, qs.tableKey.toString(), 1.0, 1, 1);
-                }
-                case 28 -> { // Amount presets: 1-1
+                    break;
+                case 28: // Amount presets: 1-1
                     addLootToItem(p, qs.itemId, qs.tableKey.toString(), qs.defaultChance, 1, 1);
-                }
-                case 30 -> { // 1-3
+                    break;
+                case 30: // 1-3
                     addLootToItem(p, qs.itemId, qs.tableKey.toString(), qs.defaultChance, 1, 3);
-                }
-                case 32 -> { // 2-5
+                    break;
+                case 32: // 2-5
                     addLootToItem(p, qs.itemId, qs.tableKey.toString(), qs.defaultChance, 2, 5);
-                }
-                case 34 -> { // Custom via chat
+                    break;
+                case 34: // Custom via chat
                     p.closeInventory();
-                    chat.startSingleLineSession(p, "Enter chance (0-1) then amount min-max separated by space. Example: 0.15 1-3",
+                    chat.startSingleLineSession(p,
+                            "Enter chance (0-1) then amount min-max separated by space. Example: 0.15 1-3",
                             input -> {
-                                if (input == null || input.isBlank()) {
+                                if (input == null || input.trim().isEmpty()) {
                                     // user cancelled — return to quick-config
                                     plugin.getLootTableBrowser().open(p, qs.itemId);
                                     return;
@@ -234,10 +240,10 @@ public class LootTableBrowser implements Listener {
                                     plugin.getLootTableBrowser().open(p, qs.itemId);
                                 }
                             }, () -> plugin.getLootTableBrowser().open(p, qs.itemId));
-                }
-                case 49 -> { // Back to browser
+                    break;
+                case 49: // Back to browser
                     plugin.getLootTableBrowser().open(p, qs.itemId);
-                }
+                    break;
             }
             return;
         }
@@ -269,10 +275,12 @@ public class LootTableBrowser implements Listener {
             p.sendMessage("§cFailed to save item data — check console for errors.");
             plugin.getLogger().warning("Failed to save item after adding loot: " + itemId);
         } else {
-            p.sendMessage("§aAdded loot entry: §6" + tableKey + " §7(" + (chance * 100) + "%, " + min + "-" + max + ")");
+            p.sendMessage(
+                    "§aAdded loot entry: §6" + tableKey + " §7(" + (chance * 100) + "%, " + min + "-" + max + ")");
         }
 
-        // Cleanup UI state: remove quick-config and browser states for this player if present
+        // Cleanup UI state: remove quick-config and browser states for this player if
+        // present
         QuickConfigState.removeForPlayer(p);
         states.remove(p.getUniqueId());
 
@@ -306,7 +314,8 @@ public class LootTableBrowser implements Listener {
         ItemStack i = new ItemStack(mat);
         ItemMeta m = i.getItemMeta();
         m.setDisplayName(name);
-        if (lore != null && lore.length > 0) m.setLore(Arrays.asList(lore));
+        if (lore != null && lore.length > 0)
+            m.setLore(Arrays.asList(lore));
         i.setItemMeta(m);
         return i;
     }
@@ -324,7 +333,8 @@ public class LootTableBrowser implements Listener {
         }
 
         List<NamespacedKey> getFilteredKeys() {
-            if (currentFilter == null || currentFilter.isEmpty()) return allKeys;
+            if (currentFilter == null || currentFilter.isEmpty())
+                return allKeys;
             String f = currentFilter.toLowerCase();
             return allKeys.stream()
                     .filter(k -> k.getKey().toLowerCase().contains(f) || k.getNamespace().toLowerCase().contains(f))

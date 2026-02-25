@@ -115,16 +115,19 @@ public class VillagerTradeListener implements Listener {
 
             // Set display name, lore, and item model
             if (itemData.getDisplayName() != null) {
-                result.editMeta(meta -> {
+                org.bukkit.inventory.meta.ItemMeta meta = result.getItemMeta();
+                if (meta != null) {
                     meta.setDisplayName(itemData.getDisplayName());
                     if (!itemData.getLore().isEmpty()) {
                         meta.setLore(itemData.getLore());
                     }
-                    // Apply item model if specified
+                    // Apply item model if specified (version-aware)
                     if (itemData.getItemModel() != null && !itemData.getItemModel().isEmpty()) {
-                        meta.setItemModel(org.bukkit.NamespacedKey.fromString(itemData.getItemModel()));
+                        org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemData.getItemModel(),
+                                itemData.getCustomModelData());
                     }
-                });
+                    result.setItemMeta(meta);
+                }
             }
 
             // Tag the item for the appropriate slot if specified

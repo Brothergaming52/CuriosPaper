@@ -12,6 +12,8 @@ import java.util.Map;
 public class ConfigManager {
     private final CuriosPaper plugin;
     private final Map<String, SlotConfiguration> slotConfigurations;
+    private int mainGuiSize;
+    private final Map<String, Integer> mainLayout;
 
     private static final int MIN_SLOT_AMOUNT = 1;
     private static final int MAX_SLOT_AMOUNT = 54;
@@ -20,6 +22,7 @@ public class ConfigManager {
     public ConfigManager(CuriosPaper plugin) {
         this.plugin = plugin;
         this.slotConfigurations = new HashMap<>();
+        this.mainLayout = new HashMap<>();
         loadConfigurations();
     }
 
@@ -49,6 +52,8 @@ public class ConfigManager {
                 errorCount++;
             }
         }
+
+        loadGuiSettings();
 
         plugin.getLogger().info("Slot configuration loading complete:");
         plugin.getLogger().info("  Successfully loaded: " + loadedCount);
@@ -107,14 +112,21 @@ public class ConfigManager {
 
         String modelStr = section.getString("item-model", null);
         NamespacedKey ItemModel = null;
+        Integer customModelData = null;
 
         if (modelStr != null && !modelStr.isEmpty()) {
-            // Accept both "curiospaper:head_slot" and "head_slot"
-            if (modelStr.contains(":")) {
-                ItemModel = NamespacedKey.fromString(modelStr);
-            } else {
-                ItemModel = new NamespacedKey(plugin, modelStr);
+            // Check if it's an integer (CustomModelData)
+            try {
+                customModelData = Integer.parseInt(modelStr);
+            } catch (NumberFormatException e) {
+                // Not an integer, treat as NamespacedKey
+                ItemModel = org.bg52.curiospaper.util.VersionUtil.parseNamespacedKey(modelStr);
             }
+        }
+
+        // Explicit custom-model-data override
+        if (section.contains("custom-model-data")) {
+            customModelData = section.getInt("custom-model-data");
         }
 
         // Load lore (optional)
@@ -123,7 +135,7 @@ public class ConfigManager {
             plugin.getLogger().info("  Note: Slot '" + key + "' has no lore defined.");
         }
 
-        return new SlotConfiguration(key, name, icon, ItemModel, amount, lore);
+        return new SlotConfiguration(key, name, icon, ItemModel, customModelData, amount, lore);
     }
 
     public Map<String, SlotConfiguration> getSlotConfigurations() {
@@ -214,6 +226,44 @@ public class ConfigManager {
         }
 
         return report;
+    }
+
+    private void loadGuiSettings() {
+        mainGuiSize = plugin.getConfig().getInt("gui.main-slots", 54);
+        mainLayout.clear();
+
+        ConfigurationSection layoutSection = plugin.getConfig().getConfigurationSection("gui.main-layout");
+        if (layoutSection != null) {
+            for (String key : layoutSection.getKeys(false)) {
+                mainLayout.put(key.toLowerCase(), layoutSection.getInt(key));
+            }
+        }
+    }
+
+    public int getMainGuiSize() {
+        return mainGuiSize;
+    }
+
+    public Map<String, Integer> getMainLayout() {
+        return new HashMap<>(mainLayout);
+    }
+
+    public void saveMainLayout(Map<String, Integer> layout) {
+        this.mainLayout.clear();
+        this.mainLayout.putAll(layout);
+
+        ConfigurationSection guiSection = plugin.getConfig().getConfigurationSection("gui");
+        if (guiSection == null) {
+            guiSection = plugin.getConfig().createSection("gui");
+        }
+
+        ConfigurationSection layoutSection = guiSection.createSection("main-layout");
+        for (Map.Entry<String, Integer> entry : layout.entrySet()) {
+            layoutSection.set(entry.getKey(), entry.getValue());
+        }
+
+        plugin.saveConfig();
+        plugin.getLogger().info("✓ Saved main GUI layout to config.yml");
     }
 
     public static class ConfigValidationReport {

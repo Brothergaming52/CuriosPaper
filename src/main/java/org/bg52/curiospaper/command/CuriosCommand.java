@@ -5,6 +5,7 @@ import org.bg52.curiospaper.api.CuriosPaperAPI;
 import org.bg52.curiospaper.resourcepack.ResourcePackManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
@@ -39,20 +40,22 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
     }
 
     private byte[] hexToBytes(String hex) {
-        if (hex == null) return null;
+        if (hex == null)
+            return null;
         hex = hex.trim();
-        if (hex.length() % 2 != 0) return null;
+        if (hex.length() % 2 != 0)
+            return null;
 
         byte[] data = new byte[hex.length() / 2];
         for (int i = 0; i < hex.length(); i += 2) {
             int hi = Character.digit(hex.charAt(i), 16);
             int lo = Character.digit(hex.charAt(i + 1), 16);
-            if (hi < 0 || lo < 0) return null;
+            if (hi < 0 || lo < 0)
+                return null;
             data[i / 2] = (byte) ((hi << 4) + lo);
         }
         return data;
     }
-
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -71,6 +74,10 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
 
             case "debug":
                 handleDebug(sender, label, Arrays.copyOfRange(args, 1, args.length));
+                return true;
+
+            case "editmenu":
+                handleEditMenu(sender);
                 return true;
 
             default:
@@ -127,8 +134,10 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
         int conflictCount = rpManager.getConflictLog().size();
 
         sender.sendMessage(ChatColor.GOLD + "==== CuriosPaper Resource Pack ====");
-        sender.sendMessage(ChatColor.YELLOW + "Enabled: " + (enabled ? ChatColor.GREEN + "true" : ChatColor.RED + "false"));
-        sender.sendMessage(ChatColor.YELLOW + "Host: " + ChatColor.AQUA + host + ChatColor.GRAY + ":" + ChatColor.AQUA + port);
+        sender.sendMessage(
+                ChatColor.YELLOW + "Enabled: " + (enabled ? ChatColor.GREEN + "true" : ChatColor.RED + "false"));
+        sender.sendMessage(
+                ChatColor.YELLOW + "Host: " + ChatColor.AQUA + host + ChatColor.GRAY + ":" + ChatColor.AQUA + port);
 
         sender.sendMessage(ChatColor.YELLOW + "Pack file: " +
                 (pack.exists() ? ChatColor.GREEN + pack.getName() + ChatColor.GRAY + " (" + humanSize + ")"
@@ -155,18 +164,12 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
         }
 
         String url = rpManager.getPackUrl();
-        String hashHex = rpManager.getPackHash();
-        byte[] hashBytes = hexToBytes(hashHex);
 
         int count = 0;
         for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
             try {
-                if (hashBytes != null) {
-                    // Newer API: you can also use the variant with required + prompt if you want
-                    p.setResourcePack(url, hashBytes);
-                } else {
-                    p.setResourcePack(url);
-                }
+                // Use single-arg setResourcePack(url) for maximum version compatibility (1.14+)
+                p.setResourcePack(url);
                 count++;
             } catch (Exception e) {
                 plugin.getLogger().warning("[CuriosPaper] Failed to send resource pack to " + p.getName()
@@ -204,6 +207,19 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private void handleEditMenu(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ChatColor.RED + "Only players can use this command.");
+            return;
+        }
+
+        if (!sender.hasPermission("curiospaper.admin")) {
+            sender.sendMessage(ChatColor.RED + "You don't have permission to use this command.");
+            return;
+        }
+
+        plugin.getEditMenuGUI().open((Player) sender);
+    }
 
     // ---------------- DEBUG SUBCOMMANDS ----------------
 
@@ -260,11 +276,12 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
             List<ItemStack> items = api.getEquippedItems(uuid, slotType);
 
             sender.sendMessage(ChatColor.AQUA + "Slot: " + slotType +
-                    ChatColor.GRAY + " (count=" + amount + ", equipped=" + api.countEquippedItems(uuid, slotType) + ")");
+                    ChatColor.GRAY + " (count=" + amount + ", equipped=" + api.countEquippedItems(uuid, slotType)
+                    + ")");
 
             for (int i = 0; i < items.size(); i++) {
                 ItemStack stack = items.get(i);
-                if (stack == null || stack.getType().isAir()) {
+                if (stack == null || stack.getType() == Material.AIR) {
                     continue;
                 }
 
@@ -282,20 +299,30 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
 
                 sender.sendMessage(ChatColor.GRAY + "     Required Slot: "
                         + (requiredSlot != null
-                        ? (slotValid ? ChatColor.GREEN + requiredSlot : ChatColor.RED + requiredSlot + " (INVALID)")
-                        : ChatColor.RED + "none"));
+                                ? (slotValid ? ChatColor.GREEN + requiredSlot
+                                        : ChatColor.RED + requiredSlot + " (INVALID)")
+                                : ChatColor.RED + "none"));
 
                 // PDC debug
                 if (meta != null) {
-                    PersistentDataContainer pdc = meta.getPersistentDataContainer();
-                    Set<NamespacedKey> keys = pdc.getKeys();
-                    if (!keys.isEmpty()) {
-                        sender.sendMessage(ChatColor.GRAY + "     PDC Keys:");
-                        for (NamespacedKey key : keys) {
-                            sender.sendMessage(ChatColor.DARK_GRAY + "       - "
-                                    + ChatColor.YELLOW + key.getNamespace()
-                                    + ChatColor.GRAY + ":" + ChatColor.YELLOW + key.getKey());
-                        }
+                    // PDC debug
+                    if (meta != null) {
+                        PersistentDataContainer pdc = meta.getPersistentDataContainer();
+                        // On 1.14 getKeys() might not exist or be empty.
+                        // We can't iterate easily without knowing keys in 1.14.
+                        // For debug, we just show what we know or skip
+                        /*
+                         * Set<NamespacedKey> keys = pdc.getKeys();
+                         * if (!keys.isEmpty()) {
+                         * sender.sendMessage(ChatColor.GRAY + "     PDC Keys:");
+                         * for (NamespacedKey key : keys) {
+                         * sender.sendMessage(ChatColor.DARK_GRAY + "       - "
+                         * + ChatColor.YELLOW + key.getNamespace()
+                         * + ChatColor.GRAY + ":" + ChatColor.YELLOW + key.getKey());
+                         * }
+                         * }
+                         */
+                        sender.sendMessage(ChatColor.GRAY + "     PDC Keys: (Hidden/Unavailable on 1.14)");
                     }
                 }
             }
@@ -311,7 +338,7 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
         Player player = (Player) sender;
         ItemStack stack = player.getInventory().getItemInMainHand();
 
-        if (stack == null || stack.getType().isAir()) {
+        if (stack == null || stack.getType() == Material.AIR) {
             sender.sendMessage(ChatColor.RED + "You must be holding an item in your main hand.");
             return;
         }
@@ -346,17 +373,22 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
                             : ChatColor.RED + "none"));
 
             // Dump all PDC keys
-            Set<NamespacedKey> keys = pdc.getKeys();
-            if (!keys.isEmpty()) {
-                sender.sendMessage(ChatColor.YELLOW + "Curios PDC keys:");
-                for (NamespacedKey key : keys) {
-                    sender.sendMessage(ChatColor.DARK_GRAY + " - "
-                            + ChatColor.YELLOW + key.getNamespace()
-                            + ChatColor.GRAY + ":" + ChatColor.YELLOW + key.getKey());
-                }
-            } else {
-                sender.sendMessage(ChatColor.YELLOW + "Curios PDC keys: " + ChatColor.GRAY + "none");
-            }
+            // Dump all PDC keys
+            /*
+             * Set<NamespacedKey> keys = pdc.getKeys();
+             * if (!keys.isEmpty()) {
+             * sender.sendMessage(ChatColor.YELLOW + "Curios PDC keys:");
+             * for (NamespacedKey key : keys) {
+             * sender.sendMessage(ChatColor.DARK_GRAY + " - "
+             * + ChatColor.YELLOW + key.getNamespace()
+             * + ChatColor.GRAY + ":" + ChatColor.YELLOW + key.getKey());
+             * }
+             * } else {
+             * sender.sendMessage(ChatColor.YELLOW + "Curios PDC keys: " + ChatColor.GRAY +
+             * "none");
+             * }
+             */
+            sender.sendMessage(ChatColor.YELLOW + "Curios PDC keys: (Hidden/Unavailable on 1.14)");
         } else {
             sender.sendMessage(ChatColor.YELLOW + "Item has no meta.");
         }
@@ -368,7 +400,7 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
 
         if (args.length == 1) {
-            return partial(args[0], Arrays.asList("rp", "debug"));
+            return partial(args[0], Arrays.asList("rp", "debug", "editmenu"));
         }
 
         if (args.length == 2) {
@@ -405,13 +437,15 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.YELLOW + "/" + label + " rp info");
         sender.sendMessage(ChatColor.YELLOW + "/" + label + " rp rebuild");
         sender.sendMessage(ChatColor.YELLOW + "/" + label + " rp conflicts");
+        sender.sendMessage(ChatColor.YELLOW + "/" + label + " editmenu");
         sender.sendMessage(ChatColor.YELLOW + "/" + label + " debug player <name>");
         sender.sendMessage(ChatColor.YELLOW + "/" + label + " debug item");
     }
 
     private String humanReadableSize(long bytes) {
-        if (bytes <= 0) return "0 B";
-        String[] units = {"B", "KB", "MB", "GB"};
+        if (bytes <= 0)
+            return "0 B";
+        String[] units = { "B", "KB", "MB", "GB" };
         int unitIndex = (int) (Math.log10(bytes) / Math.log10(1024));
         double value = bytes / Math.pow(1024, unitIndex);
         return SIZE_FORMAT.format(value) + " " + units[unitIndex];

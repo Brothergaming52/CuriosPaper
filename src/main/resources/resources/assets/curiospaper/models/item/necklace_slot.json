@@ -2,5 +2,11 @@
   "parent": "item/generated",
   "textures": {
     "layer0": "curiospaper:item/necklace_slot"
-  }
+  },
+  "overrides": [
+    {
+      "predicate": { "custom_model_data": 10002 },
+      "model": "curiospaper:item/necklace_slot"
+    }
+  ]
 }

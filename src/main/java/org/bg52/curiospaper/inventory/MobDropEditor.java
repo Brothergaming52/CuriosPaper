@@ -67,9 +67,11 @@ public class MobDropEditor implements Listener {
 
         // Fill 0..44 with empty glass panes to create "space"
         ItemStack empty = createGuiItem(Material.GRAY_STAINED_GLASS_PANE, " ");
-        for (int i = 0; i <= 44; i++) gui.setItem(i, empty);
+        for (int i = 0; i <= 44; i++)
+            gui.setItem(i, empty);
 
-        // show existing mob drop entries visually in the top-left area if any (optional)
+        // show existing mob drop entries visually in the top-left area if any
+        // (optional)
         List<MobDropData> drops = itemData.getMobDrops();
         for (int i = 0; i < drops.size() && i <= 26; i++) { // show up to 27 visually
             MobDropData d = drops.get(i);
@@ -81,17 +83,18 @@ public class MobDropEditor implements Listener {
         }
 
         // Last row (45..53) controls
-        gui.setItem(45, createGuiItem(Material.LIME_CONCRETE, "§a➕ Add"));             // Add
+        gui.setItem(45, createGuiItem(Material.LIME_CONCRETE, "§a➕ Add")); // Add
         gui.setItem(46, createGuiItem(Material.RED_CONCRETE, "§c✖ Delete Selected")); // Delete
         gui.setItem(47, createGuiItem(Material.YELLOW_CONCRETE, "§e✎ Edit Selected"));// Edit
-        gui.setItem(48, createGuiItem(Material.BOOK, "§dℹ Preview Selected"));       // Preview (optional)
-        gui.setItem(49, createGuiItem(Material.COMPASS, "§eSearch"));                // Search (opens chat)
-        gui.setItem(52, createGuiItem(Material.ARROW, "§e← Back"));                  // Back
-        gui.setItem(53, createGuiItem(Material.ARMOR_STAND, "§b⚙ Save"));            // Save
+        gui.setItem(48, createGuiItem(Material.BOOK, "§dℹ Preview Selected")); // Preview (optional)
+        gui.setItem(49, createGuiItem(Material.COMPASS, "§eSearch")); // Search (opens chat)
+        gui.setItem(52, createGuiItem(Material.ARROW, "§e← Back")); // Back
+        gui.setItem(53, createGuiItem(Material.ARMOR_STAND, "§b⚙ Save")); // Save
 
         // filler for remaining last-row slots
         for (int i = 50; i <= 51; i++) {
-            if (gui.getItem(i) == null) gui.setItem(i, createGuiItem(Material.BLACK_STAINED_GLASS_PANE, " "));
+            if (gui.getItem(i) == null)
+                gui.setItem(i, createGuiItem(Material.BLACK_STAINED_GLASS_PANE, " "));
         }
 
         player.openInventory(gui);
@@ -105,7 +108,8 @@ public class MobDropEditor implements Listener {
     private Inventory createMobSelectGui(String itemId, int page, String filter) {
         // Title will contain page and filter for clarity
         String title = MOB_SELECT_TITLE_BASE + " - p" + (page + 1);
-        if (filter != null && !filter.isEmpty()) title += " (" + filter + ")";
+        if (filter != null && !filter.isEmpty())
+            title += " (" + filter + ")";
         title += " - " + itemId;
 
         Inventory inv = Bukkit.createInventory(null, 54, title);
@@ -117,12 +121,15 @@ public class MobDropEditor implements Listener {
                 .collect(Collectors.toList());
 
         // include special boss icons at the end (if they exist on server version)
-        if (hasMaterial(Material.DRAGON_EGG)) allEggs.add(Material.DRAGON_EGG);
-        if (hasMaterial(Material.WITHER_SKELETON_SKULL)) allEggs.add(Material.WITHER_SKELETON_SKULL);
+        if (hasMaterial(Material.DRAGON_EGG))
+            allEggs.add(Material.DRAGON_EGG);
+        if (hasMaterial(Material.WITHER_SKELETON_SKULL))
+            allEggs.add(Material.WITHER_SKELETON_SKULL);
 
-        // apply filter if present (case-insensitive substring match against material name)
+        // apply filter if present (case-insensitive substring match against material
+        // name)
         List<Material> filtered = allEggs;
-        if (filter != null && !filter.isBlank()) {
+        if (filter != null && !filter.trim().isEmpty()) {
             String q = filter.trim().toUpperCase();
             filtered = allEggs.stream()
                     .filter(m -> m.name().contains(q))
@@ -156,13 +163,15 @@ public class MobDropEditor implements Listener {
         // show page indicator in center bottom
         inv.setItem(52, createGuiItem(Material.PAPER, "§7Page " + (safePage + 1) + " / " + pages,
                 "§7Results: " + total,
-                filter != null && !filter.isBlank() ? "§7Filter: " + filter : "§7No filter"));
+                filter != null && !filter.trim().isEmpty() ? "§7Filter: " + filter : "§7No filter"));
 
         // next button placed at slot 51 to avoid conflicting with center indicator
         inv.setItem(51, createGuiItem(Material.ARROW, "§eNext"));
 
         // filler for any other empty bottom slots
-        for (int i = 46; i <= 50; i++) if (inv.getItem(i) == null) inv.setItem(i, createGuiItem(Material.BLACK_STAINED_GLASS_PANE, " "));
+        for (int i = 46; i <= 50; i++)
+            if (inv.getItem(i) == null)
+                inv.setItem(i, createGuiItem(Material.BLACK_STAINED_GLASS_PANE, " "));
 
         return inv;
     }
@@ -179,7 +188,8 @@ public class MobDropEditor implements Listener {
     // --- Event handling ---
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) return;
+        if (!(event.getWhoClicked() instanceof Player))
+            return;
         Player player = (Player) event.getWhoClicked();
         String title = event.getView().getTitle();
 
@@ -188,18 +198,22 @@ public class MobDropEditor implements Listener {
             event.setCancelled(true);
             int raw = event.getRawSlot();
             int topSize = event.getView().getTopInventory().getSize();
-            if (raw >= topSize) return;
+            if (raw >= topSize)
+                return;
             String itemId = editing.get(player.getUniqueId());
-            if (itemId == null) return;
+            if (itemId == null)
+                return;
             ItemData itemData = itemDataManager.getItemData(itemId);
-            if (itemData == null) return;
+            if (itemData == null)
+                return;
             List<MobDropData> drops = itemData.getMobDrops();
 
             // selection area (0..26 shown)
             if (raw >= 0 && raw <= 26) {
                 if (raw < drops.size()) {
                     selectedIndex.put(player.getUniqueId(), raw);
-                    player.sendMessage("§aSelected mob drop #" + (raw + 1) + " (" + drops.get(raw).getEntityType() + ")");
+                    player.sendMessage(
+                            "§aSelected mob drop #" + (raw + 1) + " (" + drops.get(raw).getEntityType() + ")");
                     Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
                 }
                 return;
@@ -248,16 +262,21 @@ public class MobDropEditor implements Listener {
                                     // reopen mob select with old values
                                     int p = mobSelectPage.getOrDefault(player.getUniqueId(), 0);
                                     String f = mobSelectFilter.getOrDefault(player.getUniqueId(), "");
-                                    Bukkit.getScheduler().runTaskLater(plugin, () -> player.openInventory(createMobSelectGui(itemId, p, f)), 2L);
+                                    Bukkit.getScheduler().runTaskLater(plugin,
+                                            () -> player.openInventory(createMobSelectGui(itemId, p, f)), 2L);
                                     return;
                                 }
                                 String q = query.trim();
                                 mobSelectFilter.put(player.getUniqueId(), q);
                                 mobSelectPage.put(player.getUniqueId(), 0);
-                                Bukkit.getScheduler().runTaskLater(plugin, () -> player.openInventory(createMobSelectGui(itemId, 0, q)), 2L);
-                            }, () -> Bukkit.getScheduler().runTaskLater(plugin, () -> player.openInventory(createMobSelectGui(itemId,
-                                    mobSelectPage.getOrDefault(player.getUniqueId(), 0),
-                                    mobSelectFilter.getOrDefault(player.getUniqueId(), ""))), 2L));
+                                Bukkit.getScheduler().runTaskLater(plugin,
+                                        () -> player.openInventory(createMobSelectGui(itemId, 0, q)), 2L);
+                            },
+                            () -> Bukkit.getScheduler().runTaskLater(plugin,
+                                    () -> player.openInventory(createMobSelectGui(itemId,
+                                            mobSelectPage.getOrDefault(player.getUniqueId(), 0),
+                                            mobSelectFilter.getOrDefault(player.getUniqueId(), ""))),
+                                    2L));
                     break;
                 case 52: // Back -> main edit GUI
                     player.closeInventory();
@@ -276,7 +295,8 @@ public class MobDropEditor implements Listener {
             event.setCancelled(true);
             int raw = event.getRawSlot();
             int topSize = event.getView().getTopInventory().getSize();
-            if (raw >= topSize) return;
+            if (raw >= topSize)
+                return;
 
             // Extract itemId and also detect page/filter from title
             String titleSuffix = title.substring(MOB_SELECT_TITLE_BASE.length()).trim();
@@ -297,7 +317,8 @@ public class MobDropEditor implements Listener {
                 int newPage = Math.max(0, current - 1);
                 mobSelectPage.put(player.getUniqueId(), newPage);
                 player.closeInventory();
-                Bukkit.getScheduler().runTaskLater(plugin, () -> player.openInventory(createMobSelectGui(itemId, newPage, filter)), 2L);
+                Bukkit.getScheduler().runTaskLater(plugin,
+                        () -> player.openInventory(createMobSelectGui(itemId, newPage, filter)), 2L);
                 return;
             }
 
@@ -309,10 +330,13 @@ public class MobDropEditor implements Listener {
                     String q = query == null ? "" : query.trim();
                     mobSelectFilter.put(player.getUniqueId(), q);
                     mobSelectPage.put(player.getUniqueId(), 0);
-                    Bukkit.getScheduler().runTaskLater(plugin, () -> player.openInventory(createMobSelectGui(itemId, 0, q)), 2L);
-                }, () -> Bukkit.getScheduler().runTaskLater(plugin, () -> player.openInventory(createMobSelectGui(itemId,
-                        mobSelectPage.getOrDefault(player.getUniqueId(), 0),
-                        mobSelectFilter.getOrDefault(player.getUniqueId(), ""))), 2L));
+                    Bukkit.getScheduler().runTaskLater(plugin,
+                            () -> player.openInventory(createMobSelectGui(itemId, 0, q)), 2L);
+                }, () -> Bukkit.getScheduler().runTaskLater(plugin,
+                        () -> player.openInventory(createMobSelectGui(itemId,
+                                mobSelectPage.getOrDefault(player.getUniqueId(), 0),
+                                mobSelectFilter.getOrDefault(player.getUniqueId(), ""))),
+                        2L));
                 return;
             }
 
@@ -325,7 +349,8 @@ public class MobDropEditor implements Listener {
                 int newPage = Math.min(pages - 1, current + 1);
                 mobSelectPage.put(player.getUniqueId(), newPage);
                 player.closeInventory();
-                Bukkit.getScheduler().runTaskLater(plugin, () -> player.openInventory(createMobSelectGui(itemId, newPage, filter)), 2L);
+                Bukkit.getScheduler().runTaskLater(plugin,
+                        () -> player.openInventory(createMobSelectGui(itemId, newPage, filter)), 2L);
                 return;
             }
 
@@ -339,7 +364,8 @@ public class MobDropEditor implements Listener {
             // click on an item slot 0..44
             if (raw >= 0 && raw < ITEMS_PER_PAGE) {
                 ItemStack clicked = event.getCurrentItem();
-                if (clicked == null || clicked.getType().isAir()) return;
+                if (clicked == null || clicked.getType() == Material.AIR)
+                    return;
 
                 Material mat = clicked.getType();
                 String mobName;
@@ -357,7 +383,8 @@ public class MobDropEditor implements Listener {
                 pendingMobForPlayer.put(player.getUniqueId(), mobName);
                 // open preset GUI for chosen mob
                 player.closeInventory();
-                Bukkit.getScheduler().runTaskLater(plugin, () -> player.openInventory(createPresetGui(itemId, mobName)), 2L);
+                Bukkit.getScheduler().runTaskLater(plugin, () -> player.openInventory(createPresetGui(itemId, mobName)),
+                        2L);
             }
 
             return;
@@ -368,15 +395,18 @@ public class MobDropEditor implements Listener {
             event.setCancelled(true);
             int raw = event.getRawSlot();
             int topSize = event.getView().getTopInventory().getSize();
-            if (raw >= topSize) return;
+            if (raw >= topSize)
+                return;
             String titleSuffix = title.substring(PRESET_TITLE.length()).trim();
             // title format: "<mobName> - <itemId>"
             String[] parts = titleSuffix.split("-", 2);
-            if (parts.length < 2) return;
+            if (parts.length < 2)
+                return;
             String mobName = parts[0].trim();
             String itemId = parts[1].trim();
             ItemData itemData = itemDataManager.getItemData(itemId);
-            if (itemData == null) return;
+            if (itemData == null)
+                return;
 
             if (raw == 8) { // Custom (chat)
                 player.closeInventory();
@@ -427,7 +457,9 @@ public class MobDropEditor implements Listener {
 
         // filler
         ItemStack f = createGuiItem(Material.GRAY_STAINED_GLASS_PANE, " ");
-        for (int i = 4; i < 8; i++) if (inv.getItem(i) == null) inv.setItem(i, f);
+        for (int i = 4; i < 8; i++)
+            if (inv.getItem(i) == null)
+                inv.setItem(i, f);
         return inv;
     }
 
@@ -437,32 +469,51 @@ public class MobDropEditor implements Listener {
         chatInputManager.startSingleLineSession(player, "Chance:",
                 chanceStr -> {
                     if (chanceStr == null) {
-                        reopenToEditGui(player, itemId); return;
+                        reopenToEditGui(player, itemId);
+                        return;
                     }
                     double chance;
                     try {
                         chance = Double.parseDouble(chanceStr);
                     } catch (NumberFormatException ex) {
                         player.sendMessage("§cInvalid number.");
-                        reopenToEditGui(player, itemId); return;
+                        reopenToEditGui(player, itemId);
+                        return;
                     }
                     chatInputManager.startSingleLineSession(player, "Min amount (>=1):",
                             minStr -> {
-                                if (minStr == null) { reopenToEditGui(player, itemId); return; }
+                                if (minStr == null) {
+                                    reopenToEditGui(player, itemId);
+                                    return;
+                                }
                                 int min;
-                                try { min = Math.max(1, Integer.parseInt(minStr)); } catch (NumberFormatException ex) {
-                                    player.sendMessage("§cInvalid integer."); reopenToEditGui(player, itemId); return;
+                                try {
+                                    min = Math.max(1, Integer.parseInt(minStr));
+                                } catch (NumberFormatException ex) {
+                                    player.sendMessage("§cInvalid integer.");
+                                    reopenToEditGui(player, itemId);
+                                    return;
                                 }
                                 chatInputManager.startSingleLineSession(player, "Max amount (>=min):",
                                         maxStr -> {
-                                            if (maxStr == null) { reopenToEditGui(player, itemId); return; }
+                                            if (maxStr == null) {
+                                                reopenToEditGui(player, itemId);
+                                                return;
+                                            }
                                             int max;
-                                            try { max = Math.max(min, Integer.parseInt(maxStr)); } catch (NumberFormatException ex) {
-                                                player.sendMessage("§cInvalid integer."); reopenToEditGui(player, itemId); return;
+                                            try {
+                                                max = Math.max(min, Integer.parseInt(maxStr));
+                                            } catch (NumberFormatException ex) {
+                                                player.sendMessage("§cInvalid integer.");
+                                                reopenToEditGui(player, itemId);
+                                                return;
                                             }
 
                                             ItemData itemData = itemDataManager.getItemData(itemId);
-                                            if (itemData == null) { player.sendMessage("§cItem not found."); return; }
+                                            if (itemData == null) {
+                                                player.sendMessage("§cItem not found.");
+                                                return;
+                                            }
 
                                             String mobUpper = mobName.toUpperCase();
                                             MobDropData d = new MobDropData(mobUpper, chance, min, max);
@@ -471,7 +522,8 @@ public class MobDropEditor implements Listener {
                                             player.sendMessage("§aAdded mob drop: " + d);
 
                                             // close and reopen main edit GUI
-                                            Bukkit.getScheduler().runTaskLater(plugin, () -> plugin.getEditGUI().open(player, itemId), 2L);
+                                            Bukkit.getScheduler().runTaskLater(plugin,
+                                                    () -> plugin.getEditGUI().open(player, itemId), 2L);
                                         },
                                         () -> reopenToEditGui(player, itemId));
                             },
@@ -490,20 +542,26 @@ public class MobDropEditor implements Listener {
                 .filter(m -> m.name().endsWith("_SPAWN_EGG"))
                 .sorted(Comparator.comparing(Enum::name))
                 .collect(Collectors.toList());
-        if (hasMaterial(Material.DRAGON_EGG)) all.add(Material.DRAGON_EGG);
-        if (hasMaterial(Material.WITHER_SKELETON_SKULL)) all.add(Material.WITHER_SKELETON_SKULL);
+        if (hasMaterial(Material.DRAGON_EGG))
+            all.add(Material.DRAGON_EGG);
+        if (hasMaterial(Material.WITHER_SKELETON_SKULL))
+            all.add(Material.WITHER_SKELETON_SKULL);
 
-        if (filter == null || filter.isBlank()) return all;
+        if (filter == null || filter.trim().isEmpty())
+            return all;
         String q = filter.trim().toUpperCase();
         return all.stream().filter(m -> m.name().contains(q)).collect(Collectors.toList());
     }
 
     // pretty display name for an egg
     private String prettifyEggName(Material m) {
-        if (m == Material.DRAGON_EGG) return "Ender Dragon";
-        if (m == Material.WITHER_SKELETON_SKULL) return "Wither";
+        if (m == Material.DRAGON_EGG)
+            return "Ender Dragon";
+        if (m == Material.WITHER_SKELETON_SKULL)
+            return "Wither";
         String s = m.name();
-        if (s.endsWith("_SPAWN_EGG")) s = s.replace("_SPAWN_EGG", "");
+        if (s.endsWith("_SPAWN_EGG"))
+            s = s.replace("_SPAWN_EGG", "");
         return s.replace('_', ' ');
     }
 
@@ -511,7 +569,8 @@ public class MobDropEditor implements Listener {
         // fullTitle minus base: e.g. " - p1 (filter) - <itemId>" or " - p1 - <itemId>"
         // We'll take substring after the last '-' char
         int idx = fullTitle.lastIndexOf('-');
-        if (idx == -1) return null;
+        if (idx == -1)
+            return null;
         String tail = fullTitle.substring(idx + 1).trim();
         return tail.isEmpty() ? null : tail;
     }
@@ -521,7 +580,8 @@ public class MobDropEditor implements Listener {
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(name);
-            if (lore.length > 0) meta.setLore(Arrays.asList(lore));
+            if (lore.length > 0)
+                meta.setLore(Arrays.asList(lore));
             item.setItemMeta(meta);
         }
         return item;

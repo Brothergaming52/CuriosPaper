@@ -17,10 +17,12 @@ import java.util.UUID;
 public class CuriosPaperAPIImpl implements CuriosPaperAPI {
     private final CuriosPaper plugin;
     private final NamespacedKey slotTypeKey;
+    private final NamespacedKey itemIdKey;
 
     public CuriosPaperAPIImpl(CuriosPaper plugin) {
         this.plugin = plugin;
         this.slotTypeKey = new NamespacedKey(plugin, "curious_slot_type");
+        this.itemIdKey = new NamespacedKey(plugin, "curios_custom_id");
     }
 
     @Override
@@ -29,8 +31,65 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
     }
 
     @Override
+    public NamespacedKey getItemIdKey() {
+        return itemIdKey;
+    }
+
+    @Override
+    public ItemStack createItemStack(String itemId) {
+        org.bg52.curiospaper.data.ItemData itemData = getItemData(itemId);
+        if (itemData == null) {
+            return null;
+        }
+
+        try {
+            org.bukkit.Material material = org.bukkit.Material.valueOf(itemData.getMaterial().toUpperCase());
+            ItemStack item = new ItemStack(material);
+
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                // Set display name
+                if (itemData.getDisplayName() != null) {
+                    meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', itemData.getDisplayName()));
+                }
+
+                // Set lore
+                if (!itemData.getLore().isEmpty()) {
+                    List<String> coloredLore = new ArrayList<>();
+                    for (String line : itemData.getLore()) {
+                        coloredLore.add(ChatColor.translateAlternateColorCodes('&', line));
+                    }
+                    meta.setLore(coloredLore);
+                }
+
+                // Set item model
+                if (itemData.getItemModel() != null && !itemData.getItemModel().isEmpty()) {
+                    org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemData.getItemModel(),
+                            itemData.getCustomModelData());
+                }
+
+                // Set custom ID in PDC
+                PersistentDataContainer container = meta.getPersistentDataContainer();
+                container.set(itemIdKey, PersistentDataType.STRING, itemId);
+
+                item.setItemMeta(meta);
+            }
+
+            // Tag for slot if applicable
+            if (itemData.getSlotType() != null && !itemData.getSlotType().isEmpty()) {
+                item = tagAccessoryItem(item, itemData.getSlotType());
+            }
+
+            return item;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to create ItemStack for " + itemId + ": " + e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
     public boolean isValidAccessory(ItemStack itemStack, String slotType) {
-        if (itemStack == null || itemStack.getType().isAir()) {
+        if (itemStack == null || itemStack.getType() == org.bukkit.Material.AIR) {
             return false;
         }
 
@@ -58,7 +117,7 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
 
     @Override
     public ItemStack tagAccessoryItem(ItemStack itemStack, String slotType, boolean addLore) {
-        if (itemStack == null || itemStack.getType().isAir()) {
+        if (itemStack == null || itemStack.getType() == org.bukkit.Material.AIR) {
             throw new IllegalArgumentException("Cannot tag air or null items");
         }
 
@@ -81,9 +140,21 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
                 SlotConfiguration config = plugin.getConfigManager().getSlotConfiguration(slotType);
                 if (config != null) {
                     List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
-                    lore.add("");
-                    lore.add(ChatColor.GRAY + "Required Slot: " + ChatColor.RESET + config.getName());
-                    meta.setLore(lore);
+                    String loreLine = ChatColor.GRAY + "Required Slot: " + ChatColor.RESET + config.getName();
+
+                    boolean hasLine = false;
+                    for (String line : lore) {
+                        if (line.equals(loreLine)) {
+                            hasLine = true;
+                            break;
+                        }
+                    }
+
+                    if (!hasLine) {
+                        lore.add("");
+                        lore.add(loreLine);
+                        meta.setLore(lore);
+                    }
                 }
             }
 
@@ -95,7 +166,7 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
 
     @Override
     public String getAccessorySlotType(ItemStack itemStack) {
-        if (itemStack == null || itemStack.getType().isAir()) {
+        if (itemStack == null || itemStack.getType() == org.bukkit.Material.AIR) {
             return null;
         }
 
@@ -177,7 +248,7 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
     @Override
     public ItemStack removeEquippedItemAt(UUID playerId, String slotType, int index) {
         ItemStack removed = getEquippedItem(playerId, slotType, index);
-        if (removed != null && !removed.getType().isAir()) {
+        if (removed != null && removed.getType() != org.bukkit.Material.AIR) {
             setEquippedItem(playerId, slotType, index, null);
             return removed;
         }
@@ -223,7 +294,7 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
     @Override
     public boolean hasEquippedItems(UUID playerId, String slotType) {
         List<ItemStack> items = getEquippedItems(playerId, slotType);
-        return items.stream().anyMatch(item -> item != null && !item.getType().isAir());
+        return items.stream().anyMatch(item -> item != null && item.getType() != org.bukkit.Material.AIR);
     }
 
     @Override
@@ -235,7 +306,7 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
     public int countEquippedItems(UUID playerId, String slotType) {
         List<ItemStack> items = getEquippedItems(playerId, slotType);
         return (int) items.stream()
-                .filter(item -> item != null && !item.getType().isAir())
+                .filter(item -> item != null && item.getType() != org.bukkit.Material.AIR)
                 .count();
     }
 
@@ -243,7 +314,7 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
 
     @Override
     public boolean registerSlot(String slotType, String displayName, org.bukkit.Material icon,
-            String itemModel, int amount, java.util.List<String> lore) {
+            String itemModel, Integer customModelData, int amount, java.util.List<String> lore) {
         if (slotType == null || slotType.trim().isEmpty()) {
             plugin.getLogger().warning("Cannot register slot with null or empty type");
             return false;
@@ -268,18 +339,14 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
             amount = 54;
         }
 
-        // Parse item model
-        NamespacedKey modelKey = null;
+        // Parse item model key if present using version-safe util
+        org.bukkit.NamespacedKey modelKey = null;
         if (itemModel != null && !itemModel.isEmpty()) {
-            if (itemModel.contains(":")) {
-                modelKey = NamespacedKey.fromString(itemModel);
-            } else {
-                modelKey = new NamespacedKey(plugin, itemModel);
-            }
+            modelKey = org.bg52.curiospaper.util.VersionUtil.parseNamespacedKey(itemModel);
         }
 
         SlotConfiguration config = new SlotConfiguration(
-                slotType, displayName, icon, modelKey, amount,
+                slotType, displayName, icon, modelKey, customModelData, amount,
                 lore != null ? lore : new java.util.ArrayList<>());
 
         return plugin.getConfigManager().addSlotConfiguration(slotType, config);
@@ -299,7 +366,8 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
     public boolean registerItemRecipe(String itemId, org.bg52.curiospaper.data.RecipeData recipe) {
         org.bg52.curiospaper.manager.ItemDataManager itemDataManager = plugin.getItemDataManager();
         if (itemDataManager == null) {
-            plugin.getLogger().warning("ItemDataManager not initialized");
+            plugin.getLogger().warning(
+                    "ItemDataManager not initialized. Plugin might not work correctly because 'features.item-editor.enabled' is disabled.");
             return false;
         }
 
@@ -314,10 +382,10 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
             return false;
         }
 
-        itemData.setRecipe(recipe);
+        itemData.addRecipe(recipe);
         if (itemDataManager.saveItemData(itemId)) {
             // Register the new recipe in the server immediately
-            plugin.getRecipeListener().registerRecipe(itemData);
+            plugin.getRecipeListener().registerRecipe(itemData, recipe);
             return true;
         }
         return false;
@@ -327,7 +395,8 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
     public boolean registerItemLootTable(String itemId, org.bg52.curiospaper.data.LootTableData lootTable) {
         org.bg52.curiospaper.manager.ItemDataManager itemDataManager = plugin.getItemDataManager();
         if (itemDataManager == null) {
-            plugin.getLogger().warning("ItemDataManager not initialized");
+            plugin.getLogger().warning(
+                    "ItemDataManager not initialized. Plugin might not work correctly because 'features.item-editor.enabled' is disabled.");
             return false;
         }
 
@@ -345,6 +414,7 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
         // Check if this loot table is already registered to avoid duplicates
         for (org.bg52.curiospaper.data.LootTableData existing : itemData.getLootTables()) {
             if (isSameLootTable(existing, lootTable)) {
+                plugin.getLogger().info("Loot table for item '" + itemId + "' already exists (skipping duplicate)");
                 return true;
             }
         }
@@ -373,7 +443,8 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
     public boolean registerItemMobDrop(String itemId, org.bg52.curiospaper.data.MobDropData mobDrop) {
         org.bg52.curiospaper.manager.ItemDataManager itemDataManager = plugin.getItemDataManager();
         if (itemDataManager == null) {
-            plugin.getLogger().warning("ItemDataManager not initialized");
+            plugin.getLogger().warning(
+                    "ItemDataManager not initialized. Plugin might not work correctly because 'features.item-editor.enabled' is disabled.");
             return false;
         }
 
@@ -391,6 +462,7 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
         // Check if this mob drop is already registered to avoid duplicates
         for (org.bg52.curiospaper.data.MobDropData existing : itemData.getMobDrops()) {
             if (isSameMobDrop(existing, mobDrop)) {
+                plugin.getLogger().info("Mob drop for item '" + itemId + "' already exists (skipping duplicate)");
                 return true;
             }
         }
@@ -426,12 +498,18 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
 
     @Override
     public org.bg52.curiospaper.data.ItemData createItem(String itemId) {
-        org.bg52.curiospaper.manager.ItemDataManager itemDataManager = plugin.getItemDataManager();
+        return createItem(null, itemId);
+    }
+
+    @Override
+    public org.bg52.curiospaper.data.ItemData createItem(org.bukkit.plugin.Plugin plugin, String itemId) {
+        org.bg52.curiospaper.manager.ItemDataManager itemDataManager = this.plugin.getItemDataManager();
         if (itemDataManager == null) {
-            plugin.getLogger().warning("ItemDataManager not initialized");
+            this.plugin.getLogger().warning(
+                    "ItemDataManager not initialized. Plugin might not work correctly because 'features.item-editor.enabled' is disabled.");
             return null;
         }
-        return itemDataManager.createItem(itemId);
+        return itemDataManager.createItem(plugin, itemId);
     }
 
     @Override
@@ -447,7 +525,8 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
     public boolean registerItemVillagerTrade(String itemId, org.bg52.curiospaper.data.VillagerTradeData trade) {
         org.bg52.curiospaper.manager.ItemDataManager itemDataManager = plugin.getItemDataManager();
         if (itemDataManager == null) {
-            plugin.getLogger().warning("ItemDataManager not initialized");
+            plugin.getLogger().warning(
+                    "ItemDataManager not initialized. Plugin might not work correctly because 'features.item-editor.enabled' is disabled.");
             return false;
         }
 
@@ -465,6 +544,7 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
         // Check if this villager trade is already registered to avoid duplicates
         for (org.bg52.curiospaper.data.VillagerTradeData existing : itemData.getVillagerTrades()) {
             if (isSameVillagerTrade(existing, trade)) {
+                plugin.getLogger().info("Villager trade for item '" + itemId + "' already exists (skipping duplicate)");
                 return true;
             }
         }

@@ -1,67 +1,94 @@
----
-layout: default
-title: Home
-nav_order: 1 # This controls its position in the sidebar
----
 # CuriosPaper
 
-**CuriosPaper** is a **Curios-style accessory inventory API for Paper (Minecraft 1.21+)**.  
-It provides a **dedicated accessory GUI** (rings, charms, back-slot, etc.) and a clean, plugin-friendly **Java API** — letting server owners and plugin developers manage extra equipment slots *without messing with NBT or custom inventories*.
+**Custom Accessory Inventory System for Spigot & Paper Servers**
 
-> ⚠️ *CuriosPaper does **not** add its own items or stats — it’s an API layer.*  
-> If you want actual gear or stat-boosting items, you (or another plugin) need to supply them.*
-
+<!-- TODO: Add image - Hero banner showing the CuriosPaper logo with the plugin name and tagline, dark themed, 1200x400px -->
+<figure markdown="span" align="center">
+  <img src="images/hero-banner.png">
+</figure>
 ---
 
-## Why use CuriosPaper?
+CuriosPaper adds a fully configurable accessory slot system to your Minecraft server. Players can equip rings, necklaces, capes, belts, and more through an intuitive GUI — all powered by a flexible API that other plugins can hook into.
 
-- ✅ Adds extra equipment slot support to your server — head, neck, back, rings, charms, etc.  
-- ✅ Full customization: slot types, names, icons, GUI layout, slot counts.  
-- ✅ Automatic resource-pack generation + hosting — no manual pack building required.  
-- ✅ Persistent player accessory data with optional backups and config-driven save intervals.  
-- ✅ Lightweight and plugin-friendly: other devs can hook in via API.  
+<!-- TODO: Add image - In-game screenshot showing the main accessory GUI (Tier 1) open with all 9 slot type icons visible -->
+<figure markdown="span" align="center">
+  <img src="images/main-gui-preview.png">
+  <figcaption>Screenshot of the main accessory GUI with all 9 slot type icons</figcaption>
+</figure>
 
----
+## ✨ Key Features
 
-## At a glance
+| Feature | Description |
+|---|---|
+| **9 Default Slot Types** | Head, Necklace, Back, Body, Belt, Hands, Bracelet, Ring, Charm |
+| **In-Game Item Editor** | Create and configure custom items without editing YAML files |
+| **Ability System** | Attach potion effects and attribute modifiers to accessories |
+| **Recipe System** | Shaped, shapeless, furnace, blast furnace, smoker, anvil, and smithing table recipes |
+| **Mob Drops** | Configure custom items to drop from any mob with configurable chances |
+| **Villager Trades** | Add custom accessories to villager trade pools |
+| **Resource Pack Hosting** | Built-in HTTP server auto-generates and serves resource packs |
+| **Elytra Back Slot** | Equip elytra in the back accessory slot (1.21.3+) |
+| **Developer API** | Full API for other plugins to create and manage accessories |
+| **Version Support** | Compatible with Spigot/Paper 1.14.4 through latest |
 
-| Category | Info |
-| -------- | ---- |
-| **Supported Minecraft version** | 1.21+ |
-| **Server platform** | Paper or any compatible fork |
-| **Default slot types** | head, necklace, back, body, belt, hands, bracelet, charm, ring |
-| **Installation** | Drop the JAR into `plugins/`, then restart or reload server |
-| **Access GUI** | `/baubles`, `/b`, `/bbag` |
-| **Config file** | Auto-generated `config.yml` on first run |
-| **Data storage** | YAML (with caching + optional backups) |
-| **Resource-pack hosting** | Built-in HTTP server (configurable IP/port) |
+<!-- TODO: Add image - Side-by-side comparison showing the main GUI on the left and the slot inventory (Tier 2) on the right -->
+<figure markdown="span" align="center">
+  <img src="images/gui-comparison.png">
+  <figcaption>Screenshot of the tier 2 inventory</figcaption>
+</figure>
 
----
+## 🚀 Quick Start
 
-## Quick Start
+1. **[Install the plugin](installation/install.md)** — Drop the JAR into your `plugins/` folder
+2. **[Configure your slots](configuration/slots.md)** — Customize the 9 default accessory slots
+3. **[Create your first accessory](getting-started/first-accessory.md)** — Use the in-game editor to make items
+4. **[Set up the resource pack](installation/resource-pack.md)** — Enable custom textures for slot icons
 
-1. Install on a Paper 1.21+ server → drop JAR.  
-2. Restart server — `config.yml` is generated.  
-3. Configure resource-pack host IP/port (if needed).  
-4. Players run `/baubles` (or alias) to open the accessory GUI.  
-5. Plugin developers: hook into `CuriosPaperAPI` to tag items or query equipped accessories.  
+## 📖 Documentation Sections
 
----
+<div class="grid cards" markdown>
 
-## Where to go from here 📚
+- :material-download: **[Installation](installation/index.md)**  
+  Requirements, setup, and first-start guide
 
-- **Configuration** — tweak slot types, slot counts, GUI layout, pack hosting, storage & performance settings.  
-- **Developer API** — learn how to tag items, equip accessories programmatically, listen for equip/unequip events, and integrate resource-pack assets.  
-- (In Future Updates)
+- :material-book-open: **[Getting Started](getting-started/index.md)**  
+  Core concepts, first accessory, and GUI overview
 
----
+- :material-console: **[Commands](commands/index.md)**  
+  All commands and permissions
 
-## Get CuriosPaper
+- :material-cog: **[Configuration](configuration/index.md)**  
+  Slots, abilities, performance tuning
 
-- GitHub repo: [Brothergaming52/CuriosPaper](https://github.com/Brothergaming52/CuriosPaper)  
-- Release downloads & plugin builds: check the Releases section on GitHub or the platform where you publish your plugin  
+- :material-puzzle: **[Systems](systems/accessory-system.md)**  
+  Deep dives into each plugin system
 
---- 
+- :material-palette: **[Resource Pack](resource-pack/index.md)**  
+  Hosting, custom models, and troubleshooting
 
-> 💡 _Pro tip for server admins or devs:_ read the [Configuration docs](https://brothergaming52.github.io/CuriosPaper/configuration.html) and [Developer API docs](https://brothergaming52.github.io/CuriosPaper/developer.html) **before you touch anything**, especially the resource-pack settings. A wrong IP or port will break icon loading for all players.
+- :material-pencil: **[GUI Editors](gui-editors/index.md)**  
+  In-game visual editors for items, recipes, and more
 
+- :material-code-tags: **[Developer API](api/index.md)**  
+  Integrate CuriosPaper into your own plugins
+
+- :material-sitemap: **[Architecture](architecture/overview.md)**  
+  Internal design and code structure
+
+- :material-file-document: **[Examples](examples/accessory-example.md)**  
+  Ready-to-use configuration examples
+
+- :material-bug: **[Troubleshooting](troubleshooting/index.md)**  
+  Common issues and their solutions
+
+</div>
+
+## 📊 Plugin Info
+
+| | |
+|---|---|
+| **Version** | 1.2.0 |
+| **Author** | Brothergaming52 |
+| **API Version** | 1.14-1.21.11 |
+| **Source** | [GitHub](https://github.com/Brothergaming52/CuriosPaper) |
+| **bStats** | [Plugin Statistics](https://bstats.org/plugin/bukkit/CuriosPaper/29508) |

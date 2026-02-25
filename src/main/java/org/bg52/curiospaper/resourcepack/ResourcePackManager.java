@@ -8,6 +8,7 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.util.*;
+import java.util.Arrays;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -31,7 +32,7 @@ public class ResourcePackManager {
     private boolean dirty = false;
 
     // Namespace rules
-    private final Set<String> reservedNamespaces = Set.of("curiospaper");
+    private final Set<String> reservedNamespaces = new HashSet<>(Arrays.asList("curiospaper"));
     private final Map<String, Plugin> namespaceOwners = new HashMap<>();
 
     // Conflict tracking
@@ -74,7 +75,6 @@ public class ResourcePackManager {
     public boolean isDirty() {
         return dirty;
     }
-
 
     public void registerResource(Plugin plugin, File sourceFolder) {
         if (!sourceFolder.exists() || !sourceFolder.isDirectory()) {
@@ -177,11 +177,9 @@ public class ResourcePackManager {
 
     public void initialize() {
 
-        this.allowMinecraftNamespace =
-                plugin.getConfig().getBoolean("resource-pack.allow-minecraft-namespace", false);
+        this.allowMinecraftNamespace = plugin.getConfig().getBoolean("resource-pack.allow-minecraft-namespace", false);
 
-        this.allowNamespaceConflicts =
-                plugin.getConfig().getBoolean("resource-pack.allow-namespace-conflicts", false);
+        this.allowNamespaceConflicts = plugin.getConfig().getBoolean("resource-pack.allow-namespace-conflicts", false);
 
         // Target: <plugin data folder>/resources
         File ownResources = new File(plugin.getDataFolder(), "resources");
@@ -214,7 +212,8 @@ public class ResourcePackManager {
 
         // delayed build — allow addons time to register
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            if (dirty) generatePack();
+            if (dirty)
+                generatePack();
         }, 200L); // 10 seconds
 
         // Start server if enabled
@@ -256,23 +255,27 @@ public class ResourcePackManager {
                 String name = entry.getName();
 
                 // Only care about entries under the given prefix, e.g. "resources/"
-                if (!name.startsWith(jarPrefix)) continue;
+                if (!name.startsWith(jarPrefix))
+                    continue;
 
                 String relativePath = name.substring(jarPrefix.length());
-                if (relativePath.isEmpty()) continue; // it's just the folder itself
+                if (relativePath.isEmpty())
+                    continue; // it's just the folder itself
 
                 File outFile = new File(targetRoot, relativePath);
 
                 if (entry.isDirectory()) {
                     // Ensure directory exists
                     if (!outFile.exists() && !outFile.mkdirs()) {
-                        plugin.getLogger().warning("Failed to create directory for resource: " + outFile.getAbsolutePath());
+                        plugin.getLogger()
+                                .warning("Failed to create directory for resource: " + outFile.getAbsolutePath());
                     }
                     continue;
                 }
 
                 // Don’t overwrite user-edited files – only create if missing
-                if (outFile.exists()) continue;
+                if (outFile.exists())
+                    continue;
 
                 File parent = outFile.getParentFile();
                 if (parent != null && !parent.exists() && !parent.mkdirs()) {
@@ -281,7 +284,7 @@ public class ResourcePackManager {
                 }
 
                 try (InputStream in = jar.getInputStream(entry);
-                     OutputStream out = new FileOutputStream(outFile)) {
+                        OutputStream out = new FileOutputStream(outFile)) {
 
                     byte[] buffer = new byte[8192];
                     int len;
@@ -320,7 +323,8 @@ public class ResourcePackManager {
 
         plugin.getLogger().info("Building CuriosPaper resource pack...");
 
-        if (resourcePackDir.exists()) deleteDirectory(resourcePackDir);
+        if (resourcePackDir.exists())
+            deleteDirectory(resourcePackDir);
         resourcePackDir.mkdirs();
 
         for (Map.Entry<Plugin, File> entry : registeredSources.entrySet()) {
@@ -383,7 +387,8 @@ public class ResourcePackManager {
 
     private void copyFolderStrict(Plugin plugin, File source, File target) throws IOException {
         if (source.isDirectory()) {
-            if (!target.exists()) target.mkdirs();
+            if (!target.exists())
+                target.mkdirs();
 
             for (File f : Objects.requireNonNull(source.listFiles())) {
                 copyFolderStrict(plugin, f, new File(target, f.getName()));
@@ -433,10 +438,10 @@ public class ResourcePackManager {
         JsonElement srcJson;
 
         try (Reader destReader = new FileReader(dest);
-             Reader srcReader = new FileReader(src)) {
+                Reader srcReader = new FileReader(src)) {
 
-            destJson = JsonParser.parseReader(destReader);
-            srcJson = JsonParser.parseReader(srcReader);
+            destJson = new com.google.gson.JsonParser().parse(destReader);
+            srcJson = new com.google.gson.JsonParser().parse(srcReader);
         }
 
         if (!destJson.isJsonObject() || !srcJson.isJsonObject()) {
@@ -503,7 +508,7 @@ public class ResourcePackManager {
 
     private void zipDirectory(File sourceDir, File zipFile) throws IOException {
         try (FileOutputStream fos = new FileOutputStream(zipFile);
-             ZipOutputStream zos = new ZipOutputStream(fos)) {
+                ZipOutputStream zos = new ZipOutputStream(fos)) {
 
             Path sourcePath = sourceDir.toPath();
             Files.walkFileTree(sourcePath, new SimpleFileVisitor<Path>() {

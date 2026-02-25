@@ -231,71 +231,28 @@ public class EditCommand implements CommandExecutor, TabCompleter {
     }
 
     private int clampAmount(int v) {
-        if (v < 1) return 1;
-        if (v > 64) return 64;
+        if (v < 1)
+            return 1;
+        if (v > 64)
+            return 64;
         return v;
     }
 
     /**
      * Builds an ItemStack from ItemData.
-     * Supports both Integer (CustomModelData) and NamespacedKey (Item Model) formats.
+     * Supports both Integer (CustomModelData) and NamespacedKey (Item Model)
+     * formats.
      */
     private ItemStack buildItemStack(ItemData data, int amount) {
-        Material mat = Material.PAPER;
-        try {
-            if (data.getMaterial() != null) {
-                mat = Material.valueOf(data.getMaterial().toUpperCase());
-            }
-        } catch (Exception ignored) {
-            // fallback to PAPER
+        // Use API to ensure all tags (including custom ID) are applied
+        ItemStack item = plugin.getCuriosPaperAPI().createItemStack(data.getItemId());
+
+        if (item == null) {
+            // Fallback if something goes wrong, though unlikely given data exists
+            return new ItemStack(Material.PAPER, amount);
         }
 
-        ItemStack item = new ItemStack(mat, Math.max(1, Math.min(64, amount)));
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            // FIX: Color codes applied here
-            if (data.getDisplayName() != null && !data.getDisplayName().isBlank()) {
-                meta.setDisplayName(org.bukkit.ChatColor.translateAlternateColorCodes('&', data.getDisplayName()));
-            }
-
-            if (data.getLore() != null && !data.getLore().isEmpty()) {
-                List<String> coloredLore = new ArrayList<>();
-                for (String line : data.getLore()) {
-                    coloredLore.add(org.bukkit.ChatColor.translateAlternateColorCodes('&', line));
-                }
-                meta.setLore(coloredLore);
-            }
-
-            // FIX: Hybrid handling for CustomModelData (int) vs ItemModel (String/Key)
-            if (data.getItemModel() != null && !data.getItemModel().isBlank()) {
-                String modelStr = data.getItemModel().trim();
-
-                // 1. Try to parse as CustomModelData (Integer)
-                try {
-                    int customModelData = Integer.parseInt(modelStr);
-                    meta.setCustomModelData(customModelData);
-                } catch (NumberFormatException e) {
-                    // 2. Not an integer, treat as Item Model (NamespacedKey)
-                    try {
-                        org.bukkit.NamespacedKey key;
-                        if (modelStr.contains(":")) {
-                            key = org.bukkit.NamespacedKey.fromString(modelStr);
-                        } else {
-                            key = new org.bukkit.NamespacedKey(plugin, modelStr);
-                        }
-
-                        // Check if method exists (Paper 1.21+)
-                        // Using suppression in case you compile on older API, but runtime checks are better
-                        meta.setItemModel(key);
-                    } catch (Exception ex) {
-                        // Fallback or log if needed
-                    }
-                }
-            }
-
-            item.setItemMeta(meta);
-        }
-        item = plugin.getCuriosPaperAPI().tagAccessoryItem(item, data.getSlotType());
+        item.setAmount(Math.max(1, Math.min(64, amount)));
         return item;
     }
 
@@ -319,14 +276,15 @@ public class EditCommand implements CommandExecutor, TabCompleter {
         } else if (args.length == 2) {
             // Item name completion for gui, delete and give
             String subcommand = args[0].toLowerCase();
-            if (subcommand.equals("gui") || subcommand.equals("edit") || subcommand.equals("delete") || subcommand.equals("give")) {
+            if (subcommand.equals("gui") || subcommand.equals("edit") || subcommand.equals("delete")
+                    || subcommand.equals("give")) {
                 completions.addAll(itemDataManager.getAllItemIds());
             }
         } else if (args.length == 3) {
             // If 'give' suggest online players or amounts
             if (args[0].equalsIgnoreCase("give")) {
                 Bukkit.getOnlinePlayers().forEach(p -> completions.add(p.getName()));
-                completions.addAll(Arrays.asList("1","16","32","64"));
+                completions.addAll(Arrays.asList("1", "16", "32", "64"));
             }
         }
 

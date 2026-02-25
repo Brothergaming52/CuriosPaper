@@ -2,5 +2,11 @@
   "parent": "item/generated",
   "textures": {
     "layer0": "curiospaper:item/head_slot"
-  }
+  },
+  "overrides": [
+    {
+      "predicate": { "custom_model_data": 10001 },
+      "model": "curiospaper:item/head_slot"
+    }
+  ]
 }

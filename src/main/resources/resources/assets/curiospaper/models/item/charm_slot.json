@@ -2,5 +2,11 @@
   "parent": "item/generated",
   "textures": {
     "layer0": "curiospaper:item/charm_slot"
-  }
+  },
+  "overrides": [
+    {
+      "predicate": { "custom_model_data": 10009 },
+      "model": "curiospaper:item/charm_slot"
+    }
+  ]
 }

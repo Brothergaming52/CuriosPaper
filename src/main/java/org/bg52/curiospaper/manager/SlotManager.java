@@ -46,7 +46,8 @@ public class SlotManager {
             ConfigurationSection accessoriesSection = config.getConfigurationSection("accessories");
             if (accessoriesSection != null) {
                 for (String slotType : accessoriesSection.getKeys(false)) {
-                    List<ItemStack> items = loadSlotItems(slotType, accessoriesSection.getConfigurationSection(slotType));
+                    List<ItemStack> items = loadSlotItems(slotType,
+                            accessoriesSection.getConfigurationSection(slotType));
                     accessories.put(slotType.toLowerCase(), items);
                 }
             }
@@ -98,7 +99,8 @@ public class SlotManager {
             } catch (NumberFormatException e) {
                 plugin.getLogger().warning("Invalid item index '" + key + "' in slot type '" + slotType + "'");
             } catch (Exception e) {
-                plugin.getLogger().warning("Failed to load item at index '" + key + "' in slot type '" + slotType + "': " + e.getMessage());
+                plugin.getLogger().warning("Failed to load item at index '" + key + "' in slot type '" + slotType
+                        + "': " + e.getMessage());
             }
         }
 
@@ -139,7 +141,7 @@ public class SlotManager {
 
             for (int i = 0; i < items.size(); i++) {
                 ItemStack item = items.get(i);
-                if (item != null && !item.getType().isAir()) {
+                if (item != null && item.getType() != org.bukkit.Material.AIR) {
                     config.set("accessories." + slotType + "." + i, item);
                     totalSaved++;
                 }
@@ -168,6 +170,9 @@ public class SlotManager {
                 failed++;
             }
         }
+
+        plugin.getLogger().info("Saved data for " + saved + " player(s)" +
+                (failed > 0 ? " (" + failed + " failed)" : ""));
     }
 
     public List<ItemStack> getAccessories(UUID playerId, String slotType) {
@@ -265,7 +270,8 @@ public class SlotManager {
      */
     public int cleanupOrphanedData(Set<UUID> validPlayers) {
         File[] files = dataFolder.listFiles((dir, name) -> name.endsWith(".yml"));
-        if (files == null) return 0;
+        if (files == null)
+            return 0;
 
         int removed = 0;
         for (File file : files) {

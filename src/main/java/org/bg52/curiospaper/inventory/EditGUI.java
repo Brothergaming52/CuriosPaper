@@ -51,40 +51,25 @@ public class EditGUI implements Listener {
         try {
             Material mat = Material.valueOf(itemData.getMaterial().toUpperCase());
             ItemStack preview = new ItemStack(mat);
-            preview.editMeta(meta -> {
+            org.bukkit.inventory.meta.ItemMeta meta = preview.getItemMeta();
+            if (meta != null) {
                 if (itemData.getDisplayName() != null) {
                     meta.setDisplayName(itemData.getDisplayName());
                 }
                 if (!itemData.getLore().isEmpty()) {
                     meta.setLore(itemData.getLore());
                 }
-                if (itemData.getItemModel() != null && !itemData.getItemModel().isBlank()) {
-                    String modelStr = itemData.getItemModel().trim();
-
-                    // 1. Try to parse as CustomModelData (Integer)
-                    try {
-                        int customModelData = Integer.parseInt(modelStr);
-                        meta.setCustomModelData(customModelData);
-                    } catch (NumberFormatException e) {
-                        // 2. Not an integer, treat as Item Model (NamespacedKey)
-                        try {
-                            org.bukkit.NamespacedKey key;
-                            if (modelStr.contains(":")) {
-                                key = org.bukkit.NamespacedKey.fromString(modelStr);
-                            } else {
-                                key = new org.bukkit.NamespacedKey(plugin, modelStr);
-                            }
-
-                            // Check if method exists (Paper 1.21+)
-                            // Using suppression in case you compile on older API, but runtime checks are
-                            // better
-                            meta.setItemModel(key);
-                        } catch (Exception ex) {
-                            // Fallback or log if needed
-                        }
-                    }
+                // Apply item model or custom model data
+                if (itemData.getItemModel() != null && !itemData.getItemModel().trim().isEmpty()) {
+                    // Use version-safe method with item model string
+                    org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemData.getItemModel(),
+                            itemData.getCustomModelData());
+                } else if (itemData.getCustomModelData() != null) {
+                    // Only custom model data is set (no item model string)
+                    meta.setCustomModelData(itemData.getCustomModelData());
                 }
-            });
+                preview.setItemMeta(meta);
+            }
             if (!(itemData.getSlotType() == null)) {
                 preview = plugin.getCuriosPaperAPI().tagAccessoryItem(preview, itemData.getSlotType());
                 gui.setItem(4, preview);
@@ -110,37 +95,38 @@ public class EditGUI implements Listener {
                 "", "§eClick to set custom model",
                 "§7Format: namespace:model_name"));
 
-        gui.setItem(25, createGuiItem(Material.BOOK, "§e✎ Edit Lore",
+        gui.setItem(25, createGuiItem(Material.MAP, "§e⚙ Set Custom Model Data",
+                "§7Current: " + (itemData.getCustomModelData() != null ? itemData.getCustomModelData() : "§cnone"),
+                "", "§eClick to set custom model data",
+                "§7Enter an integer or 'remove' to clear"));
+
+        // Row 3 (shifted)
+        gui.setItem(28, createGuiItem(Material.BOOK, "§e✎ Edit Lore",
                 "§7Lines: " + itemData.getLore().size(),
                 "", "§eClick to edit via chat"));
 
-        // Slot Selection
-        gui.setItem(27, createGuiItem(Material.CHEST, "§e⚡ Set Required Slot  ",
+        gui.setItem(30, createGuiItem(Material.CHEST, "§e⚡ Set Required Slot  ",
                 "§7Current: " + (itemData.getSlotType() != null ? itemData.getSlotType() : "§cnone"),
                 "", "§eClick to select slot"));
 
-        // Recipe
-        gui.setItem(29, createGuiItem(Material.CRAFTING_TABLE, "§e⚒ Recipe",
-                itemData.getRecipe() != null ? "§a✔ Configured" : "§7Not configured",
+        gui.setItem(32, createGuiItem(Material.CRAFTING_TABLE, "§e⚒ Recipe",
+                itemData.getRecipes() != null ? "§a✔ Configured" : "§7Not configured",
                 "", "§eClick to configure recipe"));
 
-        // Loot Tables
-        gui.setItem(31, createGuiItem(Material.CHEST_MINECART, "§e⚒ Loot Tables",
+        gui.setItem(34, createGuiItem(Material.CHEST_MINECART, "§e⚒ Loot Tables",
                 "§7Entries: " + itemData.getLootTables().size(),
                 "", "§eClick to manage loot tables"));
 
-        // Mob Drops
-        gui.setItem(33, createGuiItem(Material.ZOMBIE_HEAD, "§e⚒ Mob Drops",
+        // Row 4 (shifted)
+        gui.setItem(37, createGuiItem(Material.ZOMBIE_HEAD, "§e⚒ Mob Drops",
                 "§7Entries: " + itemData.getMobDrops().size(),
                 "", "§eClick to manage mob drops"));
 
-        // Villager Trades
-        gui.setItem(35, createGuiItem(Material.EMERALD, "§e⚒ Villager Trades",
+        gui.setItem(39, createGuiItem(Material.EMERALD, "§e⚒ Villager Trades",
                 "§7Entries: " + itemData.getVillagerTrades().size(),
                 "", "§eClick to manage trades"));
 
-        // Abilities
-        gui.setItem(37, createGuiItem(Material.POTION, "§e⚡ Abilities",
+        gui.setItem(41, createGuiItem(Material.POTION, "§e⚡ Abilities",
                 "§7Configured: " + itemData.getAbilities().size(),
                 "", "§eClick to manage abilities"));
 
@@ -194,7 +180,7 @@ public class EditGUI implements Listener {
                 chatInputManager.startSingleLineSession(player,
                         "Enter the display name for this item (supports color codes with &):",
                         single -> {
-                            if (single != null && !single.isBlank()) {
+                            if (single != null && !single.trim().isEmpty()) {
                                 itemData.setDisplayName(single.replace('&', '§'));
                                 itemDataManager.saveItemData(itemId);
                                 player.sendMessage("§a✔ Display name updated!");
@@ -209,7 +195,7 @@ public class EditGUI implements Listener {
                 chatInputManager.startSingleLineSession(player,
                         "Enter the material type (e.g., DIAMOND, GOLD_INGOT, PAPER):",
                         single -> {
-                            if (single != null && !single.isBlank()) {
+                            if (single != null && !single.trim().isEmpty()) {
                                 String material = single.trim().toUpperCase();
                                 try {
                                     Material.valueOf(material);
@@ -230,7 +216,7 @@ public class EditGUI implements Listener {
                 chatInputManager.startSingleLineSession(player,
                         "Enter the item model (format: namespace:model_name or just model_name for curiospaper:):",
                         single -> {
-                            if (single != null && !single.isBlank()) {
+                            if (single != null && !single.trim().isEmpty()) {
                                 String model = single.trim();
                                 itemData.setItemModel(model);
                                 itemDataManager.saveItemData(itemId);
@@ -241,14 +227,41 @@ public class EditGUI implements Listener {
                         () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
                 break;
 
-            case 25: // Edit Lore (multi-line, stays the same)
+            case 25: // Set Custom Model Data
+                player.closeInventory();
+                chatInputManager.startSingleLineSession(player,
+                        "Enter Custom Model Data (integer) or type 'remove' to clear:",
+                        single -> {
+                            if (single != null && !single.trim().isEmpty()) {
+                                String input = single.trim().toLowerCase();
+                                if (input.equals("remove") || input.equals("clear") || input.equals("none")) {
+                                    itemData.setCustomModelData(null);
+                                    itemDataManager.saveItemData(itemId);
+                                    player.sendMessage("§a✔ Custom Model Data cleared.");
+                                } else {
+                                    try {
+                                        int val = Integer.parseInt(input);
+                                        itemData.setCustomModelData(val);
+                                        itemDataManager.saveItemData(itemId);
+                                        player.sendMessage("§a✔ Custom Model Data set to: " + val);
+                                    } catch (NumberFormatException e) {
+                                        player.sendMessage("§c✘ Invalid number.");
+                                    }
+                                }
+                            }
+                            Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
+                        },
+                        () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
+                break;
+
+            case 28: // Edit Lore
                 player.closeInventory();
                 chatInputManager.startSession(player,
                         "Enter lore lines (one per message, supports & color codes):",
                         lines -> {
                             List<String> coloredLore = lines.stream()
                                     .map(line -> line.replace('&', '§'))
-                                    .toList();
+                                    .collect(java.util.stream.Collectors.toList());
                             itemData.setLore(coloredLore);
                             itemDataManager.saveItemData(itemId);
                             player.sendMessage("§a✔ Lore updated with " + lines.size() + " lines!");
@@ -257,7 +270,7 @@ public class EditGUI implements Listener {
                         () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
                 break;
 
-            case 27: // Set Required Slot (single-line)
+            case 30: // Set Required Slot
                 player.closeInventory();
                 player.sendMessage("§e▬▬▬ Available Slots ▬▬▬");
                 for (String slotType : plugin.getCuriosPaperAPI().getAllSlotTypes()) {
@@ -268,7 +281,7 @@ public class EditGUI implements Listener {
                 chatInputManager.startSingleLineSession(player,
                         "Enter the slot type this item requires:",
                         single -> {
-                            if (single != null && !single.isBlank()) {
+                            if (single != null && !single.trim().isEmpty()) {
                                 String slotType = single.trim().toLowerCase();
                                 if (plugin.getCuriosPaperAPI().isValidSlotType(slotType)) {
                                     itemData.setSlotType(slotType);
@@ -283,19 +296,20 @@ public class EditGUI implements Listener {
                         () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
                 break;
 
-            case 29: // Recipe
+            case 32: // Recipe
                 plugin.getRecipeEditor().open(player, itemId);
                 break;
-            case 31: // Loot Tables
+            case 34: // Loot Tables
                 plugin.getLootTableBrowser().open(player, itemId);
                 break;
-            case 33: // Mob Drops
+            case 37: // Mob Drops (moved from 33, but wait, 37 was previously Abilities! Now it's Mob
+                     // Drops)
                 plugin.getMobDropEditor().open(player, itemId);
                 break;
-            case 35: // Villager Trades
+            case 39: // Villager Trades (moved from 35)
                 plugin.getTradeEditor().open(player, itemId);
                 break;
-            case 37: // Abilities
+            case 41: // Abilities (moved from 37)
                 plugin.getAbilityEditor().open(player, itemId);
                 break;
 

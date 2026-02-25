@@ -4,6 +4,7 @@ import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Villager;
 
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,12 +25,12 @@ public class VillagerTradeData {
         this.professions = new ArrayList<>(professions != null ? professions : new ArrayList<>());
         this.chance = Math.max(0.0, Math.min(1.0, chance));
         this.costItems = new ArrayList<>(costItems != null ? costItems : new ArrayList<>());
-        this.tradeLevels = new ArrayList<>(tradeLevels != null ? tradeLevels : List.of(1, 2, 3, 4, 5));
+        this.tradeLevels = new ArrayList<>(tradeLevels != null ? tradeLevels : Arrays.asList(1, 2, 3, 4, 5));
     }
 
     // Simplified constructor for all professions, all levels
     public VillagerTradeData(double chance, List<TradeCost> costItems) {
-        this(new ArrayList<>(), chance, costItems, List.of(1, 2, 3, 4, 5));
+        this(new ArrayList<>(), chance, costItems, Arrays.asList(1, 2, 3, 4, 5));
     }
 
     // ========== GETTERS ==========
@@ -127,7 +128,7 @@ public class VillagerTradeData {
         double chance = config.getDouble("chance", 0.1);
         List<Integer> tradeLevels = config.getIntegerList("trade-levels");
         if (tradeLevels.isEmpty()) {
-            tradeLevels = List.of(1, 2, 3, 4, 5);
+            tradeLevels = Arrays.asList(1, 2, 3, 4, 5);
         }
 
         List<TradeCost> costs = new ArrayList<>();

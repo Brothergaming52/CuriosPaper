@@ -23,6 +23,7 @@ slots:
     name: "&e⚜ Head Slot ⚜"
     icon: "GOLDEN_HELMET"
     item-model: "curiospaper:head_slot"
+    custom-model-data: 10001
     amount: 1
     lore:
       - "&7Equip crowns, circlets, or magical headpieces."
@@ -33,6 +34,7 @@ slots:
     name: "&b✦ Necklace Slot ✦"
     icon: "NAUTILUS_SHELL"
     item-model: "curiospaper:necklace_slot"
+    custom-model-data: 10002
     amount: 1
     lore:
       - "&7Wear powerful amulets and pendants."
@@ -43,6 +45,7 @@ slots:
     name: "&5☾ Back Slot ☾"
     icon: "ELYTRA"
     item-model: "curiospaper:back_slot"
+    custom-model-data: 10003
     amount: 1
     lore:
       - "&7Equip magical capes and cloaks."
@@ -53,6 +56,7 @@ slots:
     name: "&c❖ Body Slot ❖"
     icon: "DIAMOND_CHESTPLATE"
     item-model: "curiospaper:body_slot"
+    custom-model-data: 10004
     amount: 1
     lore:
       - "&7Wear chest talismans and armor attachments."
@@ -63,6 +67,7 @@ slots:
     name: "&6⚔ Belt Slot ⚔"
     icon: "LEATHER"
     item-model: "curiospaper:belt_slot"
+    custom-model-data: 10005
     amount: 1
     lore:
       - "&7Equip utility belts and sashes."
@@ -73,6 +78,7 @@ slots:
     name: "&f✋ Hand Slots ✋"
     icon: "LEATHER_CHESTPLATE"
     item-model: "curiospaper:hands_slot"
+    custom-model-data: 10006
     amount: 2
     lore:
       - "&7Magical gloves for both hands."
@@ -83,6 +89,7 @@ slots:
     name: "&3◈ Bracelet Slots ◈"
     icon: "CHAIN"
     item-model: "curiospaper:bracelet_slot"
+    custom-model-data: 10007
     amount: 2
     lore:
       - "&7Wear enchanted bracelets and bangles."
@@ -93,6 +100,7 @@ slots:
     name: "&6◆ Ring Slots ◆"
     icon: "GOLD_NUGGET"
     item-model: "curiospaper:ring_slot"
+    custom-model-data: 10008
     amount: 2
     lore:
       - "&7Holds powerful magical rings."
@@ -103,6 +111,7 @@ slots:
     name: "&d✧ Charm Slots ✧"
     icon: "EMERALD"
     item-model: "curiospaper:charm_slot"
+    custom-model-data: 10009
     amount: 4
     lore:
       - "&7Holds small, potent charms and trinkets."
@@ -112,6 +121,11 @@ slots:
 features:
   # Add lore line to tagged items showing required slot
   add-slot-lore-to-items: true
+
+  # Enable the in-game item editor and custom item system
+  # If disabled, custom items, recipes, loot tables,(made using this plugin) and the /edit command will be disabled
+  item-editor:
+    enabled: true
 
   # Allow elytra equipping in back slots
   allow-elytra-on-back-slot: true
@@ -176,11 +190,21 @@ gui:
   # Filler item display name
   filler-name: "&r"
 
-  # Main GUI always uses double chest (54 slots)
-  main-gui-size: 54
+  # Main GUI size
+  main-slots: 45
 
-  # Use beautiful patterns for slot arrangements
-  use-patterns: true
+  # Main GUI layout (slot-type: position)
+  # Position is a 0-indexed slot index (0-53 for 54-size GUI)
+  main-layout:
+    head: 10
+    necklace: 13
+    back: 16
+    body: 21
+    belt: 22
+    hands: 23
+    bracelet: 28
+    ring: 31
+    charm: 34
 
 # Debug settings
 debug:

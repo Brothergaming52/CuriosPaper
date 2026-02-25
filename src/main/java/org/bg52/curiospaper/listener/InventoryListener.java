@@ -3,6 +3,7 @@ package org.bg52.curiospaper.listener;
 import org.bg52.curiospaper.CuriosPaper;
 import org.bg52.curiospaper.event.AccessoryEquipEvent;
 import org.bg52.curiospaper.inventory.AccessoryGUI;
+import org.bg52.curiospaper.inventory.EditMenuGUI;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -11,7 +12,9 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
@@ -24,6 +27,11 @@ public class InventoryListener implements Listener {
     private final AccessoryGUI gui;
     private final Map<Player, Map<String, List<ItemStack>>> previousInventoryState;
 
+    // Edit menu selection state: tracks selected slot index per player
+    private final Map<Player, Integer> editMenuSelectedSlot = new HashMap<>();
+    // Edit menu selection state: tracks the original ItemStack that was selected
+    private final Map<Player, ItemStack> editMenuSelectedItem = new HashMap<>();
+
     public InventoryListener(CuriosPaper plugin, AccessoryGUI gui) {
         this.plugin = plugin;
         this.gui = gui;
@@ -32,9 +40,10 @@ public class InventoryListener implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)) {
+        if (!(event.getWhoClicked() instanceof Player)) {
             return;
         }
+        Player player = (Player) event.getWhoClicked();
 
         String title = event.getView().getTitle();
 
@@ -42,7 +51,72 @@ public class InventoryListener implements Listener {
             handleMainGUIClick(event, player);
         } else if (AccessoryGUI.isSlotsGUI(title)) {
             handleSlotsGUIClick(event, player, title);
+        } else if (EditMenuGUI.isEditMenu(title)) {
+            handleEditMenuClick(event, player);
         }
+    }
+
+    private void handleEditMenuClick(InventoryClickEvent event, Player player) {
+        // Cancel ALL vanilla inventory behavior — no items on cursor, ever
+        event.setCancelled(true);
+
+        // Block shift-clicks, hotbar swaps, and any automatic moves
+        if (event.isShiftClick() || event.getClick().isKeyboardClick()
+                || event.getAction().name().contains("MOVE_TO_OTHER_INVENTORY")) {
+            return;
+        }
+
+        Inventory topInv = event.getView().getTopInventory();
+
+        // Block all clicks outside the top inventory (player inventory area)
+        if (event.getClickedInventory() != topInv) {
+            return;
+        }
+
+        int clickedSlot = event.getSlot();
+        ItemStack clicked = event.getCurrentItem();
+
+        boolean hasSelection = editMenuSelectedSlot.containsKey(player);
+        boolean clickedIsButton = clicked != null && clicked.getType() != Material.AIR
+                && !EditMenuGUI.isFiller(clicked) && !EditMenuGUI.isSelectedMarker(clicked);
+        boolean clickedIsMarker = EditMenuGUI.isSelectedMarker(clicked);
+
+        if (!hasSelection) {
+            // --- No button currently selected ---
+            if (clickedIsButton) {
+                // Select this button: store it and replace with green glass
+                editMenuSelectedSlot.put(player, clickedSlot);
+                editMenuSelectedItem.put(player, clicked.clone());
+
+                String displayName = clicked.hasItemMeta() ? clicked.getItemMeta().getDisplayName() : null;
+                topInv.setItem(clickedSlot, EditMenuGUI.createSelectedMarker(displayName));
+            }
+            // Clicked filler or air — do nothing
+        } else {
+            // --- A button IS currently selected ---
+            int selectedSlot = editMenuSelectedSlot.get(player);
+            ItemStack selectedItem = editMenuSelectedItem.get(player);
+
+            if (clickedIsMarker && clickedSlot == selectedSlot) {
+                // Clicked the same green pane — deselect, restore original button
+                topInv.setItem(selectedSlot, selectedItem);
+            } else if (clickedIsButton) {
+                // Clicked a different button — swap the two
+                topInv.setItem(selectedSlot, clicked.clone());
+                topInv.setItem(clickedSlot, selectedItem);
+            } else {
+                // Clicked filler/air — move selected button here
+                topInv.setItem(selectedSlot, EditMenuGUI.createFiller());
+                topInv.setItem(clickedSlot, selectedItem);
+            }
+
+            // Clear selection state
+            editMenuSelectedSlot.remove(player);
+            editMenuSelectedItem.remove(player);
+        }
+
+        // Force inventory update to keep client in sync
+        Bukkit.getScheduler().runTask(plugin, player::updateInventory);
     }
 
     private void handleMainGUIClick(InventoryClickEvent event, Player player) {
@@ -90,7 +164,7 @@ public class InventoryListener implements Listener {
 
         // Handle shift-click from player inventory to accessory GUI
         if (event.isShiftClick() && clickedInventory == player.getInventory()) {
-            if (clickedItem != null && !clickedItem.getType().isAir()) {
+            if (clickedItem != null && clickedItem.getType() != org.bukkit.Material.AIR) {
                 if (!plugin.getCuriosPaperAPI().isValidAccessory(clickedItem, slotType)) {
                     event.setCancelled(true);
                     player.sendMessage("§cThat item cannot be placed in this slot type!");
@@ -107,7 +181,7 @@ public class InventoryListener implements Listener {
         }
 
         // Handle placing item from cursor into accessory GUI
-        if (cursorItem != null && !cursorItem.getType().isAir() && clickedInventory == topInventory) {
+        if (cursorItem != null && cursorItem.getType() != org.bukkit.Material.AIR && clickedInventory == topInventory) {
             if (!gui.isAccessorySlot(topInventory, rawSlot)) {
                 event.setCancelled(true);
                 return;
@@ -121,7 +195,8 @@ public class InventoryListener implements Listener {
         }
 
         // Handle removing item from accessory GUI
-        if (clickedItem != null && !clickedItem.getType().isAir() && clickedInventory == topInventory) {
+        if (clickedItem != null && clickedItem.getType() != org.bukkit.Material.AIR
+                && clickedInventory == topInventory) {
             // Check if player inventory has space
             if (event.isShiftClick()) {
                 if (!hasInventorySpace(player, clickedItem)) {
@@ -140,7 +215,7 @@ public class InventoryListener implements Listener {
             }
 
             ItemStack hotbarItem = player.getInventory().getItem(event.getHotbarButton());
-            if (hotbarItem != null && !hotbarItem.getType().isAir()) {
+            if (hotbarItem != null && hotbarItem.getType() != org.bukkit.Material.AIR) {
                 if (!plugin.getCuriosPaperAPI().isValidAccessory(hotbarItem, slotType)) {
                     event.setCancelled(true);
                     player.sendMessage("§cThat item cannot be placed in this slot type!");
@@ -167,7 +242,7 @@ public class InventoryListener implements Listener {
                 continue;
 
             ItemStack item = topInventory.getItem(slot);
-            if (item == null || item.getType().isAir())
+            if (item == null || item.getType() == org.bukkit.Material.AIR)
                 continue;
 
             int amount = item.getAmount();
@@ -194,13 +269,16 @@ public class InventoryListener implements Listener {
 
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)) {
+        if (!(event.getWhoClicked() instanceof Player)) {
             return;
         }
+        Player player = (Player) event.getWhoClicked();
 
         String title = event.getView().getTitle();
 
         if (AccessoryGUI.isMainGUI(title)) {
+            event.setCancelled(true);
+        } else if (EditMenuGUI.isEditMenu(title)) {
             event.setCancelled(true);
         } else if (AccessoryGUI.isSlotsGUI(title)) {
             String slotType = AccessoryGUI.extractSlotTypeFromTitle(title);
@@ -221,7 +299,7 @@ public class InventoryListener implements Listener {
                 }
             }
 
-            if (draggedItem != null && !draggedItem.getType().isAir()) {
+            if (draggedItem != null && draggedItem.getType() != org.bukkit.Material.AIR) {
                 if (!plugin.getCuriosPaperAPI().isValidAccessory(draggedItem, slotType)) {
                     event.setCancelled(true);
                     player.sendMessage("§cThat item cannot be placed in this slot type!");
@@ -236,9 +314,10 @@ public class InventoryListener implements Listener {
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
-        if (!(event.getPlayer() instanceof Player player)) {
+        if (!(event.getPlayer() instanceof Player)) {
             return;
         }
+        Player player = (Player) event.getPlayer();
 
         String title = event.getView().getTitle();
 
@@ -256,7 +335,7 @@ public class InventoryListener implements Listener {
 
             for (int slot : accessorySlots) {
                 ItemStack item = inventory.getItem(slot);
-                newItems.add(item != null && !item.getType().isAir() ? item.clone() : null);
+                newItems.add(item != null && item.getType() != org.bukkit.Material.AIR ? item.clone() : null);
             }
 
             // Get previous state to detect changes
@@ -272,7 +351,58 @@ public class InventoryListener implements Listener {
 
             // Clean up stored state
             previousInventoryState.remove(player);
+        } else if (EditMenuGUI.isEditMenu(title)) {
+            handleEditMenuClose(event);
         }
+    }
+
+    private void handleEditMenuClose(InventoryCloseEvent event) {
+        Player player = (Player) event.getPlayer();
+        Inventory inv = event.getInventory();
+
+        // If a button was selected (green pane showing), restore it before saving
+        if (editMenuSelectedSlot.containsKey(player)) {
+            int selectedSlot = editMenuSelectedSlot.get(player);
+            ItemStack selectedItem = editMenuSelectedItem.get(player);
+            if (selectedSlot >= 0 && selectedSlot < inv.getSize() && selectedItem != null) {
+                inv.setItem(selectedSlot, selectedItem);
+            }
+            editMenuSelectedSlot.remove(player);
+            editMenuSelectedItem.remove(player);
+        }
+
+        // Clear cursor just in case (safety for all MC versions)
+        player.setItemOnCursor(null);
+
+        // Build new layout from final inventory state
+        Map<String, Integer> newLayout = new java.util.HashMap<>();
+        for (int i = 0; i < inv.getSize(); i++) {
+            ItemStack item = inv.getItem(i);
+            if (item == null || item.getType() == Material.AIR || !item.hasItemMeta()) {
+                continue;
+            }
+
+            String slotType = item.getItemMeta().getPersistentDataContainer()
+                    .get(plugin.getSlotTypeKey(), PersistentDataType.STRING);
+
+            if (slotType != null) {
+                newLayout.put(slotType.toLowerCase(), i);
+            }
+        }
+
+        plugin.getConfigManager().saveMainLayout(newLayout);
+
+        // Force-close any open main AccessoryGUI for all players so they see the
+        // updated layout
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (online.getOpenInventory() != null
+                        && AccessoryGUI.isMainGUI(online.getOpenInventory().getTitle())) {
+                    online.closeInventory();
+                    online.sendMessage("§e§l[CuriosPaper] §7The accessory menu layout was updated.");
+                }
+            }
+        });
     }
 
     private void storeInventoryState(Player player, String slotType) {
@@ -289,8 +419,8 @@ public class InventoryListener implements Listener {
             ItemStack newItem = i < newItems.size() ? newItems.get(i) : null;
 
             // Normalize nulls and air
-            boolean oldEmpty = oldItem == null || oldItem.getType().isAir();
-            boolean newEmpty = newItem == null || newItem.getType().isAir();
+            boolean oldEmpty = oldItem == null || oldItem.getType() == org.bukkit.Material.AIR;
+            boolean newEmpty = newItem == null || newItem.getType() == org.bukkit.Material.AIR;
 
             if (oldEmpty && newEmpty) {
                 continue; // No change
@@ -320,7 +450,7 @@ public class InventoryListener implements Listener {
         int amount = item.getAmount();
 
         for (ItemStack invItem : inv.getStorageContents()) {
-            if (invItem == null || invItem.getType().isAir()) {
+            if (invItem == null || invItem.getType() == org.bukkit.Material.AIR) {
                 return true; // Found empty slot
             }
 

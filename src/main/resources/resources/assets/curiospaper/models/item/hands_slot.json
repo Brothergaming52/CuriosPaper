@@ -2,5 +2,11 @@
   "parent": "item/generated",
   "textures": {
     "layer0": "curiospaper:item/hands_slot"
-  }
+  },
+  "overrides": [
+    {
+      "predicate": { "custom_model_data": 10006 },
+      "model": "curiospaper:item/hands_slot"
+    }
+  ]
 }

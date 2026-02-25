@@ -1,0 +1,62 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "item/paper"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 10001
+      },
+      "model": "curiospaper:item/head_slot"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 10002
+      },
+      "model": "curiospaper:item/necklace_slot"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 10003
+      },
+      "model": "curiospaper:item/back_slot"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 10004
+      },
+      "model": "curiospaper:item/body_slot"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 10005
+      },
+      "model": "curiospaper:item/belt_slot"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 10006
+      },
+      "model": "curiospaper:item/hands_slot"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 10007
+      },
+      "model": "curiospaper:item/bracelet_slot"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 10008
+      },
+      "model": "curiospaper:item/ring_slot"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 10009
+      },
+      "model": "curiospaper:item/charm_slot"
+    }
+  ]
+}

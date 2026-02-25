@@ -1,3 +1,4 @@
+//import org.bukkit.event.world.LootGenerateEvent cannot be resolvedpackage org.bg52.curiospaper.listener;
 package org.bg52.curiospaper.listener;
 
 import org.bg52.curiospaper.CuriosPaper;
@@ -45,7 +46,7 @@ public class AbilityListener implements Listener {
         ItemStack newItem = event.getNewItem();
 
         // Remove abilities from previous item (if any)
-        if (previousItem != null && !previousItem.getType().isAir()) {
+        if (previousItem != null && previousItem.getType() != org.bukkit.Material.AIR) {
             String prevItemId = getItemId(previousItem);
             if (prevItemId != null) {
                 ItemData prevData = itemDataManager.getItemData(prevItemId);
@@ -59,7 +60,7 @@ public class AbilityListener implements Listener {
         }
 
         // Apply abilities from new item (if any)
-        if (newItem != null && !newItem.getType().isAir()) {
+        if (newItem != null && newItem.getType() != org.bukkit.Material.AIR) {
             String newItemId = getItemId(newItem);
             if (newItemId != null) {
                 ItemData newData = itemDataManager.getItemData(newItemId);
@@ -146,7 +147,15 @@ public class AbilityListener implements Listener {
         UUID modifierUUID = UUID.nameUUIDFromBytes(modifierId.getBytes());
 
         // Remove existing modifier if present
-        AttributeModifier existing = instance.getModifier(modifierUUID);
+        // AttributeModifier existing = instance.getModifier(modifierUUID); // Missing
+        // in 1.14
+        AttributeModifier existing = null;
+        for (AttributeModifier mod : instance.getModifiers()) {
+            if (mod.getUniqueId().equals(modifierUUID)) {
+                existing = mod;
+                break;
+            }
+        }
         if (existing != null) {
             instance.removeModifier(existing);
         }
@@ -184,7 +193,15 @@ public class AbilityListener implements Listener {
         String modifierId = MODIFIER_PREFIX + itemId + "_" + ability.getEffectName();
         UUID modifierUUID = UUID.nameUUIDFromBytes(modifierId.getBytes());
 
-        AttributeModifier existing = instance.getModifier(modifierUUID);
+        // AttributeModifier existing = instance.getModifier(modifierUUID); // Missing
+        // in 1.14
+        AttributeModifier existing = null;
+        for (AttributeModifier mod : instance.getModifiers()) {
+            if (mod.getUniqueId().equals(modifierUUID)) {
+                existing = mod;
+                break;
+            }
+        }
         if (existing != null) {
             instance.removeModifier(existing);
 
@@ -220,7 +237,7 @@ public class AbilityListener implements Listener {
         for (String slotType : plugin.getCuriosPaperAPI().getAllSlotTypes()) {
             List<ItemStack> items = plugin.getCuriosPaperAPI().getEquippedItems(player, slotType);
             for (ItemStack item : items) {
-                if (item == null || item.getType().isAir())
+                if (item == null || item.getType() == org.bukkit.Material.AIR)
                     continue;
 
                 String itemId = getItemId(item);
@@ -258,7 +275,16 @@ public class AbilityListener implements Listener {
                         AttributeInstance instance = player.getAttribute(attribute);
                         if (instance != null) {
                             UUID uuid = UUID.nameUUIDFromBytes(modifierId.getBytes());
-                            AttributeModifier mod = instance.getModifier(uuid);
+                            // AttributeModifier mod = instance.getModifier(uuid); // Missing in 1.14
+                            AttributeModifier mod = null;
+                            if (instance.getModifiers() != null) {
+                                for (AttributeModifier m : instance.getModifiers()) {
+                                    if (m.getUniqueId().equals(uuid)) {
+                                        mod = m;
+                                        break;
+                                    }
+                                }
+                            }
                             if (mod != null) {
                                 instance.removeModifier(mod);
                             }
@@ -273,8 +299,7 @@ public class AbilityListener implements Listener {
     private Attribute getAttributeFromName(String name) {
         // Try direct match first
         for (Attribute attr : Attribute.values()) {
-            if (attr.name().equalsIgnoreCase(name) ||
-                    attr.getKey().getKey().equalsIgnoreCase(name)) {
+            if (attr.name().equalsIgnoreCase(name)) { // 1.14 compatible
                 return attr;
             }
         }

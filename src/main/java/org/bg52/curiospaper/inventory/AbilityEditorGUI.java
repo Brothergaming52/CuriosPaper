@@ -210,7 +210,7 @@ public class AbilityEditorGUI implements Listener {
 
                 gui.setItem(slot, createGuiItem(icon, "§b" + name,
                         "§7Type: §fAttribute Modifier",
-                        "§7Key: §f" + attr.getKey().getKey(),
+                        "§7Key: §f" + attr.name(), // 1.14 compatible
                         "",
                         "§eClick to select"));
                 slot++;

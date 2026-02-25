@@ -15,6 +15,7 @@ import org.bg52.curiospaper.manager.ItemDataManager;
 import org.bg52.curiospaper.manager.SlotManager;
 import org.bg52.curiospaper.resourcepack.ResourcePackManager;
 import org.bg52.curiospaper.util.AutoSaveTask;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.NamespacedKey;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -26,6 +27,7 @@ public class CuriosPaper extends JavaPlugin {
     private ChatInputManager chatInputManager;
     private CuriosPaperAPI api;
     private AccessoryGUI gui;
+    private EditMenuGUI editMenuGUI;
     private AutoSaveTask autoSaveTask;
     private ResourcePackManager resourcePackManager;
     private ElytraBackSlotHandler elytraHandler;
@@ -49,13 +51,16 @@ public class CuriosPaper extends JavaPlugin {
         slotManager = new SlotManager(this);
 
         // Initialize Item Data Manager
-        itemDataManager = new ItemDataManager(this);
+        boolean itemEditorEnabled = getConfig().getBoolean("features.item-editor.enabled", true);
+        if (itemEditorEnabled) {
+            itemDataManager = new ItemDataManager(this);
 
-        // Initialize Chat Input Manager
-        chatInputManager = new ChatInputManager(this);
-        getServer().getPluginManager().registerEvents(chatInputManager, this);
+            // Initialize Chat Input Manager
+            chatInputManager = new ChatInputManager(this);
+            getServer().getPluginManager().registerEvents(chatInputManager, this);
 
-        editGUI = new EditGUI(this);
+            editGUI = new EditGUI(this);
+        }
 
         // Initialize Resource Pack Manager
         resourcePackManager = new ResourcePackManager(this);
@@ -64,30 +69,36 @@ public class CuriosPaper extends JavaPlugin {
         api = new CuriosPaperAPIImpl(this);
 
         gui = new AccessoryGUI(this);
+        editMenuGUI = new EditMenuGUI(this);
 
-        // Register RecipeListener and register all recipes
-        recipeListener = new RecipeListener(this, itemDataManager);
-        recipeListener.registerAllRecipes();
+        if (itemEditorEnabled) {
+            // Register RecipeListener and register all recipes
+            recipeListener = new RecipeListener(this, itemDataManager);
+            getServer().getPluginManager().registerEvents(recipeListener, this);
+            recipeListener.registerAllRecipes();
 
-        recipeEditor = new RecipeEditorGUI(this);
-        getServer().getPluginManager().registerEvents(recipeEditor, this);
+            recipeEditor = new RecipeEditorGUI(this);
+            getServer().getPluginManager().registerEvents(recipeEditor, this);
 
-        this.lootTableBrowser = new LootTableBrowser(this);
-        getServer().getPluginManager().registerEvents(this.lootTableBrowser, this);
+            this.lootTableBrowser = new LootTableBrowser(this);
+            getServer().getPluginManager().registerEvents(this.lootTableBrowser, this);
 
-        this.mobDropEditor = new MobDropEditor(this);
-        getServer().getPluginManager().registerEvents(mobDropEditor, this);
+            this.mobDropEditor = new MobDropEditor(this);
+            getServer().getPluginManager().registerEvents(mobDropEditor, this);
+        }
 
         BaublesCommand baublesCommand = new BaublesCommand(this, gui);
         getCommand("baubles").setExecutor(baublesCommand);
 
-        // Register Edit Command
-        org.bg52.curiospaper.command.EditCommand editCommand = new org.bg52.curiospaper.command.EditCommand(this);
-        getCommand("edit").setExecutor(editCommand);
-        getCommand("edit").setTabCompleter(editCommand);
+        if (itemEditorEnabled) {
+            // Register Edit Command
+            org.bg52.curiospaper.command.EditCommand editCommand = new org.bg52.curiospaper.command.EditCommand(this);
+            getCommand("edit").setExecutor(editCommand);
+            getCommand("edit").setTabCompleter(editCommand);
 
-        // Register EditGUI listener
-        getServer().getPluginManager().registerEvents(editGUI, this);
+            // Register EditGUI listener
+            getServer().getPluginManager().registerEvents(editGUI, this);
+        }
 
         getCommand("curios").setExecutor(
                 new org.bg52.curiospaper.command.CuriosCommand(this, this.api()));
@@ -97,36 +108,49 @@ public class CuriosPaper extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new InventoryListener(this, gui), this);
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
 
-        // Register loot table and mob drop listeners
-        getServer().getPluginManager()
-                .registerEvents(new org.bg52.curiospaper.listener.LootTableListener(this, itemDataManager), this);
-        getServer().getPluginManager()
-                .registerEvents(new org.bg52.curiospaper.listener.MobDropListener(this, itemDataManager), this);
+        if (itemEditorEnabled) {
+            // Register loot table and mob drop listeners
+            getServer().getPluginManager()
+                    .registerEvents(new org.bg52.curiospaper.listener.LootTableListener(this, itemDataManager), this);
+            getServer().getPluginManager()
+                    .registerEvents(new org.bg52.curiospaper.listener.MobDropListener(this, itemDataManager), this);
 
-        // Register TradeEditor
-        this.tradeEditor = new TradeEditor(this);
-        getServer().getPluginManager().registerEvents(tradeEditor, this);
+            // Register TradeEditor
+            this.tradeEditor = new TradeEditor(this);
+            getServer().getPluginManager().registerEvents(tradeEditor, this);
 
-        // Register VillagerTradeListener
-        getServer().getPluginManager()
-                .registerEvents(new org.bg52.curiospaper.listener.VillagerTradeListener(this, itemDataManager), this);
+            // Register VillagerTradeListener
+            getServer().getPluginManager()
+                    .registerEvents(new org.bg52.curiospaper.listener.VillagerTradeListener(this, itemDataManager),
+                            this);
 
-        this.abilityEditor = new AbilityEditorGUI(this);
-        getServer().getPluginManager().registerEvents(this.abilityEditor, this);
+            this.abilityEditor = new AbilityEditorGUI(this);
+            getServer().getPluginManager().registerEvents(this.abilityEditor, this);
 
-        this.abilityListener = new AbilityListener(this);
-        getServer().getPluginManager().registerEvents(this.abilityListener, this);
+            this.abilityListener = new AbilityListener(this);
+            getServer().getPluginManager().registerEvents(this.abilityListener, this);
+        }
 
-        // Register Elytra Back Slot Handler if enabled
+        // Register Elytra Back Slot Handler if enabled AND server supports
+        // DataComponents (1.21.3+)
         if (getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
-            elytraHandler = new ElytraBackSlotHandler(this);
-            getServer().getPluginManager().registerEvents(elytraHandler, this);
-            getLogger().info("Elytra back slot feature enabled!");
+            if (org.bg52.curiospaper.util.VersionUtil.supportsDataComponents()) {
+                elytraHandler = new ElytraBackSlotHandler(this);
+                getServer().getPluginManager().registerEvents(elytraHandler, this);
+                getLogger().info("Elytra back slot feature enabled!");
+            } else {
+                getLogger().warning("Elytra back slot feature requires Minecraft 1.21.3+ with Paper. " +
+                        "Your server is running " + org.bg52.curiospaper.util.VersionUtil.getVersionString() +
+                        ". This feature has been disabled.");
+            }
         }
 
         int saveInterval = getConfig().getInt("storage.save-interval", 300) * 20;
         autoSaveTask = new AutoSaveTask(this);
         autoSaveTask.runTaskTimer(this, saveInterval, saveInterval);
+
+        int pluginId = 29508;
+        Metrics metrics = new Metrics(this, pluginId);
 
         getLogger().info("CuriosPaper has been enabled!");
         getLogger().info("Loaded " + configManager.getSlotConfigurations().size() + " slot types.");
@@ -170,6 +194,16 @@ public class CuriosPaper extends JavaPlugin {
             autoSaveTask.cancel();
         }
 
+        // Unregister recipes before cleaning up items
+        if (recipeListener != null) {
+            recipeListener.unregisterAllRecipes();
+        }
+
+        // Clean up external items to prevent stale data on restart
+        if (itemDataManager != null) {
+            itemDataManager.cleanupExternalItems();
+        }
+
         if (resourcePackManager != null) {
             resourcePackManager.shutdown();
         }
@@ -209,6 +243,10 @@ public class CuriosPaper extends JavaPlugin {
 
     public AccessoryGUI getGUI() {
         return gui;
+    }
+
+    public EditMenuGUI getEditMenuGUI() {
+        return editMenuGUI;
     }
 
     public ItemDataManager getItemDataManager() {

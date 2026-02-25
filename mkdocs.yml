@@ -1,0 +1,118 @@
+site_name: CuriosPaper
+site_url: https://brothergaming52.github.io/CuriosPaper/
+site_description: Custom accessory inventory system API for Spigot/Paper servers
+repo_url: https://github.com/Brothergaming52/CuriosPaper
+repo_name: Brothergaming52/CuriosPaper
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.expand
+    - content.code.copy
+    - content.tabs.link
+    - search.highlight
+    - search.suggest
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+
+  - Installation:
+      - Overview: installation/index.md
+      - Requirements: installation/requirements.md
+      - Installation: installation/install.md
+      - First Start: installation/first-start.md
+      - Resource Pack Setup: installation/resource-pack.md
+
+  - Getting Started:
+      - Overview: getting-started/index.md
+      - Core Concepts: getting-started/concepts.md
+      - Your First Accessory: getting-started/first-accessory.md
+      - GUI Overview: getting-started/gui-overview.md
+
+  - Commands:
+      - Commands: commands/index.md
+      - Permissions: commands/permissions.md
+
+  - Configuration:
+      - Overview: configuration/index.md
+      - Slots: configuration/slots.md
+      - Abilities: configuration/abilities.md
+      - Performance & Storage: configuration/performance.md
+
+  - Systems:
+      - Accessory System: systems/accessory-system.md
+      - Ability System: systems/ability-system.md
+      - Item System: systems/item-system.md
+      - Recipe System: systems/recipe-system.md
+      - Mob Drop System: systems/mob-drop-system.md
+      - Villager Trade System: systems/villager-trade-system.md
+      - Elytra Back Slot: systems/elytra-back-slot.md
+
+  - Resource Pack:
+      - Overview: resource-pack/index.md
+      - Hosting: resource-pack/hosting.md
+      - Custom Model Data: resource-pack/custom-model-data.md
+      - Troubleshooting: resource-pack/troubleshooting.md
+
+  - GUI Editors:
+      - Overview: gui-editors/index.md
+      - Ability Editor: gui-editors/ability-editor.md
+      - Recipe Editor: gui-editors/recipe-editor.md
+      - Mob Drop Editor: gui-editors/mob-drop-editor.md
+      - Trade Editor: gui-editors/trade-editor.md
+
+  - Developer API:
+      - Overview: api/index.md
+      - Getting the API: api/getting-api.md
+      - Creating Accessories: api/creating-accessories.md
+      - Abilities: api/abilities.md
+      - Events: api/events.md
+
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Managers: architecture/managers.md
+      - Listeners: architecture/listeners.md
+      - Storage: architecture/storage.md
+
+  - Examples:
+      - Accessory Example: examples/accessory-example.md
+      - Ability Example: examples/ability-example.md
+      - Recipe Example: examples/recipe-example.md
+
+  - Troubleshooting:
+      - Overview: troubleshooting/index.md
+      - Common Issues: troubleshooting/common-issues.md

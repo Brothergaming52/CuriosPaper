@@ -40,6 +40,21 @@ public interface CuriosPaperAPI {
      */
     String getAccessorySlotType(ItemStack itemStack);
 
+    /**
+     * Gets the NamespacedKey used for identifying custom items
+     */
+    NamespacedKey getItemIdKey();
+
+    /**
+     * Creates an ItemStack for a custom item by its ID.
+     * Use this instead of manually creating items to ensure they
+     * have the correct NBT data for recipes.
+     * 
+     * @param itemId The unique item identifier
+     * @return The ItemStack, or null if the item doesn't exist
+     */
+    ItemStack createItemStack(String itemId);
+
     // ========== EQUIPPED ITEMS ACCESS ==========
 
     /**
@@ -171,16 +186,18 @@ public interface CuriosPaperAPI {
      * This allows plugins to dynamically add slot types without modifying
      * config.yml.
      * 
-     * @param slotType    The unique identifier for the slot type
-     * @param displayName The display name shown in the GUI
-     * @param icon        The material to use as the icon
-     * @param itemModel   The item model key (namespace:path format)
-     * @param amount      The number of slots available for this type
-     * @param lore        The lore to display on the slot icon
+     * @param slotType        The unique identifier for the slot type
+     * @param displayName     The display name shown in the GUI
+     * @param icon            The material to use as the icon
+     * @param itemModel       The item model key (namespace:path format)
+     * @param customModelData The CustomModelData value for older versions (can be
+     *                        null)
+     * @param amount          The number of slots available for this type
+     * @param lore            The lore to display on the slot icon
      * @return true if registration was successful, false otherwise
      */
     boolean registerSlot(String slotType, String displayName, org.bukkit.Material icon,
-            String itemModel, int amount, java.util.List<String> lore);
+            String itemModel, Integer customModelData, int amount, java.util.List<String> lore);
 
     /**
      * Unregisters a custom slot type.
@@ -235,6 +252,17 @@ public interface CuriosPaperAPI {
      * @return The created ItemData, or null if creation failed
      */
     org.bg52.curiospaper.data.ItemData createItem(String itemId);
+
+    /**
+     * Creates a new custom item with the given ID and owning plugin.
+     * Use this when creating items from an external plugin to ensure they are
+     * cleaned up if the plugin is removed.
+     * 
+     * @param plugin The plugin creating the item
+     * @param itemId The unique item identifier
+     * @return The created ItemData, or null if creation failed
+     */
+    org.bg52.curiospaper.data.ItemData createItem(org.bukkit.plugin.Plugin plugin, String itemId);
 
     /**
      * Saves item data to disk
