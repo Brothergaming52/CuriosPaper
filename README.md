@@ -84,8 +84,6 @@ Everything you need — installation, configuration, item creation, API guides, 
 
 ### 🌐 [**curiospaper.run.place**](http://www.curiospaper.run.place/)
 
-[![](https://jitci.com/gh/Brothergaming52/CuriosPaper/svg)](https://jitci.com/gh/Brothergaming52/CuriosPaper)
-
 The full documentation site covers:
 - **Installation & Setup** — Get running in minutes
 - **Slot Configuration** — Customize all 9 slot types
@@ -102,7 +100,7 @@ The full documentation site covers:
 
 ### Join the Discord!
 
-[![Discord](https://img.shields.io/discord/1234567890?color=5865F2&label=Discord&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/r5YXqgrGya)
+[![Discord](https://img.shields.io/discord/1456137607569346739?label=Discord&style=for-the-badge)](https://discord.gg/r5YXqgrGya)
 
 **[discord.gg/r5YXqgrGya](https://discord.gg/r5YXqgrGya)**
 
