@@ -48,37 +48,37 @@ CuriosPaper adds a fully configurable accessory slot system to your Minecraft se
 
 <div class="grid cards" markdown>
 
-- :material-download: **[Installation](installation/index.md)**  
+- **[Installation](installation/index.md)**  
   Requirements, setup, and first-start guide
 
-- :material-book-open: **[Getting Started](getting-started/index.md)**  
+- **[Getting Started](getting-started/index.md)**  
   Core concepts, first accessory, and GUI overview
 
-- :material-console: **[Commands](commands/index.md)**  
+- **[Commands](commands/index.md)**  
   All commands and permissions
 
-- :material-cog: **[Configuration](configuration/index.md)**  
+- **[Configuration](configuration/index.md)**  
   Slots, abilities, performance tuning
 
-- :material-puzzle: **[Systems](systems/accessory-system.md)**  
+- **[Systems](systems/accessory-system.md)**  
   Deep dives into each plugin system
 
-- :material-palette: **[Resource Pack](resource-pack/index.md)**  
+- **[Resource Pack](resource-pack/index.md)**  
   Hosting, custom models, and troubleshooting
 
-- :material-pencil: **[GUI Editors](gui-editors/index.md)**  
+- **[GUI Editors](gui-editors/index.md)**  
   In-game visual editors for items, recipes, and more
 
-- :material-code-tags: **[Developer API](api/index.md)**  
+- **[Developer API](api/index.md)**  
   Integrate CuriosPaper into your own plugins
 
-- :material-sitemap: **[Architecture](architecture/overview.md)**  
+- **[Architecture](architecture/overview.md)**  
   Internal design and code structure
 
-- :material-file-document: **[Examples](examples/accessory-example.md)**  
+- **[Examples](examples/accessory-example.md)**  
   Ready-to-use configuration examples
 
-- :material-bug: **[Troubleshooting](troubleshooting/index.md)**  
+- **[Troubleshooting](troubleshooting/index.md)**  
   Common issues and their solutions
 
 </div>
@@ -87,7 +87,7 @@ CuriosPaper adds a fully configurable accessory slot system to your Minecraft se
 
 | | |
 |---|---|
-| **Version** | 1.2.0 |
+| **Version** | 1.2.1 |
 | **Author** | Brothergaming52 |
 | **API Version** | 1.14-1.21.11 |
 | **Source** | [GitHub](https://github.com/Brothergaming52/CuriosPaper) |
