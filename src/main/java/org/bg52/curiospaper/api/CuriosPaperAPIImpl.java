@@ -62,10 +62,15 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
                     meta.setLore(coloredLore);
                 }
 
-                // Set item model
+                // Set item model and custom model data
                 if (itemData.getItemModel() != null && !itemData.getItemModel().isEmpty()) {
                     org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemData.getItemModel(),
                             itemData.getCustomModelData());
+                }
+
+                if (itemData.getCustomModelData() != null) {
+                    // No item model, but custom model data is set — apply it directly
+                    meta.setCustomModelData(itemData.getCustomModelData());
                 }
 
                 // Set custom ID in PDC

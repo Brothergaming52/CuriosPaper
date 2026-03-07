@@ -144,6 +144,14 @@ public class ResourcePackManager {
             if (namespaceOwners.containsKey(namespace)) {
                 Plugin owner = namespaceOwners.get(namespace);
 
+                // minecraft namespace is always shared/mergeable — file-level
+                // conflicts are resolved later in copyFolderStrict/handleConflict
+                if (namespace.equals("minecraft")) {
+                    this.plugin.getLogger().info("[CuriosPaper-RP] Merging 'minecraft' namespace resources from "
+                            + plugin.getName() + " (owned by " + owner.getName() + ").");
+                    continue;
+                }
+
                 if (owner != plugin && !allowNamespaceConflicts) {
                     String msg = "[CuriosPaper-RP] Namespace '" + namespace
                             + "' is already owned by plugin " + owner.getName()

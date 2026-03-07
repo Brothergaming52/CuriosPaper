@@ -39,6 +39,7 @@ public class RecipeListener implements Listener {
     public RecipeListener(CuriosPaper plugin, ItemDataManager itemDataManager) {
         this.plugin = plugin;
         this.itemDataManager = itemDataManager;
+        registerPrepareSmithingHandler();
     }
 
     /**
@@ -294,6 +295,99 @@ public class RecipeListener implements Listener {
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to register SmithingRecipe: " + e.getMessage());
                 return false;
+            }
+        }
+    }
+
+    /**
+     * Registers a PrepareSmithingEvent handler via reflection.
+     * PrepareSmithingEvent doesn't exist on 1.14/1.15, so we use reflection
+     * to avoid compile-time issues. This handler overrides the result item
+     * in the smithing table preview with the correct custom item, because
+     * the legacy SmithingRecipe copies NBT from the base item which
+     * overwrites our custom item metadata.
+     */
+    @SuppressWarnings("unchecked")
+    private void registerPrepareSmithingHandler() {
+        try {
+            Class<? extends org.bukkit.event.Event> prepareClass = (Class<? extends org.bukkit.event.Event>) Class
+                    .forName(
+                            "org.bukkit.event.inventory.PrepareSmithingEvent");
+
+            org.bukkit.event.Listener dummyListener = new org.bukkit.event.Listener() {
+            };
+            RecipeListener self = this;
+
+            plugin.getServer().getPluginManager().registerEvent(
+                    prepareClass,
+                    dummyListener,
+                    org.bukkit.event.EventPriority.HIGH,
+                    (listener, event) -> {
+                        if (!prepareClass.isInstance(event))
+                            return;
+                        try {
+                            self.handlePrepareSmithing(event);
+                        } catch (Exception ex) {
+                            plugin.getLogger().warning("Error in PrepareSmithingEvent handler: " + ex.getMessage());
+                        }
+                    },
+                    plugin);
+        } catch (ClassNotFoundException e) {
+            // PrepareSmithingEvent not available (1.14/1.15) — smithing doesn't exist
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to register PrepareSmithingEvent handler: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handles the PrepareSmithingEvent by matching the smithing table contents
+     * against registered custom smithing recipes and setting the correct result.
+     */
+    private void handlePrepareSmithing(org.bukkit.event.Event event) throws Exception {
+        // Get the inventory via reflection to avoid compile-time dependency
+        java.lang.reflect.Method getInventory = event.getClass().getMethod("getInventory");
+        org.bukkit.inventory.Inventory inv = (org.bukkit.inventory.Inventory) getInventory.invoke(event);
+
+        // Determine slot layout based on version
+        // 1.20+ (with template): slot 0=template, 1=base, 2=addition
+        // Pre-1.20: slot 0=base, 1=addition
+        boolean hasTemplate = VersionUtil.supportsSmithingTemplate();
+        int baseSlot = hasTemplate ? 1 : 0;
+        int additionSlot = hasTemplate ? 2 : 1;
+
+        ItemStack base = inv.getItem(baseSlot);
+        ItemStack addition = inv.getItem(additionSlot);
+        ItemStack template = hasTemplate ? inv.getItem(0) : null;
+
+        if (base == null || addition == null)
+            return;
+
+        // Search all registered custom items for a matching smithing recipe
+        for (ItemData itemData : itemDataManager.getAllItems().values()) {
+            for (RecipeData recipe : itemData.getRecipes()) {
+                if (recipe.getType() != RecipeData.RecipeType.SMITHING)
+                    continue;
+
+                if (matchesSmithing(recipe, template, base, addition)) {
+                    // Create the correct result item
+                    ItemStack result = createResultItem(itemData);
+                    if (result == null)
+                        continue;
+
+                    // Fire transfer event so plugins can copy data (e.g. backpack UUID)
+                    CuriosRecipeTransferEvent transferEvent = new CuriosRecipeTransferEvent(inv, result, base);
+                    plugin.getServer().getPluginManager().callEvent(transferEvent);
+
+                    if (!transferEvent.isCancelled()) {
+                        result = transferEvent.getResult();
+                        result = ensureItemTags(result);
+                    }
+
+                    // Set result via reflection
+                    java.lang.reflect.Method setResult = event.getClass().getMethod("setResult", ItemStack.class);
+                    setResult.invoke(event, result);
+                    return;
+                }
             }
         }
     }

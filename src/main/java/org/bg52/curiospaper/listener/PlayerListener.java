@@ -24,36 +24,16 @@ public class PlayerListener implements Listener {
             String url = plugin.getResourcePackManager().getPackUrl();
             String hash = plugin.getResourcePackManager().getPackHash();
 
-            if (hash != null) {
-                try {
-                    // 1.14 accepts (String url, byte[] hash)
-                    // If hash is hex string, convert to byte[]
-                    byte[] hashBytes = null;
-                    if (hash != null && !hash.isEmpty()) {
-                        try {
-                            // simple placeholder conversion or empty if not strictly needed checks
-                            // A real hex decoder is needed but for now user passed string
-                            // Let's try passing just URL if hash is problematic or if 1.14 supports single
-                            // arg
-                            // player.setResourcePack(url);
-                            // But if we want hash:
-                            // hashBytes = javax.xml.bind.DatatypeConverter.parseHexBinary(hash); //
-                            // requires java.xml.bind
-                            // Let's just use the single arg version if possible or pass empty array?
-                            // Actually 1.14 has setResourcePack(String url, byte[] hash)
-                            // The user is passing (String, String).
-                            // We will call the version that takes just String if hash is not critical or
-                            // convert it.
-                            player.setResourcePack(url); // safest fallback
-                        } catch (Exception e) {
-                        }
-                    } else {
-                        player.setResourcePack(url);
-                    }
-                } catch (Exception e) {
-                    plugin.getLogger()
-                            .warning("Failed to send resource pack to " + player.getName() + ": " + e.getMessage());
+            try {
+                // Append hash as query param to bust client cache on pack rebuild.
+                // Uses single-arg setResourcePack(String) which works on all versions (1.14+).
+                if (hash != null && !hash.isEmpty()) {
+                    url = url + "?v=" + hash;
                 }
+                player.setResourcePack(url);
+            } catch (Exception e) {
+                plugin.getLogger()
+                        .warning("Failed to send resource pack to " + player.getName() + ": " + e.getMessage());
             }
         }
     }

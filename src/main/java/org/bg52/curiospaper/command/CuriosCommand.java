@@ -164,6 +164,12 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
         }
 
         String url = rpManager.getPackUrl();
+        String hash = rpManager.getPackHash();
+
+        // Append hash as query param to bust client cache on pack rebuild
+        if (hash != null && !hash.isEmpty()) {
+            url = url + "?v=" + hash;
+        }
 
         int count = 0;
         for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
