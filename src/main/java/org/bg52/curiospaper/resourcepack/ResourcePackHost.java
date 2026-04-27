@@ -1,9 +1,9 @@
 package org.bg52.curiospaper.resourcepack;
 
 public interface ResourcePackHost {
-    void start();
+  void start();
 
-    void stop();
+  void stop();
 
-    int getPort();
+  int getPort();
 }

@@ -7,4 +7,6 @@ compile.bat
 dependency-reduced-pom.xml
 PLUGIN_PAGE.md
 pom.xml
-CuriosPaper.zip
+.settings/
+.classpath
+.project

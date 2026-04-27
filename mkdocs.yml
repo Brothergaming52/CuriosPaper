@@ -80,6 +80,7 @@ nav:
       - Recipe System: systems/recipe-system.md
       - Mob Drop System: systems/mob-drop-system.md
       - Villager Trade System: systems/villager-trade-system.md
+      - 3D Model System: systems/3d-model-system.md
       - Elytra Back Slot: systems/elytra-back-slot.md
 
   - Resource Pack:
@@ -94,6 +95,7 @@ nav:
       - Recipe Editor: gui-editors/recipe-editor.md
       - Mob Drop Editor: gui-editors/mob-drop-editor.md
       - Trade Editor: gui-editors/trade-editor.md
+      - 3D Model Editor: gui-editors/3d-model-editor.md
 
   - Developer API:
       - Overview: api/index.md

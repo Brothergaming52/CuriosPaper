@@ -4,416 +4,545 @@ import org.bg52.curiospaper.CuriosPaper;
 import org.bg52.curiospaper.config.SlotConfiguration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
+import net.md_5.bungee.api.ChatColor;
+
 import java.util.*;
 
 public class AccessoryGUI {
-    private final CuriosPaper plugin;
-    public static final String MAIN_GUI_TITLE = "§8✦ Accessory Slots ✦";
-    public static final String SLOTS_GUI_PREFIX = "§8Slot: ";
+  private final CuriosPaper plugin;
+  public static final String MAIN_GUI_TITLE = "Accessory Slots";
+  public static final String SLOTS_GUI_PREFIX = ChatColor.GOLD + "Slot: ";
 
-    private static final Material FILLER_MATERIAL = Material.GRAY_STAINED_GLASS_PANE;
-    private static final Material BORDER_MATERIAL = Material.BLACK_STAINED_GLASS_PANE;
-    private static final String FILLER_NAME = "§r";
+  private static final Material FILLER_MATERIAL = Material.GRAY_STAINED_GLASS_PANE;
+  private static final Material BORDER_MATERIAL = Material.BLACK_STAINED_GLASS_PANE;
+  private static final String FILLER_NAME = "§r";
+  private static final String BACK_BUTTON_NAME = "§c← Back";
 
-    // Store slot positions for each slot type
-    private final Map<String, int[]> slotPositionCache = new HashMap<>();
+  // Store slot positions for each slot type (tier-2 GUI)
+  private final Map<String, int[]> slotPositionCache = new HashMap<>();
 
-    public AccessoryGUI(CuriosPaper plugin) {
-        this.plugin = plugin;
+  // ── Custom layout override ───────────────────────────────────────────────
+  // Set by editmenu on close; saved to config.yml
+  private Map<String, Integer> customLayout = null; // null = use preset
+  private int customGuiSize = -1; // -1 = use preset
+
+  public AccessoryGUI(CuriosPaper plugin) {
+    this.plugin = plugin;
+  }
+
+  // =========================================================================
+  // Tier-1 main GUI
+  // =========================================================================
+
+  /**
+   * Opens the main GUI showing only slot types that have at least one item
+   * registered. Layout comes from the session override (editmenu) or the
+   * built-in preset for the number of active slots.
+   */
+  public void openMainGUI(Player player) {
+    List<String> activeKeys = plugin.getConfigManager().getActiveSlotKeys();
+
+    int size;
+    Map<String, Integer> layout;
+
+    if (customLayout != null) {
+      // editmenu rearranged things — honour the custom layout
+      size = customGuiSize;
+      layout = customLayout;
+    } else {
+      // Compute fresh preset
+      size = computeMainGUISize(activeKeys.size());
+      layout = computeMainGUILayout(activeKeys, size);
     }
 
-    /**
-     * Opens the main Tier 1 GUI with all slot type buttons
-     * Size and layout are loaded from configuration
-     */
-    public void openMainGUI(Player player) {
-        Map<String, SlotConfiguration> configs = plugin.getConfigManager().getSlotConfigurations();
-        int size = plugin.getConfigManager().getMainGuiSize();
-        Inventory mainGUI = Bukkit.createInventory(null, size, MAIN_GUI_TITLE);
+    Inventory mainGUI = Bukkit.createInventory(null, size, MAIN_GUI_TITLE);
 
-        Map<String, Integer> layout = plugin.getConfigManager().getMainLayout();
+    for (String key : activeKeys) {
+      SlotConfiguration config = plugin.getConfigManager().getSlotConfiguration(key);
+      if (config == null)
+        continue;
 
-        for (SlotConfiguration config : configs.values()) {
-            String key = config.getKey();
-            int pos = layout.getOrDefault(key.toLowerCase(), -1);
-            ItemStack button = createSlotButton(config);
+      ItemStack button = createSlotButton(config);
+      int pos = layout.getOrDefault(key.toLowerCase(), -1);
 
-            // Check if position is valid and slot is empty (just filler)
-            if (pos >= 0 && pos < size && mainGUI.getItem(pos) == null) {
-                mainGUI.setItem(pos, button);
-            } else {
-                // Fail-safe: Find first available empty slot
-                boolean placed = false;
-                for (int i = 0; i < size; i++) {
-                    if (mainGUI.getItem(i) == null) {
-                        mainGUI.setItem(i, button);
-                        placed = true;
-                        break;
-                    }
-                }
-                if (!placed) {
-                    plugin.getLogger().warning("Could not find a slot for '" + key + "' in main GUI (GUI is full!)");
-                }
-            }
+      if (pos >= 0 && pos < size && isFillerOrEmpty(mainGUI.getItem(pos))) {
+        mainGUI.setItem(pos, button);
+      } else {
+        // Fallback: first empty slot
+        boolean placed = false;
+        for (int i = 0; i < size; i++) {
+          if (isFillerOrEmpty(mainGUI.getItem(i))) {
+            mainGUI.setItem(i, button);
+            placed = true;
+            break;
+          }
         }
-
-        // Fill remaining empty slots with gray glass
-        fillInventory(mainGUI, FILLER_MATERIAL);
-
-        player.openInventory(mainGUI);
+        if (!placed) {
+          plugin.getLogger().warning("Could not place slot button '" + key + "' — main GUI is full!");
+        }
+      }
     }
 
-    private boolean isFillerItem(ItemStack item) {
-        if (item == null || item.getType() == Material.AIR)
-            return true;
-        ItemMeta meta = item.getItemMeta();
-        return meta != null && FILLER_NAME.equals(meta.getDisplayName());
+    fillInventory(mainGUI, FILLER_MATERIAL);
+    player.openInventory(mainGUI);
+  }
+
+  // ── Custom layout saved API ──────────────────────────────────────────────
+
+  /**
+   * Applies a custom layout override (from editmenu).
+   * This is written to disk and persists on server restart.
+   */
+  public void saveCustomLayout(Map<String, Integer> layout, int size) {
+    this.customLayout = new HashMap<>(layout);
+    this.customGuiSize = size;
+
+    plugin.getConfig().set("gui.custom-size", size);
+    plugin.getConfig().set("gui.layout", null); // Clear old layout map
+    for (Map.Entry<String, Integer> entry : layout.entrySet()) {
+      plugin.getConfig().set("gui.layout." + entry.getKey(), entry.getValue());
+    }
+    plugin.saveConfig();
+  }
+
+  public void loadCustomLayout() {
+    if (plugin.getConfig().contains("gui.custom-size") && plugin.getConfig().contains("gui.layout")) {
+      this.customGuiSize = plugin.getConfig().getInt("gui.custom-size");
+      org.bukkit.configuration.ConfigurationSection section = plugin.getConfig().getConfigurationSection("gui.layout");
+      if (section != null) {
+        this.customLayout = new HashMap<>();
+        for (String key : section.getKeys(false)) {
+          this.customLayout.put(key, section.getInt(key));
+        }
+      }
+    }
+  }
+
+  /** Resets the custom layout back to the computed preset. */
+  public void resetCustomLayout() {
+    this.customLayout = null;
+    this.customGuiSize = -1;
+    plugin.getConfig().set("gui.custom-size", null);
+    plugin.getConfig().set("gui.layout", null);
+    plugin.saveConfig();
+  }
+
+  /**
+   * Returns the layout currently in effect (session override or computed preset).
+   * EditMenuGUI uses this to render itself consistently.
+   */
+  public Map<String, Integer> getCurrentLayout() {
+    if (customLayout != null)
+      return new HashMap<>(customLayout);
+    List<String> activeKeys = plugin.getConfigManager().getActiveSlotKeys();
+    int size = computeMainGUISize(activeKeys.size());
+    return computeMainGUILayout(activeKeys, size);
+  }
+
+  /**
+   * Returns the GUI size currently in effect.
+   */
+  public int getCurrentGuiSize() {
+    if (customGuiSize >= 9)
+      return customGuiSize;
+    List<String> activeKeys = plugin.getConfigManager().getActiveSlotKeys();
+    return computeMainGUISize(activeKeys.size());
+  }
+
+  // ── Layout computation ────────────────────────────────────────────────────
+
+  /**
+   * Determines the inventory size (multiple of 9) for n active slot buttons.
+   */
+  private int computeMainGUISize(int n) {
+    if (n <= 0)
+      return 27;
+    if (n <= 4)
+      return 27;
+    if (n <= 10)
+      return 45;
+    return 54;
+  }
+
+  /**
+   * Returns a slot-key → inventory-index map for the given active keys.
+   * Presets are defined for 1-10 slots; beyond that a grid is generated.
+   *
+   * All positions assume the inventory is filled with filler, so these are the
+   * "open window" positions where buttons will sit.
+   */
+  private Map<String, Integer> computeMainGUILayout(List<String> keys, int size) {
+    int n = keys.size();
+    int[] positions = getPresetPositions(n, size);
+
+    Map<String, Integer> layout = new LinkedHashMap<>();
+    for (int i = 0; i < keys.size() && i < positions.length; i++) {
+      layout.put(keys.get(i).toLowerCase(), positions[i]);
+    }
+    return layout;
+  }
+
+  /**
+   * Hardcoded beautiful presets for 1-10 active slots.
+   * For > 10 a centred grid is generated automatically.
+   */
+  private int[] getPresetPositions(int n, int size) {
+    switch (n) {
+      case 0:
+        return new int[0];
+
+      case 1:
+        // Single slot — dead centre of a 27-slot GUI (row 1, slot 4)
+        return new int[] { 13 };
+
+      case 2:
+        // Two slots side-by-side, centred
+        return new int[] { 12, 14 };
+
+      case 3:
+        // Row of 3 centred
+        return new int[] { 11, 13, 15 };
+
+      case 4:
+        // 2 × 2 diamond
+        return new int[] { 10, 12, 14, 16 };
+
+      case 5:
+        // Full middle row of 27-slot GUI
+        return new int[] { 12, 14, 22, 30, 32 };
+
+      case 6:
+        // 2 rows of 3, centred in 36-slot (4 rows)
+        // row 1: slots 11, 13, 15 row 2: slots 20, 22, 24
+        return new int[] { 11, 13, 15, 29, 31, 33 };
+
+      case 7:
+        // 3 + 4 layout in 36-slot
+        return new int[] { 12, 14, 20, 22, 24, 30, 32 };
+
+      case 8:
+        // 4 + 4 in 36-slot
+        return new int[] { 11, 13, 15, 21, 23, 29, 31, 33 };
+
+      case 9:
+        // 3 × 3 grid centred in 45-slot (5 rows), occupying rows 2-4
+        return new int[] {
+            10, 12, 14, 16,
+            20, 22, 24,
+            30, 32
+        };
+
+      case 10:
+        // 3 + 4 + 3 in 45-slot
+        return new int[] {
+            11, 13, 15,
+            19, 21, 23, 25,
+            29, 31, 33
+        };
+
+      default:
+        // > 10: auto grid, up to 7 per row, centred
+        return generateGridPositions(n, size);
+    }
+  }
+
+  /**
+   * Generates centred grid slot positions for more than 10 active slots.
+   */
+  private int[] generateGridPositions(int n, int size) {
+    int rows = size / 9;
+    int itemsPerRow = Math.min(7, n);
+    int neededRows = (n + itemsPerRow - 1) / itemsPerRow;
+    int startRow = Math.max(1, (rows - neededRows) / 2);
+
+    List<Integer> positions = new ArrayList<>();
+    for (int row = 0; row < neededRows && positions.size() < n; row++) {
+      int itemsInRow = Math.min(itemsPerRow, n - positions.size());
+      int startCol = (9 - itemsInRow) / 2;
+      for (int col = 0; col < itemsInRow; col++) {
+        positions.add((startRow + row) * 9 + startCol + col);
+      }
+    }
+    return positions.stream().mapToInt(Integer::intValue).toArray();
+  }
+
+  private boolean isFillerOrEmpty(ItemStack item) {
+    if (item == null || item.getType() == Material.AIR)
+      return true;
+    ItemMeta meta = item.getItemMeta();
+    return meta != null && FILLER_NAME.equals(meta.getDisplayName());
+  }
+
+  // =========================================================================
+  // Tier-2 slot items GUI
+  // =========================================================================
+
+  /**
+   * Opens the tier-2 GUI for a specific slot type showing the player's equipped
+   * items. Dynamically sized and laid out based on slot count.
+   */
+  public void openSlotItemsGUI(Player player, String slotType) {
+    SlotConfiguration config = plugin.getConfigManager().getSlotConfiguration(slotType);
+    if (config == null) {
+      player.sendMessage("§cInvalid slot type!");
+      return;
     }
 
-    /**
-     * Opens the Tier 2 GUI for a specific slot type
-     * Dynamically sized and beautifully arranged based on slot count
-     */
-    public void openSlotItemsGUI(Player player, String slotType) {
-        SlotConfiguration config = plugin.getConfigManager().getSlotConfiguration(slotType);
-        if (config == null) {
-            player.sendMessage("§cInvalid slot type!");
-            return;
-        }
+    int slotAmount = config.getAmount();
+    int size = calculateSlotGUISize(slotAmount);
+    int[] slotPositions = calculateSlotPositions(slotAmount, size);
 
-        int slotAmount = config.getAmount();
+    // Cache positions for use by InventoryListener
+    slotPositionCache.put(slotType.toLowerCase(), slotPositions);
 
-        // Determine inventory size and get slot positions
-        int size = calculateSlotGUISize(slotAmount);
-        int[] slotPositions = calculateSlotPositions(slotAmount, size);
+    Inventory slotsGUI = Bukkit.createInventory(null, size,
+        SLOTS_GUI_PREFIX + ChatColor.YELLOW + config.getName());
 
-        // Cache the positions for this slot type
-        slotPositionCache.put(slotType, slotPositions);
+    createBorder(slotsGUI);
+    fillInventory(slotsGUI, FILLER_MATERIAL);
 
-        Inventory slotsGUI = Bukkit.createInventory(null, size, SLOTS_GUI_PREFIX + config.getName());
+    // Back button — first slot of last row
+    slotsGUI.setItem(size - 9, createBackButton());
 
-        // Create border
-        createBorder(slotsGUI);
-
-        // Fill with gray glass
-        fillInventory(slotsGUI, FILLER_MATERIAL);
-
-        // Clear the accessory slots (remove filler)
-        for (int slot : slotPositions) {
-            slotsGUI.setItem(slot, null);
-        }
-
-        // Load current items
-        List<ItemStack> currentItems = plugin.getSlotManager().getAccessories(player.getUniqueId(), slotType);
-        for (int i = 0; i < currentItems.size() && i < slotPositions.length; i++) {
-            ItemStack item = currentItems.get(i);
-            if (item != null && item.getType() != org.bukkit.Material.AIR) {
-                slotsGUI.setItem(slotPositions[i], item);
-            }
-        }
-
-        player.openInventory(slotsGUI);
+    // Clear accessory slot positions
+    for (int slot : slotPositions) {
+      slotsGUI.setItem(slot, null);
     }
 
-    /**
-     * Calculate inventory size based on slot count
-     */
-
-    /**
-     * Calculate inventory size based on slot count
-     */
-    private int calculateSlotGUISize(int slotAmount) {
-        // Use pattern-based sizing
-        if (slotAmount <= 5) {
-            return 27; // 3 rows for clean single-row layout
-        } else if (slotAmount <= 16) {
-            return 45; // 5 rows for nice patterns
-        } else {
-            return 54; // Double chest for many items
-        }
+    // Load equipped items
+    List<ItemStack> currentItems = plugin.getSlotManager().getAccessories(player.getUniqueId(), slotType);
+    for (int i = 0; i < currentItems.size() && i < slotPositions.length; i++) {
+      ItemStack item = currentItems.get(i);
+      if (item != null && item.getType() != Material.AIR) {
+        slotsGUI.setItem(slotPositions[i], item);
+      }
     }
 
-    /**
-     * Calculate beautiful slot positions based on count and size
-     */
-    private int[] calculateSlotPositions(int slotAmount, int inventorySize) {
-        int rows = inventorySize / 9;
+    player.openInventory(slotsGUI);
+  }
 
-        // Patterns for different counts
-        if (slotAmount == 1) {
-            // Single centered slot
-            return new int[] { 13 }; // Center of 3-row inventory
+  private int calculateSlotGUISize(int slotAmount) {
+    if (slotAmount <= 5)
+      return 27;
+    if (slotAmount <= 16)
+      return 45;
+    return 54;
+  }
+
+  private int[] calculateSlotPositions(int slotAmount, int inventorySize) {
+    if (slotAmount == 1)
+      return new int[] { 13 };
+    if (slotAmount == 2)
+      return new int[] { 12, 14 };
+    if (slotAmount == 3)
+      return new int[] { 11, 13, 15 };
+    if (slotAmount == 4)
+      return new int[] { 10, 12, 14, 16 };
+    if (slotAmount == 5)
+      return new int[] { 9, 11, 13, 15, 17 };
+
+    if (slotAmount == 6)
+      return new int[] { 11, 13, 15, 28, 30, 32 };
+
+    if (slotAmount == 7)
+      return new int[] { 12, 14, 20, 22, 24, 30, 32 };
+
+    if (slotAmount == 8)
+      return new int[] { 11, 13, 15, 21, 23, 29, 31, 33 };
+
+    if (slotAmount == 9)
+      return new int[] { 11, 13, 15, 20, 22, 24, 29, 31, 33 };
+
+    if (slotAmount <= 12)
+      return new int[] { 10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23 };
+
+    if (slotAmount <= 16) {
+      // 4 × 4 grid centred
+      List<Integer> positions = new ArrayList<>();
+      int rows = inventorySize / 9;
+      int startRow = (rows - 4) / 2;
+      for (int row = 0; row < 4 && positions.size() < slotAmount; row++) {
+        for (int col = 0; col < 4 && positions.size() < slotAmount; col++) {
+          positions.add((startRow + row) * 9 + 2 + col);
         }
-
-        if (slotAmount == 2) {
-            // Two slots side by side
-            return new int[] { 12, 14 };
-        }
-
-        if (slotAmount == 3) {
-            // Triangle pattern
-            return new int[] {
-                    11, 13, 15
-            };
-        }
-
-        if (slotAmount == 4) {
-            // Square pattern
-            return new int[] {
-                    10, 12, 14, 16
-            };
-        }
-
-        if (slotAmount == 5) {
-            // Dice pattern
-            return new int[] {
-                    9, 11, 13, 15, 17
-            };
-        }
-
-        if (slotAmount == 6) {
-            // Two rows of 3
-            return new int[] {
-                    11, 13, 15,
-                    28, 30, 32
-            };
-        }
-
-        if (slotAmount == 7) {
-            // Flower pattern
-            return new int[] {
-                    12, 14,
-                    20, 22, 24,
-                    30, 32
-            };
-        }
-
-        if (slotAmount == 8) {
-            // Octagon-ish pattern
-            return new int[] {
-                    11, 13, 15,
-                    21, 23,
-                    29, 31, 33
-            };
-        }
-
-        if (slotAmount == 9) {
-            // 3x3 grid
-            return new int[] {
-                    11, 13, 15,
-                    20, 22, 24,
-                    29, 31, 33
-            };
-        }
-
-        if (slotAmount <= 12) {
-            // Rectangular pattern
-            return new int[] {
-                    10, 11, 12, 13, 14, 15, 16,
-                    19, 20, 21, 22, 23, 24, 25
-            };
-        }
-
-        if (slotAmount <= 16) {
-            // 4x4 grid centered
-            List<Integer> positions = new ArrayList<>();
-            int startRow = (rows - 4) / 2;
-            int startCol = 2;
-
-            for (int row = 0; row < 4 && positions.size() < slotAmount; row++) {
-                for (int col = 0; col < 4 && positions.size() < slotAmount; col++) {
-                    positions.add((startRow + row) * 9 + (startCol + col));
-                }
-            }
-
-            return positions.stream().mapToInt(Integer::intValue).toArray();
-        }
-
-        // For large amounts: use most of the space efficiently
-        List<Integer> positions = new ArrayList<>();
-        int usableRows = rows - 2; // Leave room for borders
-        int startRow = 1;
-
-        int itemsPerRow = Math.min(7, slotAmount); // Max 7 per row for aesthetics
-        int neededRows = (slotAmount + itemsPerRow - 1) / itemsPerRow;
-
-        for (int row = 0; row < neededRows && positions.size() < slotAmount; row++) {
-            int itemsInThisRow = Math.min(itemsPerRow, slotAmount - positions.size());
-            int startCol = (9 - itemsInThisRow) / 2;
-
-            for (int col = 0; col < itemsInThisRow; col++) {
-                positions.add((startRow + row) * 9 + (startCol + col));
-            }
-        }
-
-        return positions.stream().mapToInt(Integer::intValue).toArray();
+      }
+      return positions.stream().mapToInt(Integer::intValue).toArray();
     }
 
-    /**
-     * Creates a decorative border around the inventory
-     */
-    private void createBorder(Inventory inv) {
-        ItemStack border = createFillerItem(BORDER_MATERIAL);
-        int size = inv.getSize();
+    // Large: fill efficiently
+    List<Integer> positions = new ArrayList<>();
+    int rows = inventorySize / 9;
+    int itemsPerRow = Math.min(7, slotAmount);
+    int neededRows = (slotAmount + itemsPerRow - 1) / itemsPerRow;
+    int startRow = 1;
 
-        // Top row
-        for (int i = 0; i < 9; i++) {
-            inv.setItem(i, border);
-        }
+    for (int row = 0; row < neededRows && positions.size() < slotAmount; row++) {
+      int itemsInRow = Math.min(itemsPerRow, slotAmount - positions.size());
+      int startCol = (9 - itemsInRow) / 2;
+      for (int col = 0; col < itemsInRow; col++) {
+        positions.add((startRow + row) * 9 + startCol + col);
+      }
+    }
+    return positions.stream().mapToInt(Integer::intValue).toArray();
+  }
 
-        // Bottom row
-        for (int i = size - 9; i < size; i++) {
-            inv.setItem(i, border);
-        }
+  // =========================================================================
+  // Borders, fillers, buttons
+  // =========================================================================
 
-        // Sides
-        for (int row = 1; row < (size / 9) - 1; row++) {
-            inv.setItem(row * 9, border); // Left
-            inv.setItem(row * 9 + 8, border); // Right
-        }
+  private void createBorder(Inventory inv) {
+    ItemStack border = createFillerItem(BORDER_MATERIAL);
+    int size = inv.getSize();
+    for (int i = 0; i < 9; i++)
+      inv.setItem(i, border);
+    for (int i = size - 9; i < size; i++)
+      inv.setItem(i, border);
+    for (int row = 1; row < (size / 9) - 1; row++) {
+      inv.setItem(row * 9, border);
+      inv.setItem(row * 9 + 8, border);
+    }
+  }
+
+  private ItemStack createSlotButton(SlotConfiguration config) {
+    Material material = config.getIcon();
+    boolean useResourcePack = plugin.getConfig().getBoolean("resource-pack.enabled", false);
+    if (useResourcePack) {
+      String baseMatName = plugin.getConfig().getString("resource-pack.base-material", "PAPER");
+      try {
+        material = Material.valueOf(baseMatName.toUpperCase());
+      } catch (IllegalArgumentException e) {
+        material = Material.PAPER;
+      }
     }
 
-    private ItemStack createSlotButton(SlotConfiguration config) {
-        // Use configured base material or fallback to config icon if resource pack is
-        // disabled
-        Material material = config.getIcon();
-        boolean useResourcePack = plugin.getConfig().getBoolean("resource-pack.enabled", false);
+    ItemStack button = new ItemStack(material);
+    ItemMeta meta = button.getItemMeta();
+    if (meta != null) {
+      meta.setDisplayName(ChatColor.GOLD + config.getName());
 
-        if (useResourcePack) {
-            String baseMatName = plugin.getConfig().getString("resource-pack.base-material", "PAPER");
-            try {
-                material = Material.valueOf(baseMatName.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                material = Material.PAPER;
-            }
-        }
+      List<String> lore = new ArrayList<>(config.getLore());
+      lore.add("");
+      lore.add("§7Slots: §f" + config.getAmount());
+      lore.add("§8▶ Click to open");
+      meta.setLore(lore);
 
-        ItemStack button = new ItemStack(material);
-        ItemMeta meta = button.getItemMeta();
+      if (useResourcePack) {
+        org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, config.getItemModel(),
+            config.getCustomModelData());
+      }
 
-        if (meta != null) {
-            meta.setDisplayName(config.getName());
+      meta.getPersistentDataContainer().set(
+          plugin.getSlotTypeKey(),
+          PersistentDataType.STRING,
+          config.getKey());
 
-            List<String> lore = new ArrayList<>(config.getLore());
-            lore.add("");
-            lore.add("§7Slots: §f" + config.getAmount());
-            lore.add("§8▶ Click to open");
-            meta.setLore(lore);
-
-            // Set CustomModelData if enabled
-            if (useResourcePack) {
-                // Use NamespacedKey overload for slot configuration
-                org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, config.getItemModel(),
-                        config.getCustomModelData());
-            }
-
-            meta.getPersistentDataContainer().set(
-                    plugin.getSlotTypeKey(),
-                    PersistentDataType.STRING,
-                    config.getKey());
-
-            button.setItemMeta(meta);
-        }
-
-        return button;
+      button.setItemMeta(meta);
     }
+    return button;
+  }
 
-    private ItemStack createFillerItem(Material material) {
-        ItemStack filler = new ItemStack(material);
-        ItemMeta meta = filler.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(FILLER_NAME);
-            filler.setItemMeta(meta);
-        }
-        return filler;
+  private ItemStack createBackButton() {
+    ItemStack backButton = new ItemStack(Material.ARROW);
+    ItemMeta meta = backButton.getItemMeta();
+    if (meta != null) {
+      meta.setDisplayName(BACK_BUTTON_NAME);
+      List<String> lore = new ArrayList<>();
+      lore.add("§7Click to return to the");
+      lore.add("§7main accessory menu.");
+      meta.setLore(lore);
+      NamespacedKey backKey = new NamespacedKey(plugin, "curios_back_button");
+      meta.getPersistentDataContainer().set(backKey, PersistentDataType.BYTE, (byte) 1);
+      backButton.setItemMeta(meta);
     }
+    return backButton;
+  }
 
-    private void fillInventory(Inventory inv, Material material) {
-        ItemStack filler = createFillerItem(material);
-        for (int i = 0; i < inv.getSize(); i++) {
-            if (inv.getItem(i) == null) {
-                inv.setItem(i, filler);
-            }
-        }
+  public boolean isBackButton(ItemStack item) {
+    if (item == null || item.getType() != Material.ARROW || !item.hasItemMeta())
+      return false;
+    NamespacedKey backKey = new NamespacedKey(plugin, "curios_back_button");
+    return item.getItemMeta().getPersistentDataContainer().has(backKey, PersistentDataType.BYTE);
+  }
+
+  private ItemStack createFillerItem(Material material) {
+    ItemStack filler = new ItemStack(material);
+    ItemMeta meta = filler.getItemMeta();
+    if (meta != null) {
+      meta.setDisplayName(FILLER_NAME);
+      filler.setItemMeta(meta);
     }
+    return filler;
+  }
 
-    /**
-     * Check if a slot in the inventory is an accessory slot (not a filler)
-     */
-    public boolean isAccessorySlot(Inventory inv, int slot) {
-        if (slot >= inv.getSize()) {
-            return false;
-        }
+  private void fillInventory(Inventory inv, Material material) {
+    ItemStack filler = createFillerItem(material);
+    for (int i = 0; i < inv.getSize(); i++) {
+      if (inv.getItem(i) == null)
+        inv.setItem(i, filler);
+    }
+  }
 
-        ItemStack item = inv.getItem(slot);
+  // =========================================================================
+  // Utility: slot checks
+  // =========================================================================
 
-        // Null or air = accessory slot
-        if (item == null || item.getType() == org.bukkit.Material.AIR) {
-            return true;
-        }
+  public boolean isAccessorySlot(Inventory inv, int slot) {
+    if (slot >= inv.getSize())
+      return false;
+    ItemStack item = inv.getItem(slot);
+    if (item == null || item.getType() == Material.AIR)
+      return true;
+    Material type = item.getType();
+    return type != FILLER_MATERIAL && type != BORDER_MATERIAL;
+  }
 
-        // Check if it's a filler item
-        Material type = item.getType();
-        if (type == FILLER_MATERIAL || type == BORDER_MATERIAL) {
-            return false;
-        }
-
-        // It's an actual item
+  public boolean hasEmptyAccessorySlot(Inventory inv) {
+    for (int i = 0; i < inv.getSize(); i++) {
+      ItemStack item = inv.getItem(i);
+      if ((item == null || item.getType() == Material.AIR) && isAccessorySlot(inv, i)) {
         return true;
+      }
     }
+    return false;
+  }
 
-    /**
-     * Check if there's at least one empty accessory slot
-     */
-    public boolean hasEmptyAccessorySlot(Inventory inv) {
-        for (int i = 0; i < inv.getSize(); i++) {
-            ItemStack item = inv.getItem(i);
+  /**
+   * Returns cached slot positions for the tier-2 GUI (used by InventoryListener).
+   */
+  public int[] getAccessorySlots(String slotType) {
+    return slotPositionCache.getOrDefault(slotType.toLowerCase(), new int[0]);
+  }
 
-            if (item == null || item.getType() == org.bukkit.Material.AIR) {
-                // Check if this was supposed to be an accessory slot
-                if (isAccessorySlot(inv, i)) {
-                    return true;
-                }
-            }
-        }
-        return false;
+  // =========================================================================
+  // Title helpers
+  // =========================================================================
+
+  public static boolean isMainGUI(String title) {
+    return MAIN_GUI_TITLE.equals(title);
+  }
+
+  public static boolean isSlotsGUI(String title) {
+    return title != null && title.startsWith(SLOTS_GUI_PREFIX);
+  }
+
+  public static String extractSlotTypeFromTitle(String title) {
+    if (!isSlotsGUI(title))
+      return null;
+    String name = title.substring(SLOTS_GUI_PREFIX.length());
+    name = org.bukkit.ChatColor.stripColor(name);
+    for (Map.Entry<String, SlotConfiguration> entry : CuriosPaper.getInstance()
+        .getConfigManager().getSlotConfigurations().entrySet()) {
+      if (org.bukkit.ChatColor.stripColor(entry.getValue().getName()).equals(name)) {
+        return entry.getKey();
+      }
     }
-
-    /**
-     * Get the actual accessory slot positions for a slot type
-     */
-    public int[] getAccessorySlots(String slotType) {
-        return slotPositionCache.getOrDefault(slotType, new int[0]);
-    }
-
-    public static boolean isMainGUI(String title) {
-        return MAIN_GUI_TITLE.equals(title);
-    }
-
-    public static boolean isSlotsGUI(String title) {
-        return title.startsWith(SLOTS_GUI_PREFIX);
-    }
-
-    public static String extractSlotTypeFromTitle(String title) {
-        if (!isSlotsGUI(title)) {
-            return null;
-        }
-
-        String name = title.substring(SLOTS_GUI_PREFIX.length());
-
-        for (Map.Entry<String, SlotConfiguration> entry : CuriosPaper.getInstance().getConfigManager()
-                .getSlotConfigurations().entrySet()) {
-            if (entry.getValue().getName().equals(name)) {
-                return entry.getKey();
-            }
-        }
-
-        return null;
-    }
+    return null;
+  }
 }

@@ -10,6 +10,7 @@ CuriosPaper provides in-game visual editors for creating and configuring custom 
 | [Recipe Editor](recipe-editor.md) | Create shaped, shapeless, furnace, anvil, and smithing recipes |
 | [Mob Drop Editor](mob-drop-editor.md) | Configure mob drops with entity types and chances |
 | [Trade Editor](trade-editor.md) | Set up villager trades with professions and costs |
+| [3D Model Editor](3d-model-editor.md) | Configure 3D model rendering attachments |
 
 ## Accessing the Editor
 
@@ -35,6 +36,7 @@ The main Edit GUI displays the current item configuration with clickable buttons
 | Recipes | Open the Recipe Editor |
 | Mob Drops | Open the Mob Drop Editor |
 | Trades | Open the Trade Editor |
+| 3D Model Settings | Open the 3D Model Editor (Slot 43) |
 
 !!! info "Chat Input"
     Most editors use a chat-based input system. When prompted, type your value in chat. The `ChatInputManager` handles capturing and processing these inputs.

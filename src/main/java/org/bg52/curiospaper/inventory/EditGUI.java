@@ -24,314 +24,333 @@ import java.util.UUID;
  * GUI for editing custom items
  */
 public class EditGUI implements Listener {
-    private final CuriosPaper plugin;
-    private final ItemDataManager itemDataManager;
-    private final ChatInputManager chatInputManager;
-    private final Map<UUID, String> currentlyEditing;
+  private final CuriosPaper plugin;
+  private final ItemDataManager itemDataManager;
+  private final ChatInputManager chatInputManager;
+  private final Map<UUID, String> currentlyEditing;
 
-    public EditGUI(CuriosPaper plugin) {
-        this.plugin = plugin;
-        this.itemDataManager = plugin.getItemDataManager();
-        this.chatInputManager = plugin.getChatInputManager();
-        this.currentlyEditing = new HashMap<>();
+  public EditGUI(CuriosPaper plugin) {
+    this.plugin = plugin;
+    this.itemDataManager = plugin.getItemDataManager();
+    this.chatInputManager = plugin.getChatInputManager();
+    this.currentlyEditing = new HashMap<>();
+  }
+
+  public void open(Player player, String itemId) {
+    ItemData itemData = itemDataManager.getItemData(itemId);
+    if (itemData == null) {
+      player.sendMessage("§cItem not found!");
+      return;
     }
 
-    public void open(Player player, String itemId) {
-        ItemData itemData = itemDataManager.getItemData(itemId);
-        if (itemData == null) {
-            player.sendMessage("§cItem not found!");
-            return;
+    currentlyEditing.put(player.getUniqueId(), itemId);
+
+    Inventory gui = Bukkit.createInventory(null, 54, "§8Edit: " + itemId);
+
+    // Item Preview (slot 4)
+    try {
+      Material mat = Material.valueOf(itemData.getMaterial().toUpperCase());
+      ItemStack preview = new ItemStack(mat);
+      org.bukkit.inventory.meta.ItemMeta meta = preview.getItemMeta();
+      if (meta != null) {
+        if (itemData.getDisplayName() != null) {
+          meta.setDisplayName(itemData.getDisplayName());
         }
-
-        currentlyEditing.put(player.getUniqueId(), itemId);
-
-        Inventory gui = Bukkit.createInventory(null, 54, "§8Edit: " + itemId);
-
-        // Item Preview (slot 4)
-        try {
-            Material mat = Material.valueOf(itemData.getMaterial().toUpperCase());
-            ItemStack preview = new ItemStack(mat);
-            org.bukkit.inventory.meta.ItemMeta meta = preview.getItemMeta();
-            if (meta != null) {
-                if (itemData.getDisplayName() != null) {
-                    meta.setDisplayName(itemData.getDisplayName());
-                }
-                if (!itemData.getLore().isEmpty()) {
-                    meta.setLore(itemData.getLore());
-                }
-                // Apply item model or custom model data
-                if (itemData.getItemModel() != null && !itemData.getItemModel().trim().isEmpty()) {
-                    // Use version-safe method with item model string
-                    org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemData.getItemModel(),
-                            itemData.getCustomModelData());
-                } else if (itemData.getCustomModelData() != null) {
-                    // Only custom model data is set (no item model string)
-                    meta.setCustomModelData(itemData.getCustomModelData());
-                }
-                preview.setItemMeta(meta);
-            }
-            if (!(itemData.getSlotType() == null)) {
-                preview = plugin.getCuriosPaperAPI().tagAccessoryItem(preview, itemData.getSlotType());
-                gui.setItem(4, preview);
-            } else {
-                gui.setItem(4, preview);
-            }
-        } catch (Exception e) {
-            gui.setItem(4,
-                    createGuiItem(Material.BARRIER, "§cInvalid Material", "§7Current: " + itemData.getMaterial()));
+        if (!itemData.getLore().isEmpty()) {
+          meta.setLore(itemData.getLore());
         }
-
-        // Basic Properties
-        gui.setItem(19, createGuiItem(Material.NAME_TAG, "§e✎ Edit Display Name",
-                "§7Current: " + (itemData.getDisplayName() != null ? itemData.getDisplayName() : "§cnone"),
-                "", "§eClick to edit via chat"));
-
-        gui.setItem(21, createGuiItem(Material.IRON_BLOCK, "§e⚒ Set Material",
-                "§7Current: " + (itemData.getMaterial() != null ? itemData.getMaterial() : "§cnone"),
-                "", "§eClick to edit via chat"));
-
-        gui.setItem(23, createGuiItem(Material.PAINTING, "§e⚙ Set Item Model",
-                "§7Current: " + (itemData.getItemModel() != null ? itemData.getItemModel() : "§cnone"),
-                "", "§eClick to set custom model",
-                "§7Format: namespace:model_name"));
-
-        gui.setItem(25, createGuiItem(Material.MAP, "§e⚙ Set Custom Model Data",
-                "§7Current: " + (itemData.getCustomModelData() != null ? itemData.getCustomModelData() : "§cnone"),
-                "", "§eClick to set custom model data",
-                "§7Enter an integer or 'remove' to clear"));
-
-        // Row 3 (shifted)
-        gui.setItem(28, createGuiItem(Material.BOOK, "§e✎ Edit Lore",
-                "§7Lines: " + itemData.getLore().size(),
-                "", "§eClick to edit via chat"));
-
-        gui.setItem(30, createGuiItem(Material.CHEST, "§e⚡ Set Required Slot  ",
-                "§7Current: " + (itemData.getSlotType() != null ? itemData.getSlotType() : "§cnone"),
-                "", "§eClick to select slot"));
-
-        gui.setItem(32, createGuiItem(Material.CRAFTING_TABLE, "§e⚒ Recipe",
-                itemData.getRecipes() != null ? "§a✔ Configured" : "§7Not configured",
-                "", "§eClick to configure recipe"));
-
-        gui.setItem(34, createGuiItem(Material.CHEST_MINECART, "§e⚒ Loot Tables",
-                "§7Entries: " + itemData.getLootTables().size(),
-                "", "§eClick to manage loot tables"));
-
-        // Row 4 (shifted)
-        gui.setItem(37, createGuiItem(Material.ZOMBIE_HEAD, "§e⚒ Mob Drops",
-                "§7Entries: " + itemData.getMobDrops().size(),
-                "", "§eClick to manage mob drops"));
-
-        gui.setItem(39, createGuiItem(Material.EMERALD, "§e⚒ Villager Trades",
-                "§7Entries: " + itemData.getVillagerTrades().size(),
-                "", "§eClick to manage trades"));
-
-        gui.setItem(41, createGuiItem(Material.POTION, "§e⚡ Abilities",
-                "§7Configured: " + itemData.getAbilities().size(),
-                "", "§eClick to manage abilities"));
-
-        // Save & Close
-        gui.setItem(49, createGuiItem(Material.EMERALD, "§a✔ Save & Close",
-                "§7Saves all changes"));
-
-        // Fill empty slots with glass pane
-        ItemStack filler = createGuiItem(Material.GRAY_STAINED_GLASS_PANE, " ");
-        for (int i = 0; i < 54; i++) {
-            if (gui.getItem(i) == null) {
-                gui.setItem(i, filler);
-            }
+        // Apply item model or custom model data
+        if (itemData.getItemModel() != null && !itemData.getItemModel().trim().isEmpty()) {
+          // Use version-safe method with item model string
+          org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemData.getItemModel(),
+              itemData.getCustomModelData());
+        } else if (itemData.getCustomModelData() != null) {
+          // Only custom model data is set (no item model string)
+          meta.setCustomModelData(itemData.getCustomModelData());
         }
-
-        player.openInventory(gui);
+        preview.setItemMeta(meta);
+      }
+      if (!(itemData.getSlotType() == null)) {
+        preview = plugin.getCuriosPaperAPI().tagAccessoryItem(preview, itemData.getSlotType());
+        gui.setItem(4, preview);
+      } else {
+        gui.setItem(4, preview);
+      }
+    } catch (Exception e) {
+      gui.setItem(4,
+          createGuiItem(Material.BARRIER, "§cInvalid Material", "§7Current: " + itemData.getMaterial()));
     }
 
-    @EventHandler
-    public void onClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player))
-            return;
-        Player player = (Player) event.getWhoClicked();
+    // Basic Properties
+    gui.setItem(19, createGuiItem(Material.NAME_TAG, "§e Edit Display Name",
+        "§7Current: " + (itemData.getDisplayName() != null ? itemData.getDisplayName() : "§cnone"),
+        "", "§eClick to edit via chat"));
 
-        String title = event.getView().getTitle();
-        if (!title.startsWith("§8Edit: "))
-            return;
+    gui.setItem(21, createGuiItem(Material.IRON_BLOCK, "§e Set Material",
+        "§7Current: " + (itemData.getMaterial() != null ? itemData.getMaterial() : "§cnone"),
+        "", "§eClick to edit via chat"));
 
-        // Only consider clicks that are inside the top inventory (the GUI).
-        // If the raw slot is >= top inventory size, it's the player's inventory —
-        // ignore it.
-        int raw = event.getRawSlot();
-        int topSize = event.getView().getTopInventory().getSize();
-        if (raw >= topSize)
-            return; // allow player to interact with their own inventory
+    gui.setItem(23, createGuiItem(Material.PAINTING, "§e Set Item Model",
+        "§7Current: " + (itemData.getItemModel() != null ? itemData.getItemModel() : "§cnone"),
+        "", "§eClick to set custom model",
+        "§7Format: namespace:model_name"));
 
-        // Now cancel the click (prevent item pickup/drag) because it's in the GUI area
-        event.setCancelled(true);
+    gui.setItem(25, createGuiItem(Material.MAP, "§e Set Custom Model Data",
+        "§7Current: " + (itemData.getCustomModelData() != null ? itemData.getCustomModelData() : "§cnone"),
+        "", "§eClick to set custom model data",
+        "§7Enter an integer or 'remove' to clear"));
 
-        String itemId = currentlyEditing.get(player.getUniqueId());
-        if (itemId == null)
-            return;
+    // Row 3 (shifted)
+    gui.setItem(28, createGuiItem(Material.BOOK, "§e Edit Lore",
+        "§7Lines: " + itemData.getLore().size(),
+        "", "§eClick to edit via chat"));
 
-        ItemData itemData = itemDataManager.getItemData(itemId);
-        if (itemData == null)
-            return;
+    gui.setItem(30, createGuiItem(Material.CHEST, "§e Set Required Slot ",
+        "§7Current: " + (itemData.getSlotType() != null ? itemData.getSlotType() : "§cnone"),
+        "", "§eClick to select slot"));
 
-        switch (raw) {
-            case 19: // Edit Display Name (single-line)
-                player.closeInventory();
-                chatInputManager.startSingleLineSession(player,
-                        "Enter the display name for this item (supports color codes with &):",
-                        single -> {
-                            if (single != null && !single.trim().isEmpty()) {
-                                itemData.setDisplayName(single.replace('&', '§'));
-                                itemDataManager.saveItemData(itemId);
-                                player.sendMessage("§a✔ Display name updated!");
-                            }
-                            Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
-                        },
-                        () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
-                break;
+    gui.setItem(32, createGuiItem(Material.CRAFTING_TABLE, "§e Recipe",
+        itemData.getRecipes() != null ? "§a Configured" : "§7Not configured",
+        "", "§eClick to configure recipe"));
 
-            case 21: // Set Material (single-line)
-                player.closeInventory();
-                chatInputManager.startSingleLineSession(player,
-                        "Enter the material type (e.g., DIAMOND, GOLD_INGOT, PAPER):",
-                        single -> {
-                            if (single != null && !single.trim().isEmpty()) {
-                                String material = single.trim().toUpperCase();
-                                try {
-                                    Material.valueOf(material);
-                                    itemData.setMaterial(material);
-                                    itemDataManager.saveItemData(itemId);
-                                    player.sendMessage("§a✔ Material set to: " + material);
-                                } catch (IllegalArgumentException e) {
-                                    player.sendMessage("§c✘ Invalid material: " + material);
-                                }
-                            }
-                            Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
-                        },
-                        () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
-                break;
+    gui.setItem(34, createGuiItem(Material.CHEST_MINECART, "§e Loot Tables",
+        "§7Entries: " + itemData.getLootTables().size(),
+        "", "§eClick to manage loot tables"));
 
-            case 23: // Set Item Model (single-line)
-                player.closeInventory();
-                chatInputManager.startSingleLineSession(player,
-                        "Enter the item model (format: namespace:model_name or just model_name for curiospaper:):",
-                        single -> {
-                            if (single != null && !single.trim().isEmpty()) {
-                                String model = single.trim();
-                                itemData.setItemModel(model);
-                                itemDataManager.saveItemData(itemId);
-                                player.sendMessage("§a✔ Item model set to: " + model);
-                            }
-                            Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
-                        },
-                        () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
-                break;
+    // Row 4 (shifted)
+    gui.setItem(37, createGuiItem(Material.ZOMBIE_HEAD, "§e Mob Drops",
+        "§7Entries: " + itemData.getMobDrops().size(),
+        "", "§eClick to manage mob drops"));
 
-            case 25: // Set Custom Model Data
-                player.closeInventory();
-                chatInputManager.startSingleLineSession(player,
-                        "Enter Custom Model Data (integer) or type 'remove' to clear:",
-                        single -> {
-                            if (single != null && !single.trim().isEmpty()) {
-                                String input = single.trim().toLowerCase();
-                                if (input.equals("remove") || input.equals("clear") || input.equals("none")) {
-                                    itemData.setCustomModelData(null);
-                                    itemDataManager.saveItemData(itemId);
-                                    player.sendMessage("§a✔ Custom Model Data cleared.");
-                                } else {
-                                    try {
-                                        int val = Integer.parseInt(input);
-                                        itemData.setCustomModelData(val);
-                                        itemDataManager.saveItemData(itemId);
-                                        player.sendMessage("§a✔ Custom Model Data set to: " + val);
-                                    } catch (NumberFormatException e) {
-                                        player.sendMessage("§c✘ Invalid number.");
-                                    }
-                                }
-                            }
-                            Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
-                        },
-                        () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
-                break;
+    gui.setItem(39, createGuiItem(Material.EMERALD, "§e Villager Trades",
+        "§7Entries: " + itemData.getVillagerTrades().size(),
+        "", "§eClick to manage trades"));
 
-            case 28: // Edit Lore
-                player.closeInventory();
-                chatInputManager.startSession(player,
-                        "Enter lore lines (one per message, supports & color codes):",
-                        lines -> {
-                            List<String> coloredLore = lines.stream()
-                                    .map(line -> line.replace('&', '§'))
-                                    .collect(java.util.stream.Collectors.toList());
-                            itemData.setLore(coloredLore);
-                            itemDataManager.saveItemData(itemId);
-                            player.sendMessage("§a✔ Lore updated with " + lines.size() + " lines!");
-                            Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
-                        },
-                        () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
-                break;
+    gui.setItem(41, createGuiItem(Material.POTION, "§e Abilities",
+        "§7Configured: " + itemData.getAbilities().size(),
+        "", "§eClick to manage abilities"));
 
-            case 30: // Set Required Slot
-                player.closeInventory();
-                player.sendMessage("§e▬▬▬ Available Slots ▬▬▬");
-                for (String slotType : plugin.getCuriosPaperAPI().getAllSlotTypes()) {
-                    player.sendMessage("§6• §e" + slotType);
-                }
-                player.sendMessage("§e▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+    gui.setItem(43, createGuiItem(Material.ARMOR_STAND, "§e 3D Model Settings",
+        "§7Model: " + (itemData.isModelEnabled() ? "§aEnabled" : "§cDisabled"),
+        "§7Item: " + (itemData.getModelItem() != null ? itemData.getModelItem() : "§cnone"),
+        "", "§eClick to configure 3D model"));
 
-                chatInputManager.startSingleLineSession(player,
-                        "Enter the slot type this item requires:",
-                        single -> {
-                            if (single != null && !single.trim().isEmpty()) {
-                                String slotType = single.trim().toLowerCase();
-                                if (plugin.getCuriosPaperAPI().isValidSlotType(slotType)) {
-                                    itemData.setSlotType(slotType);
-                                    itemDataManager.saveItemData(itemId);
-                                    player.sendMessage("§a✔ Required slot set to: " + slotType);
-                                } else {
-                                    player.sendMessage("§c✘ Invalid slot type: " + slotType);
-                                }
-                            }
-                            Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
-                        },
-                        () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
-                break;
+    // Save & Close
+    gui.setItem(49, createGuiItem(Material.EMERALD, "§a Save & Close",
+        "§7Saves all changes"));
 
-            case 32: // Recipe
-                plugin.getRecipeEditor().open(player, itemId);
-                break;
-            case 34: // Loot Tables
-                plugin.getLootTableBrowser().open(player, itemId);
-                break;
-            case 37: // Mob Drops (moved from 33, but wait, 37 was previously Abilities! Now it's Mob
-                     // Drops)
-                plugin.getMobDropEditor().open(player, itemId);
-                break;
-            case 39: // Villager Trades (moved from 35)
-                plugin.getTradeEditor().open(player, itemId);
-                break;
-            case 41: // Abilities (moved from 37)
-                plugin.getAbilityEditor().open(player, itemId);
-                break;
+    // Fill empty slots with glass pane
+    ItemStack filler = createGuiItem(Material.GRAY_STAINED_GLASS_PANE, " ");
+    for (int i = 0; i < 54; i++) {
+      if (gui.getItem(i) == null) {
+        gui.setItem(i, filler);
+      }
+    }
 
-            case 49: // Save & Close
-                player.closeInventory();
-                currentlyEditing.remove(player.getUniqueId());
+    player.openInventory(gui);
+  }
+
+  @EventHandler
+  public void onClick(InventoryClickEvent event) {
+    if (!(event.getWhoClicked() instanceof Player))
+      return;
+    Player player = (Player) event.getWhoClicked();
+
+    String title = event.getView().getTitle();
+    if (!title.startsWith("§8Edit: "))
+      return;
+
+    // Only consider clicks that are inside the top inventory (the GUI).
+    // If the raw slot is >= top inventory size, it's the player's inventory —
+    // ignore it.
+    int raw = event.getRawSlot();
+    int topSize = event.getView().getTopInventory().getSize();
+    if (raw >= topSize)
+      return; // allow player to interact with their own inventory
+
+    // Now cancel the click (prevent item pickup/drag) because it's in the GUI area
+    event.setCancelled(true);
+
+    String itemId = currentlyEditing.get(player.getUniqueId());
+    if (itemId == null)
+      return;
+
+    ItemData itemData = itemDataManager.getItemData(itemId);
+    if (itemData == null)
+      return;
+
+    switch (raw) {
+      case 19: // Edit Display Name (single-line)
+        player.closeInventory();
+        chatInputManager.startSingleLineSession(player,
+            "Enter the display name for this item (supports color codes with &):",
+            single -> {
+              if (single != null && !single.trim().isEmpty()) {
+                itemData.setDisplayName(single.replace('&', '§'));
                 itemDataManager.saveItemData(itemId);
-                player.sendMessage("§a✔ Saved item: §e" + itemId);
-                break;
-        }
-    }
+                player.sendMessage("§a Display name updated!");
+              }
+              Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
+            },
+            () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
+        break;
 
-    private ItemStack createGuiItem(Material material, String name, String... lore) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(name);
-            if (lore.length > 0) {
-                meta.setLore(Arrays.asList(lore));
-            }
-            item.setItemMeta(meta);
+      case 21: // Set Material (single-line)
+        player.closeInventory();
+        chatInputManager.startSingleLineSession(player,
+            "Enter the material type (e.g., DIAMOND, GOLD_INGOT, PAPER):",
+            single -> {
+              if (single != null && !single.trim().isEmpty()) {
+                String material = single.trim().toUpperCase();
+                try {
+                  Material.valueOf(material);
+                  itemData.setMaterial(material);
+                  itemDataManager.saveItemData(itemId);
+                  player.sendMessage("§a Material set to: " + material);
+                } catch (IllegalArgumentException e) {
+                  player.sendMessage("§c Invalid material: " + material);
+                }
+              }
+              Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
+            },
+            () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
+        break;
+
+      case 23: // Set Item Model (single-line)
+        player.closeInventory();
+        chatInputManager.startSingleLineSession(player,
+            "Enter the item model (format: namespace:model_name or just model_name for curiospaper:):",
+            single -> {
+              if (single != null && !single.trim().isEmpty()) {
+                String model = single.trim();
+                itemData.setItemModel(model);
+                itemDataManager.saveItemData(itemId);
+                player.sendMessage("§a Item model set to: " + model);
+              }
+              Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
+            },
+            () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
+        break;
+
+      case 25: // Set Custom Model Data
+        player.closeInventory();
+        chatInputManager.startSingleLineSession(player,
+            "Enter Custom Model Data (integer) or type 'remove' to clear:",
+            single -> {
+              if (single != null && !single.trim().isEmpty()) {
+                String input = single.trim().toLowerCase();
+                if (input.equals("remove") || input.equals("clear") || input.equals("none")) {
+                  itemData.setCustomModelData(null);
+                  itemDataManager.saveItemData(itemId);
+                  player.sendMessage("§a Custom Model Data cleared.");
+                } else {
+                  try {
+                    int val = Integer.parseInt(input);
+                    itemData.setCustomModelData(val);
+                    itemDataManager.saveItemData(itemId);
+                    player.sendMessage("§a Custom Model Data set to: " + val);
+                  } catch (NumberFormatException e) {
+                    player.sendMessage("§c Invalid number.");
+                  }
+                }
+              }
+              Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
+            },
+            () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
+        break;
+
+      case 28: // Edit Lore
+        player.closeInventory();
+        chatInputManager.startSession(player,
+            "Enter lore lines (one per message, supports & color codes):",
+            lines -> {
+              List<String> coloredLore = lines.stream()
+                  .map(line -> line.replace('&', '§'))
+                  .collect(java.util.stream.Collectors.toList());
+              itemData.setLore(coloredLore);
+              itemDataManager.saveItemData(itemId);
+              player.sendMessage("§a Lore updated with " + lines.size() + " lines!");
+              Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
+            },
+            () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
+        break;
+
+      case 30: // Set Required Slot
+        player.closeInventory();
+        player.sendMessage("§e Available Slots ");
+        for (String slotType : plugin.getCuriosPaperAPI().getAllSlotTypes()) {
+          player.sendMessage("§6 §e" + slotType);
         }
-        return item;
+        player.sendMessage("§e");
+
+        chatInputManager.startSingleLineSession(player,
+            "Enter the slot type this item requires:",
+            single -> {
+              if (single != null && !single.trim().isEmpty()) {
+                String[] slots = single.trim().toLowerCase().split(",\\s*");
+                boolean allValid = true;
+                java.util.List<String> invalidSlots = new java.util.ArrayList<>();
+                
+                for (String s : slots) {
+                  if (!plugin.getCuriosPaperAPI().isValidSlotType(s.trim())) {
+                    allValid = false;
+                    invalidSlots.add(s.trim());
+                  }
+                }
+
+                if (allValid) {
+                  String finalSlots = String.join(", ", slots);
+                  itemData.setSlotType(finalSlots);
+                  itemDataManager.saveItemData(itemId);
+                  player.sendMessage("§aRequired slots set to: " + finalSlots);
+                } else {
+                  player.sendMessage("§cInvalid slot types: " + String.join(", ", invalidSlots));
+                }
+              }
+              Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
+            },
+            () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
+        break;
+
+      case 32: // Recipe
+        plugin.getRecipeEditor().open(player, itemId);
+        break;
+      case 34: // Loot Tables
+        plugin.getLootTableBrowser().open(player, itemId);
+        break;
+      case 37: // Mob Drops (moved from 33, but wait, 37 was previously Abilities! Now it's Mob
+           // Drops)
+        plugin.getMobDropEditor().open(player, itemId);
+        break;
+      case 39: // Villager Trades (moved from 35)
+        plugin.getTradeEditor().open(player, itemId);
+        break;
+      case 41: // Abilities (moved from 37)
+        plugin.getAbilityEditor().open(player, itemId);
+        break;
+      case 43: // 3D Model Settings
+        plugin.getModelConfigGUI().open(player, itemId);
+        break;
+
+      case 49: // Save & Close
+        player.closeInventory();
+        currentlyEditing.remove(player.getUniqueId());
+        itemDataManager.saveItemData(itemId);
+        player.sendMessage("§a Saved item: §e" + itemId);
+        break;
     }
+  }
+
+  private ItemStack createGuiItem(Material material, String name, String... lore) {
+    ItemStack item = new ItemStack(material);
+    ItemMeta meta = item.getItemMeta();
+    if (meta != null) {
+      meta.setDisplayName(name);
+      if (lore.length > 0) {
+        meta.setLore(Arrays.asList(lore));
+      }
+      item.setItemMeta(meta);
+    }
+    return item;
+  }
 }

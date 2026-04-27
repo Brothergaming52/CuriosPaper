@@ -12,7 +12,10 @@ resource-pack:
   # Base material for custom icons (usually PAPER or LEATHER_HORSE_ARMOR)
   base-material: "PAPER"
 
-  allow-minecraft-namespace: false
+  # Whether to look in the "external-resource-packs" folder and combine zips into the main pack
+  combine-external-rp: false
+
+  allow-minecraft-namespace: true
 
   allow-namespace-conflicts: false
 
@@ -20,7 +23,7 @@ resource-pack:
 slots:
   # Head slot for helmets, crowns, circlets
   head:
-    name: "&e⚜ Head Slot ⚜"
+    name: "Head"
     icon: "GOLDEN_HELMET"
     item-model: "curiospaper:head_slot"
     custom-model-data: 10001
@@ -31,7 +34,7 @@ slots:
 
   # Necklace slot for amulets and pendants
   necklace:
-    name: "&b✦ Necklace Slot ✦"
+    name: "Necklace"
     icon: "NAUTILUS_SHELL"
     item-model: "curiospaper:necklace_slot"
     custom-model-data: 10002
@@ -42,7 +45,7 @@ slots:
 
   # Back slot for capes and cloaks
   back:
-    name: "&5☾ Back Slot ☾"
+    name: "Back"
     icon: "ELYTRA"
     item-model: "curiospaper:back_slot"
     custom-model-data: 10003
@@ -53,7 +56,7 @@ slots:
 
   # Body slot for chest accessories
   body:
-    name: "&c❖ Body Slot ❖"
+    name: "Body"
     icon: "DIAMOND_CHESTPLATE"
     item-model: "curiospaper:body_slot"
     custom-model-data: 10004
@@ -64,7 +67,7 @@ slots:
 
   # Belt slot for utility items
   belt:
-    name: "&6⚔ Belt Slot ⚔"
+    name: "Belt"
     icon: "LEATHER"
     item-model: "curiospaper:belt_slot"
     custom-model-data: 10005
@@ -75,7 +78,7 @@ slots:
 
   # Hands/Gloves slots
   hands:
-    name: "&f✋ Hand Slots ✋"
+    name: "Hands"
     icon: "LEATHER_CHESTPLATE"
     item-model: "curiospaper:hands_slot"
     custom-model-data: 10006
@@ -86,7 +89,7 @@ slots:
 
   # Bracelet slots for wrists
   bracelet:
-    name: "&3◈ Bracelet Slots ◈"
+    name: "Bracelet"
     icon: "CHAIN"
     item-model: "curiospaper:bracelet_slot"
     custom-model-data: 10007
@@ -97,7 +100,7 @@ slots:
 
   # Ring slots for fingers
   ring:
-    name: "&6◆ Ring Slots ◆"
+    name: "Ring"
     icon: "GOLD_NUGGET"
     item-model: "curiospaper:ring_slot"
     custom-model-data: 10008
@@ -108,7 +111,7 @@ slots:
 
   # Charm slots for misc trinkets
   charm:
-    name: "&d✧ Charm Slots ✧"
+    name: "Charm"
     icon: "EMERALD"
     item-model: "curiospaper:charm_slot"
     custom-model-data: 10009
@@ -145,6 +148,20 @@ features:
   play-unequip-sound: true
   unequip-sound: "ENTITY_ITEM_PICKUP"
 
+  # Hotkey system to open accessory GUI
+  hotkey:
+    enabled: true
+    slot: 8  # Which hotbar slot (1-9) must be selected
+    sneak-type: "double"  # Options: single, double, hold
+    sneak-hold-duration: 3  # Seconds to hold sneak (for 'hold' type)
+
+  keep-curio-inventory:
+    # it can be "Always", "Auto" and "Never"
+    # - Always makes the player keep their curios inventory even when keep inventory is false
+    # - Auto drops or keeps the inventory according to the gamerule keepinventory (also applies for regions where drops are enabled and disabled)
+    # - Never makes the player drop their inventory even when keep inventory is true
+    type: "Auto"
+
 # Storage settings
 storage:
   # Storage type (currently only 'yaml' is supported)
@@ -176,7 +193,7 @@ performance:
 # GUI customization
 gui:
   # Main menu title (Tier 1)
-  main-title: "&8✦ Accessory Slots ✦"
+  main-title: "&8Accessory Slots"
 
   # Slot inventory title prefix (Tier 2)
   slot-title-prefix: "&8Slots: "
@@ -189,22 +206,6 @@ gui:
 
   # Filler item display name
   filler-name: "&r"
-
-  # Main GUI size
-  main-slots: 45
-
-  # Main GUI layout (slot-type: position)
-  # Position is a 0-indexed slot index (0-53 for 54-size GUI)
-  main-layout:
-    head: 10
-    necklace: 13
-    back: 16
-    body: 21
-    belt: 22
-    hands: 23
-    bracelet: 28
-    ring: 31
-    charm: 34
 
 # Debug settings
 debug:

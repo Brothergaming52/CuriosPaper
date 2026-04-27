@@ -4,14 +4,14 @@ import org.bg52.curiospaper.CuriosPaper;
 import org.bukkit.scheduler.BukkitRunnable;
 
 public class AutoSaveTask extends BukkitRunnable {
-    private final CuriosPaper plugin;
+  private final CuriosPaper plugin;
 
-    public AutoSaveTask(CuriosPaper plugin) {
-        this.plugin = plugin;
-    }
+  public AutoSaveTask(CuriosPaper plugin) {
+    this.plugin = plugin;
+  }
 
-    @Override
-    public void run() {
-        plugin.getSlotManager().saveAllPlayerData();
-    }
+  @Override
+  public void run() {
+    plugin.getSlotManager().saveAllPlayerData();
+  }
 }

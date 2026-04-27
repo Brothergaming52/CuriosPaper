@@ -96,6 +96,10 @@ public class FireAmuletPlugin extends JavaPlugin {
             "&eBound to the Necklace slot"
         ));
 
+        // Configure 3D Model Attachment
+        // itemId, enabled, modelItem, customModelData, itemModel, pitchUpLimit, pitchDownLimit
+        api.setItemModelConfig("fire_amulet", true, "GOLD_BLOCK", null, "myplugin:amulet_3d", 45.0f, 60.0f);
+
         // Add a WHILE_EQUIPPED fire resistance ability
         AbilityData fireResist = new AbilityData();
         fireResist.setTrigger(AbilityData.Trigger.WHILE_EQUIPPED);
