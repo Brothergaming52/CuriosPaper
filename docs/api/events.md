@@ -1,6 +1,6 @@
 # Events
 
-CuriosPaper provides custom Bukkit events that your plugins can listen to. These let you react to accessory changes, build custom game mechanics, and integrate with other systems.
+CuriosPaper provides custom Bukkit events that your plugins can listen to. These let you react to accessory changes, loot generation, mob drops, and recipe crafting.
 
 ## AccessoryEquipEvent
 
@@ -111,7 +111,6 @@ public class SetBonusListener implements Listener {
     }
 
     private void checkSetBonus(Player player) {
-        // Count how many "Inferno" set pieces are equipped
         int setPieces = 0;
 
         for (String slotType : api.getAllSlotTypes()) {
@@ -124,15 +123,12 @@ public class SetBonusListener implements Listener {
             }
         }
 
-        // Grant bonus based on number of equipped set pieces
         if (setPieces >= 3) {
-            // Full set bonus: Fire Resistance
             player.addPotionEffect(new PotionEffect(
                 PotionEffectType.FIRE_RESISTANCE, 200, 0, true, false));
             player.sendMessage(ChatColor.GOLD + "★ Inferno Set Bonus: Fire Resistance!");
         }
         if (setPieces >= 2) {
-            // Partial set bonus: Strength
             player.addPotionEffect(new PotionEffect(
                 PotionEffectType.INCREASE_DAMAGE, 200, 0, true, false));
         }
@@ -212,6 +208,168 @@ public class AccessoryCostListener implements Listener {
 
 ---
 
+## CuriosLootGenerateEvent
+
+Fired when a custom CuriosPaper item is about to be generated inside a loot container (chest, barrel, brushable block). This event is cancellable and allows modifying the generated item.
+
+### Example: Restricting Loot by World
+
+```java
+import org.bg52.curiospaper.event.CuriosLootGenerateEvent;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
+public class LootWorldRestriction implements Listener {
+
+    @EventHandler
+    public void onLootGenerate(CuriosLootGenerateEvent event) {
+        String tableKey = event.getLootTableKey();
+
+        // Only allow custom items in nether loot tables
+        if (!tableKey.contains("nether") && !tableKey.contains("bastion")) {
+            event.setCancelled(true);
+        }
+    }
+}
+```
+
+### Example: Modifying Generated Loot
+
+```java
+import org.bg52.curiospaper.event.CuriosLootGenerateEvent;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class LootEnhancer implements Listener {
+
+    @EventHandler
+    public void onLootGenerate(CuriosLootGenerateEvent event) {
+        // Add a special lore tag to all loot-generated accessories
+        ItemStack item = event.getItem();
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            List<String> lore = meta.getLore();
+            if (lore == null) lore = new ArrayList<>();
+            lore.add("");
+            lore.add("§8§o✦ Found in a dungeon chest ✦");
+            meta.setLore(lore);
+            item.setItemMeta(meta);
+            event.setItem(item);
+        }
+    }
+}
+```
+
+### CuriosLootGenerateEvent Properties
+
+| Method | Return | Description |
+|---|---|---|
+| `getLootTableKey()` | `String` | The namespaced key of the loot table (e.g., `minecraft:chests/simple_dungeon`) |
+| `getCustomItemId()` | `String` | The internal ID of the custom item being generated |
+| `getItem()` | `ItemStack` | The item being generated |
+| `setItem(ItemStack)` | `void` | Replace the item to be generated |
+| `isCancelled()` | `boolean` | Whether the generation is cancelled |
+| `setCancelled(boolean)` | `void` | Cancel item generation (item will not appear in chest) |
+
+---
+
+## CuriosMobDropEvent
+
+Fired when a custom CuriosPaper item is about to be dropped by a mob on death. This event is cancellable and allows modifying the dropped item.
+
+### Example: Logging Mob Drops
+
+```java
+import org.bg52.curiospaper.event.CuriosMobDropEvent;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
+public class MobDropLogger implements Listener {
+
+    @EventHandler
+    public void onMobDrop(CuriosMobDropEvent event) {
+        LivingEntity mob = event.getEntity();
+        String itemId = event.getCustomItemId();
+
+        mob.getServer().getLogger().info(
+            "[CuriosDrop] " + mob.getType().name()
+            + " dropped custom item: " + itemId
+            + " at " + mob.getLocation().toVector()
+        );
+    }
+}
+```
+
+### Example: Boosting Drops with Looting Enchantment
+
+```java
+import org.bg52.curiospaper.event.CuriosMobDropEvent;
+import org.bukkit.entity.Player;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.inventory.ItemStack;
+
+public class LootingBoost implements Listener {
+
+    @EventHandler
+    public void onMobDrop(CuriosMobDropEvent event) {
+        // Check if the killer has the looting enchantment
+        if (event.getEntity().getKiller() != null) {
+            Player killer = event.getEntity().getKiller();
+            int lootingLevel = killer.getInventory()
+                .getItemInMainHand().getEnchantmentLevel(Enchantment.LOOTING);
+
+            if (lootingLevel > 0) {
+                ItemStack item = event.getItem();
+                // Each looting level adds 1 extra item (up to max 5)
+                item.setAmount(Math.min(5, item.getAmount() + lootingLevel));
+                event.setItem(item);
+            }
+        }
+    }
+}
+```
+
+### Example: Cancelling Drops in Certain Regions
+
+```java
+import org.bg52.curiospaper.event.CuriosMobDropEvent;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
+public class RegionDropRestriction implements Listener {
+
+    @EventHandler
+    public void onMobDrop(CuriosMobDropEvent event) {
+        // Prevent custom drops in the spawn world
+        if (event.getEntity().getWorld().getName().equals("world_spawn")) {
+            event.setCancelled(true);
+        }
+    }
+}
+```
+
+### CuriosMobDropEvent Properties
+
+| Method | Return | Description |
+|---|---|---|
+| `getEntity()` | `LivingEntity` | The mob that is dropping the item |
+| `getCustomItemId()` | `String` | The internal ID of the custom item being dropped |
+| `getItem()` | `ItemStack` | The item being dropped |
+| `setItem(ItemStack)` | `void` | Replace the item to be dropped |
+| `isCancelled()` | `boolean` | Whether the drop is cancelled |
+| `setCancelled(boolean)` | `void` | Cancel the drop (item will not appear) |
+
+---
+
 ## CuriosRecipeTransferEvent
 
 Fired when a crafting recipe produces a custom CuriosPaper item, allowing you to modify the result or transfer custom data.
@@ -260,6 +418,17 @@ public class CraftingAttributionListener implements Listener {
 
 ---
 
+## Event Summary
+
+| Event | When It Fires | Cancellable | Can Modify Item |
+|---|---|---|---|
+| `AccessoryEquipEvent` | Player equips/unequips/swaps an accessory | ✅ | ❌ |
+| `CuriosLootGenerateEvent` | Custom item generated in a loot container | ✅ | ✅ |
+| `CuriosMobDropEvent` | Custom item dropped by a killed mob | ✅ | ✅ |
+| `CuriosRecipeTransferEvent` | Custom item crafted via a recipe | ✅ | ✅ |
+
+---
+
 ## Registering Listeners
 
 ```java
@@ -271,8 +440,9 @@ public class MyPlugin extends JavaPlugin {
     public void onEnable() {
         // Register all your CuriosPaper event listeners
         getServer().getPluginManager().registerEvents(new AccessoryLogger(), this);
-        getServer().getPluginManager().registerEvents(new AccessoryRestriction(), this);
-        getServer().getPluginManager().registerEvents(new SetBonusListener(), this);
+        getServer().getPluginManager().registerEvents(new LootWorldRestriction(), this);
+        getServer().getPluginManager().registerEvents(new MobDropLogger(), this);
+        getServer().getPluginManager().registerEvents(new CraftingAttributionListener(), this);
     }
 }
 ```

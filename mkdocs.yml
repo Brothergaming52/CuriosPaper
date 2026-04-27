@@ -71,6 +71,7 @@ nav:
       - Overview: configuration/index.md
       - Slots: configuration/slots.md
       - Abilities: configuration/abilities.md
+      - Features: configuration/features.md
       - Performance & Storage: configuration/performance.md
 
   - Systems:
@@ -78,9 +79,13 @@ nav:
       - Ability System: systems/ability-system.md
       - Item System: systems/item-system.md
       - Recipe System: systems/recipe-system.md
+      - Loot Table System: systems/loot-table-system.md
       - Mob Drop System: systems/mob-drop-system.md
       - Villager Trade System: systems/villager-trade-system.md
       - 3D Model System: systems/3d-model-system.md
+      - Quick Equip System: systems/quick-equip-system.md
+      - Hotkey System: systems/hotkey-system.md
+      - Death Behavior: systems/death-behavior.md
       - Elytra Back Slot: systems/elytra-back-slot.md
 
   - Resource Pack:
@@ -93,6 +98,7 @@ nav:
       - Overview: gui-editors/index.md
       - Ability Editor: gui-editors/ability-editor.md
       - Recipe Editor: gui-editors/recipe-editor.md
+      - Loot Table Editor: gui-editors/loot-table-editor.md
       - Mob Drop Editor: gui-editors/mob-drop-editor.md
       - Trade Editor: gui-editors/trade-editor.md
       - 3D Model Editor: gui-editors/3d-model-editor.md
@@ -101,6 +107,9 @@ nav:
       - Overview: api/index.md
       - Getting the API: api/getting-api.md
       - Creating Accessories: api/creating-accessories.md
+      - Loot Tables & Mob Drops: api/loot-tables-mob-drops.md
+      - 3D Models: api/3d-models.md
+      - Resource Pack Assets: api/resource-pack-assets.md
       - Abilities: api/abilities.md
       - Events: api/events.md
 
@@ -114,7 +123,10 @@ nav:
       - Accessory Example: examples/accessory-example.md
       - Ability Example: examples/ability-example.md
       - Recipe Example: examples/recipe-example.md
+      - Loot Table Example: examples/loot-table-example.md
 
   - Troubleshooting:
       - Overview: troubleshooting/index.md
       - Common Issues: troubleshooting/common-issues.md
+
+  - Changelogs: changelogs.md

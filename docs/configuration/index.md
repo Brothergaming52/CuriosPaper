@@ -6,7 +6,8 @@ CuriosPaper is fully configurable through `config.yml`. This section covers all 
 
 | Page | Description |
 |---|---|
-| [Slots](slots.md) | Accessory slot type definitions |
+| [Slots](slots.md) | Accessory slot type definitions and GUI layout |
+| [Features](features.md) | Feature toggles, hotkey, death behavior, sounds, resource pack, and GUI settings |
 | [Abilities](abilities.md) | Ability configuration for custom items |
 | [Performance & Storage](performance.md) | Performance tuning, storage, and caching |
 

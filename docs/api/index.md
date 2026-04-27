@@ -1,6 +1,6 @@
 # Developer API
 
-CuriosPaper provides a comprehensive API for other plugins to create accessories, manage slots, and hook into the accessory system. This section shows you how to build plugins that integrate with CuriosPaper.
+CuriosPaper provides a comprehensive API for other plugins to create accessories, manage slots, configure 3D models, register loot tables, and hook into the accessory system. This section shows you how to build plugins that integrate with CuriosPaper.
 
 ## Sections
 
@@ -8,8 +8,11 @@ CuriosPaper provides a comprehensive API for other plugins to create accessories
 |---|---|
 | [Getting the API](getting-api.md) | How to access the CuriosPaperAPI instance |
 | [Creating Accessories](creating-accessories.md) | Programmatically create and manage custom items |
+| [Loot Tables & Mob Drops](loot-tables-mob-drops.md) | Register loot table entries, mob drops, and villager trades |
+| [3D Models](3d-models.md) | Configure 3D model attachments for items and mob drops |
+| [Resource Pack Assets](resource-pack-assets.md) | Contribute textures and models to the server resource pack |
 | [Abilities](abilities.md) | Add abilities to items via the API |
-| [Events](events.md) | Custom events for equip/unequip hooks |
+| [Events](events.md) | Custom events for equip/unequip, loot generation, and mob drops |
 
 ## What Can You Build?
 
@@ -21,6 +24,8 @@ Here are some ideas for plugins that use the CuriosPaper API:
 - **Economy Integration** — Sell accessories through a shop plugin
 - **Achievement Badges** — Award collectible charms for milestones
 - **Seasonal Events** — Create limited-time holiday accessories
+- **Custom Loot Tables** — Add custom items to dungeon chests and mob drops
+- **3D Cosmetics** — Attach visible 3D models to equipped accessories
 
 ## Quick Start Example
 
@@ -82,7 +87,7 @@ public class MyAccessoryPlugin extends JavaPlugin {
 <dependency>
     <groupId>com.github.Brothergaming52</groupId>
     <artifactId>CuriosPaper</artifactId>
-    <version>1.2.0</version>
+    <version>1.3.0</version>
     <scope>provided</scope>
 </dependency>
 ```
