@@ -1,5 +1,65 @@
 # Changelogs
 
+## v1.3.1
+
+**Release Date:** 2026-05-16
+
+### 🛠️ Administrative Improvements
+
+#### Consolidated Command System
+- **NEW:** The `/edit` command has been merged into `/curios` for a more unified administrative experience.
+- All management actions are now subcommands of `/curios`:
+  - `/curios list` — Opens the new Paginated Item Browser
+  - `/curios create <id>` — Create a new custom item
+  - `/curios edit <id>` — Open the editor for an existing item
+  - `/curios delete <id>` — Delete a custom item
+  - `/curios give <id> [player] [amount]` — Distribute custom items
+  - `/curios reload` — Reload configuration and messages
+- Command aliases updated: `/cp`, `/curiospaper`.
+- Permission node `curiospaper.edit` has been merged into `curiospaper.admin`.
+
+#### Paginated Item Browser (`ItemListGUI`)
+- **NEW:** A dedicated GUI to browse all custom items in a paginated view.
+- Supports left-click to view item recipes and right-click to jump directly into the item editor.
+- Navigation buttons for previous/next pages and a close button.
+
+#### Localization & Messaging (`MessagesManager`)
+- **NEW:** Added `messages.yml` for full customization of all plugin messages and GUI titles.
+- Supports Hex colors and legacy color codes.
+- Messages can be reloaded on the fly using `/curios reload`.
+
+#### Auto-Update Checker (`UpdateChecker`)
+- **NEW:** Built-in update checker that notifies administrators of new releases on startup and login.
+- Can be toggled in `config.yml`.
+
+### ✨ API & Event Enhancements
+
+#### New Events
+- **NEW:** `CuriosCraftEvent` — Fired when a custom item is created via crafting, smelting, smithing, or anvil repair. Allows final modification of the result item.
+- **NEW:** `CuriosModelEquipEvent` — Fired when a 3D model is about to be displayed on a player. Allows modifying the model material, CMD, or item model on the fly.
+- **NEW:** `CuriosMobModelEquipEvent` — Fired when a 3D model is about to be displayed on a mob.
+
+#### API Improvements
+- Added `CuriosPaperAPI#reload()` to trigger a full plugin reload from other plugins.
+- Enhanced `ItemData` with visibility flags to support hidden items in the browser.
+
+### ⚙️ Configuration Changes
+
+#### New Config File: `messages.yml`
+- Contains all user-facing strings, categorized by system (commands, GUI, errors, etc.).
+
+#### Updated `config.yml`
+- Added `features.update-checker` toggle.
+- Removed hardcoded message strings (moved to `messages.yml`).
+
+### 🐛 Bug Fixes & Refinement
+- Fixed an issue where the Elytra model would occasionally fail to sync after teleportation.
+- Improved `ModelStandManager` performance during high-frequency movement.
+- Standardized all GUI titles to use the new messaging system.
+- Refactored `CuriosCommand` to handle the expanded subcommand set with better tab-completion.
+
+---
+
 ## v1.3.0
 
 **Release Date:** 2026-04-27

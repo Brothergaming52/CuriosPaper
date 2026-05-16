@@ -6,7 +6,7 @@
 
 ### The Ultimate Custom Accessory Inventory System for Paper & Spigot
 
-[![Version](https://img.shields.io/badge/version-1.3.0-blueviolet?style=for-the-badge)](https://github.com/Brothergaming52/CuriosPaper/releases)
+[![Version](https://img.shields.io/badge/version-1.3.1-blueviolet?style=for-the-badge)](https://github.com/Brothergaming52/CuriosPaper/releases)
 [![Minecraft](https://img.shields.io/badge/minecraft-1.14.4%20—%201.21+-green?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNSAyIDIgNi41IDIgMTJzNC41IDEwIDEwIDEwIDEwLTQuNSAxMC0xMFMxNy41IDIgMTIgMnoiLz48L3N2Zz4=)](https://www.spigotmc.org/)
 [![Discord](https://img.shields.io/discord/1456137607569346739?label=Discord&style=for-the-badge&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/r5YXqgrGya)
 [![bStats](https://img.shields.io/badge/bStats-live-blue?style=for-the-badge)](https://bstats.org/plugin/bukkit/CuriosPaper/29508)
@@ -94,7 +94,7 @@ Create and configure everything visually — no YAML editing required:
 | **Loot Tables** | Items appear in dungeon chests, mineshafts, temples, strongholds, and more |
 | **Mob Drops** | Any mob type can drop accessories with configurable chance & amount |
 | **Villager Trades** | Accessories appear in villager trade pools by profession and level |
-| **Commands** | `/edit give <item> [player] [amount]` for direct distribution |
+| **Commands** | `/curios give <item> [player] [amount]` for direct distribution |
 
 ### 🔌 Developer API
 
@@ -127,7 +127,10 @@ api.registerResourcePackAssetsFromJar(myPlugin);
 | `AccessoryEquipEvent` | Player equips, unequips, or swaps an accessory |
 | `CuriosLootGenerateEvent` | Custom item generated in a loot container (cancellable) |
 | `CuriosMobDropEvent` | Custom item dropped by a mob (cancellable) |
-| `CuriosRecipeTransferEvent` | Custom item crafted via a recipe |
+| `CuriosRecipeTransferEvent` | Custom item crafted via a recipe (data transfer) |
+| `CuriosCraftEvent` | Custom item created via craft/smelt/smith (final) |
+| `CuriosModelEquipEvent` | 3D model about to be displayed on player |
+| `CuriosMobModelEquipEvent` | 3D model about to be displayed on mob |
 
 ---
 
@@ -180,12 +183,12 @@ api.registerResourcePackAssetsFromJar(myPlugin);
 ### First Accessory in 60 Seconds
 
 ```
-/edit create speed_ring          # Create a new item
+/curios create speed_ring          # Create a new item
 ```
 In the GUI: set the name, material, slot type → add a Speed ability → add a recipe → done.
 
 ```
-/edit give speed_ring             # Get the item
+/curios give speed_ring             # Get the item
 /baubles                          # Open accessory menu
 ```
 Place it in a ring slot — Speed I activates! 🏃
@@ -244,17 +247,14 @@ The full documentation site covers:
 
 ---
 
-## 🆕 What's New in v1.3.0
+## 🆕 What's New in v1.3.1
 
-- ✨ **3D Model System** — Custom models mounted on the player's body via armor stands
-- ⚡ **Quick Equip** — Shift+Right-Click to equip accessories instantly
-- 🎹 **Hotkey System** — Single/double/hold sneak keybinds
-- ☠️ **Keep Inventory on Death** — Always / Auto / Never modes
-- 📋 **Loot Table Editor** — Full 3-screen GUI with browser, search, and presets
-- 🧟 **Mob 3D Models** — Mobs visually wear items they can drop
-- 📢 **New Events** — `CuriosLootGenerateEvent` & `CuriosMobDropEvent`
-- 🔧 **15+ New API Methods** — 3D models, loot tables, resource pack assets, and more
-- 📦 **External Resource Pack Merging** — Combine other plugins' packs into one
+- 🛠️ **Consolidated Commands** — All management commands merged into `/curios`
+- 🌐 **Localization System** — Fully configurable messages in `messages.yml`
+- 📋 **Item Browser** — Paginated GUI to manage all custom items and recipes
+- ✨ **New API Events** — `CuriosCraftEvent`, `CuriosModelEquipEvent`, `CuriosMobModelEquipEvent`
+- 🚀 **Auto-Update Checker** — Stay up to date with the latest versions automatically
+- 🧹 **Refined Logic** — Significant performance and reliability improvements
 
 Full changelog → [**CHANGELOGS.md**](CHANGELOGS.md)
 
@@ -300,7 +300,7 @@ If CuriosPaper has been useful to you, consider leaving a tip — it helps keep 
 <dependency>
     <groupId>com.github.Brothergaming52</groupId>
     <artifactId>CuriosPaper</artifactId>
-    <version>1.3.0</version>
+    <version>1.3.1</version>
     <scope>provided</scope>
 </dependency>
 ```
