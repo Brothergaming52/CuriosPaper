@@ -17,7 +17,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.google.gson.JsonArray;
 
 public class ResourcePackManager {
@@ -26,7 +25,7 @@ public class ResourcePackManager {
   private final File packFile;
   private final File externalPacksDir;
   private final File tempDir;
-  
+
   public static class SourceEntry {
     public final Plugin plugin;
     public final File folder;
@@ -336,7 +335,7 @@ public class ResourcePackManager {
     }
 
     File[] zipFiles = externalPacksDir.listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".zip"));
-    
+
     if (zipFiles == null || zipFiles.length == 0) {
       return;
     }
@@ -353,13 +352,14 @@ public class ResourcePackManager {
       try {
         String folderName = zipFile.getName().substring(0, zipFile.getName().length() - 4);
         File extractDir = new File(tempDir, folderName);
-        
+
         plugin.getLogger().info("Extracting external pack: " + zipFile.getName());
         unzip(zipFile, extractDir);
-        
+
         File validRoot = findAssetsFolder(extractDir);
         if (validRoot != null) {
-          // Register the extracted resource pack using CuriosPaper as the 'owner' plugin wrapper
+          // Register the extracted resource pack using CuriosPaper as the 'owner' plugin
+          // wrapper
           registerResource(plugin, validRoot);
           plugin.getLogger().info("Successfully registered external pack: " + zipFile.getName());
         } else {
@@ -423,7 +423,7 @@ public class ResourcePackManager {
       zipDirectory(resourcePackDir, packFile);
       this.packHash = calculateSha1(packFile);
       plugin.getLogger().info("Pack built. Hash: " + this.packHash);
-      
+
       // Clean up extracted temp resource packs to save space
       if (tempDir.exists()) {
         deleteDirectory(tempDir);
@@ -557,7 +557,8 @@ public class ResourcePackManager {
           }
         } else {
           // If primitives or mismatched types, we could overwrite or keep dest.
-          // Keeping destination is usually safer to maintain the base file's core properties (like parent model).
+          // Keeping destination is usually safer to maintain the base file's core
+          // properties (like parent model).
         }
       }
     }
@@ -683,11 +684,13 @@ public class ResourcePackManager {
   }
 
   private File findAssetsFolder(File root) {
-    if (root == null || !root.exists() || !root.isDirectory()) return null;
-    
+    if (root == null || !root.exists() || !root.isDirectory())
+      return null;
+
     File assetsFolder = new File(root, "assets");
     if (assetsFolder.exists() && assetsFolder.isDirectory()) {
-      return root; // Return the folder that CONTAINS assets, as that's what registerResource expects
+      return root; // Return the folder that CONTAINS assets, as that's what registerResource
+                   // expects
     }
 
     File[] files = root.listFiles();

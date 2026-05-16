@@ -3,6 +3,7 @@ package org.bg52.curiospaper.model;
 import org.bg52.curiospaper.CuriosPaper;
 import org.bg52.curiospaper.data.ItemData;
 import org.bg52.curiospaper.event.AccessoryEquipEvent;
+import org.bg52.curiospaper.event.CuriosModelEquipEvent;
 import org.bg52.curiospaper.util.VersionUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -147,10 +148,10 @@ public class ModelStandManager implements Listener {
     }, 5L);
   }
 
-  @EventHandler
+  @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
   public void onTeleport(PlayerTeleportEvent event) {
     Player player = event.getPlayer();
-    updateStandsForPlayer(player, true);
+    
     if (event.getFrom().getWorld() != event.getTo().getWorld()) {
       removeAllStands(player.getUniqueId());
       Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -158,6 +159,21 @@ public class ModelStandManager implements Listener {
           rescanPlayer(player);
         }
       }, 5L);
+    } else {
+      // Same world teleport - Bukkit ejects passengers, so we must remount them
+      Bukkit.getScheduler().runTaskLater(plugin, () -> {
+        if (!player.isOnline()) return;
+        Map<String, Entity> stands = activeStands.get(player.getUniqueId());
+        if (stands != null) {
+          for (Entity stand : stands.values()) {
+            if (stand.isValid() && stand.getVehicle() != player) {
+              stand.teleport(player.getLocation());
+              player.addPassenger(stand);
+            }
+          }
+        }
+        updateStandsForPlayer(player, true);
+      }, 1L);
     }
   }
 
@@ -391,14 +407,16 @@ public class ModelStandManager implements Listener {
     if (itemData == null || !itemData.isModelEnabled())
       return;
 
-    ItemStack modelHelmet = createModelHelmet(itemData);
+    ItemStack modelHelmet = createModelHelmet(player, item, slotKey, itemData);
     if (modelHelmet == null)
       return;
 
     spawnModelStand(player, slotKey, modelHelmet, itemData);
 
     // Initial sync
-    updateStandsForPlayer(player, true);
+    if (modelHelmet != null) {
+      updateStandsForPlayer(player, true);
+    }
   }
 
   private void handleUnequip(Player player, String slotKey) {
@@ -440,7 +458,7 @@ public class ModelStandManager implements Listener {
       });
 
       EntityEquipment equip = stand.getEquipment();
-      if (equip != null) {
+      if (equip != null && modelHelmet != null) {
         equip.setHelmet(modelHelmet);
       }
 
@@ -455,7 +473,7 @@ public class ModelStandManager implements Listener {
     playerStands.put(slotKey, spawnedEntity);
   }
 
-  private ItemStack createModelHelmet(ItemData itemData) {
+  private ItemStack createModelHelmet(Player player, ItemStack curiosityStack, String slotKey, ItemData itemData) {
     String modelItemStr = itemData.getModelItem();
     if (modelItemStr == null || modelItemStr.isEmpty())
       return null;
@@ -468,10 +486,28 @@ public class ModelStandManager implements Listener {
       return null;
     }
 
-    ItemStack helmet = new ItemStack(modelMat);
+    String[] parts = slotKey.split(":");
+    String slotType = parts.length > 0 ? parts[0] : "unknown";
+    int slotIndex = 0;
+    if (parts.length > 1) {
+      try {
+        slotIndex = Integer.parseInt(parts[1]);
+      } catch (NumberFormatException ignored) {
+      }
+    }
+
+    CuriosModelEquipEvent event = new CuriosModelEquipEvent(player, curiosityStack, slotType, slotIndex,
+        modelMat, itemData.getModelCustomModelData(), itemData.getModelItemModel());
+    Bukkit.getPluginManager().callEvent(event);
+
+    if (event.isCancelled()) {
+      return null;
+    }
+
+    ItemStack helmet = new ItemStack(event.getModelMaterial());
     ItemMeta meta = helmet.getItemMeta();
     if (meta != null) {
-      VersionUtil.setItemModelSafe(meta, itemData.getModelItemModel(), itemData.getModelCustomModelData());
+      VersionUtil.setItemModelSafe(meta, event.getItemModel(), event.getCustomModelData());
       meta.getPersistentDataContainer().set(modelStandTag, PersistentDataType.BYTE, (byte) 1);
       helmet.setItemMeta(meta);
     }
@@ -558,14 +594,17 @@ public class ModelStandManager implements Listener {
     }
 
     // Visibility smoothing to prevent flickering (e.g. Helium Flamingo without Elytra)
-    long currentTick = player.getWorld().getFullTime();
+    long currentTime = System.currentTimeMillis();
     if (stateHide) {
-      lastHideTickState.put(player.getUniqueId(), currentTick);
+      lastHideTickState.put(player.getUniqueId(), currentTime);
       shouldHide = true;
     } else {
-      Long lastTick = lastHideTickState.get(player.getUniqueId());
-      if (lastTick != null && (currentTick - lastTick) < 5) {
-        shouldHide = true;
+      Long lastTime = lastHideTickState.get(player.getUniqueId());
+      if (lastTime != null) {
+        long diff = currentTime - lastTime;
+        if (diff >= 0 && diff < 250) { // 250ms = 5 ticks
+          shouldHide = true;
+        }
       }
     }
 
@@ -596,11 +635,11 @@ public class ModelStandManager implements Listener {
       }
     } else {
       ItemStack current = equip.getHelmet();
-      if (current == null || current.getType() == Material.AIR) {
-        ItemStack modelHelmet = createModelHelmet(itemData);
-        if (modelHelmet != null) {
-          equip.setHelmet(modelHelmet);
-        }
+      ItemStack modelHelmet = createModelHelmet(player, equippedItem, slotKey, itemData);
+      
+      // Refresh helmet if it changed (e.g. dyed) or is missing
+      if (modelHelmet != null && (current == null || !modelHelmet.isSimilar(current))) {
+        equip.setHelmet(modelHelmet);
       }
     }
   }

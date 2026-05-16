@@ -51,6 +51,58 @@ public class CuriosMobDropEvent extends Event implements Cancellable {
     this.item = item;
   }
 
+  /**
+   * Gets the material of the dropped item.
+   */
+  public org.bukkit.Material getMaterial() {
+    return item != null ? item.getType() : null;
+  }
+
+  /**
+   * Sets the material of the dropped item.
+   */
+  public void setMaterial(org.bukkit.Material material) {
+    if (item != null && material != null) {
+      item.setType(material);
+    }
+  }
+
+  /**
+   * Gets the custom model data of the dropped item.
+   */
+  public Integer getCustomModelData() {
+    if (item == null || !item.hasItemMeta())
+      return null;
+    org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+    return meta.hasCustomModelData() ? meta.getCustomModelData() : null;
+  }
+
+  /**
+   * Sets the custom model data of the dropped item.
+   */
+  public void setCustomModelData(Integer customModelData) {
+    if (item == null)
+      return;
+    org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+    if (meta != null) {
+      meta.setCustomModelData(customModelData);
+      item.setItemMeta(meta);
+    }
+  }
+
+  /**
+   * Sets the item model string (for 1.21.4+) of the dropped item.
+   */
+  public void setItemModel(String itemModel) {
+    if (item == null)
+      return;
+    org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+    if (meta != null) {
+      org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemModel, getCustomModelData());
+      item.setItemMeta(meta);
+    }
+  }
+
   @Override
   public boolean isCancelled() {
     return cancelled;

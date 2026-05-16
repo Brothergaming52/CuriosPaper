@@ -2,7 +2,11 @@
     "layers": {
         "humanoid": [
             {
-                "texture": "minecraft:leather"
+                "texture": "minecraft:leather",
+                "dyeable": true
+            },
+            {
+                "texture": "minecraft:leather_overlay"
             }
         ],
         "wings": [

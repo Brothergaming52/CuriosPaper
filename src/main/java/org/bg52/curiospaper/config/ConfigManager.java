@@ -9,18 +9,20 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ConfigManager {
   private final CuriosPaper plugin;
   private final Map<String, SlotConfiguration> slotConfigurations;
+  private final Map<String, SlotConfiguration> apiSlotConfigurations;
+  private final java.util.Set<String> configSlotKeys = new java.util.HashSet<>();
 
   /**
    * Slot activity registry — true when at least one item has been tagged for
    * that slot type. Checked O(1) by AccessoryGUI to decide which slot buttons
    * to show in the main menu.
-   * ConcurrentHashMap so external plugins registering items asynchronously are safe.
+   * ConcurrentHashMap so external plugins registering items asynchronously are
+   * safe.
    */
   private final Map<String, Boolean> slotActivityRegistry = new ConcurrentHashMap<>();
 
@@ -30,6 +32,10 @@ public class ConfigManager {
   private SneakType hotkeySneakType;
   private int sneakHoldDuration;
   private KeepInventoryType keepInventoryType;
+
+  // Feature toggles
+  private boolean useVanillaItems;
+  private boolean showEmptySlots;
 
   public enum SneakType {
     SINGLE, DOUBLE, HOLD
@@ -46,11 +52,34 @@ public class ConfigManager {
   public ConfigManager(CuriosPaper plugin) {
     this.plugin = plugin;
     this.slotConfigurations = new LinkedHashMap<>();
+    this.apiSlotConfigurations = new LinkedHashMap<>();
     loadConfigurations();
   }
 
   private void loadConfigurations() {
-    ConfigurationSection slotsSection = plugin.getConfig().getConfigurationSection("slots");
+    plugin.saveDefaultConfig();
+    plugin.reloadConfig();
+    org.bukkit.configuration.file.FileConfiguration fConfig = plugin.getConfig();
+
+    // --- Config Versioning & Migration ---
+    String currentVersion = plugin.getDescription().getVersion();
+    String configVersion = fConfig.getString("version", "0.0.0");
+
+    if (isOlder(configVersion, currentVersion)) {
+      plugin.getLogger().info("Config version " + configVersion + " is older than plugin version " + currentVersion
+          + ". Migrating config...");
+      migrateConfig(currentVersion);
+      plugin.reloadConfig();
+      fConfig = plugin.getConfig();
+    }
+
+    // --- Update Checker ---
+    if (fConfig.getBoolean("updates.check-for-updates", true)) {
+      plugin.getLogger().info("Triggering update checker...");
+      new org.bg52.curiospaper.util.UpdateChecker(plugin).check();
+    }
+
+    ConfigurationSection slotsSection = fConfig.getConfigurationSection("slots");
     if (slotsSection == null) {
       plugin.getLogger().warning("No slots configured in config.yml!");
       plugin.getLogger().warning("Please add slot configurations or the plugin will not function properly.");
@@ -64,7 +93,9 @@ public class ConfigManager {
       try {
         SlotConfiguration config = loadSlotConfiguration(key, slotsSection.getConfigurationSection(key));
         if (config != null) {
-          slotConfigurations.put(key.toLowerCase(), config);
+          String normalized = key.toLowerCase();
+          slotConfigurations.put(normalized, config);
+          configSlotKeys.add(normalized);
           loadedCount++;
           plugin.getLogger().info("✓ Loaded slot: '" + key + "' (" + config.getAmount() + " slots)");
         } else {
@@ -78,6 +109,7 @@ public class ConfigManager {
 
     loadHotkeySettings();
     loadKeepInventorySettings();
+    loadFeatureSettings();
 
     plugin.getLogger().info("Slot configuration loading complete:");
     plugin.getLogger().info(" Successfully loaded: " + loadedCount);
@@ -182,10 +214,35 @@ public class ConfigManager {
 
   public void reload() {
     plugin.reloadConfig();
+
+    // Save API activity status before clearing
+    Map<String, Boolean> apiActivity = new java.util.HashMap<>();
+    for (String key : apiSlotConfigurations.keySet()) {
+      apiActivity.put(key, slotActivityRegistry.getOrDefault(key, false));
+    }
+
     slotConfigurations.clear();
+    configSlotKeys.clear();
     slotActivityRegistry.clear();
-    plugin.getLogger().info("Reloading slot configurations...");
+
+    plugin.getLogger().info("Reloading configurations...");
     loadConfigurations();
+
+    // Restore API-registered slots
+    if (!apiSlotConfigurations.isEmpty()) {
+      plugin.getLogger().info("Restoring " + apiSlotConfigurations.size() + " API-registered slots...");
+      for (Map.Entry<String, SlotConfiguration> entry : apiSlotConfigurations.entrySet()) {
+        String key = entry.getKey();
+        // Config file takes precedence over API registration
+        if (!slotConfigurations.containsKey(key)) {
+          slotConfigurations.put(key, entry.getValue());
+          // Restore activity status for this API slot
+          if (apiActivity.getOrDefault(key, false)) {
+            slotActivityRegistry.put(key, true);
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -197,11 +254,14 @@ public class ConfigManager {
     }
 
     String normalizedKey = key.toLowerCase();
-    if (slotConfigurations.containsKey(normalizedKey)) {
-      plugin.getLogger().warning("Slot type '" + key + "' already exists!");
+
+    // If it's in the config file, we don't allow API override
+    if (configSlotKeys.contains(normalizedKey)) {
+      plugin.getLogger().warning("Slot type '" + key + "' already exists in config.yml! API registration ignored.");
       return false;
     }
 
+    apiSlotConfigurations.put(normalizedKey, config);
     slotConfigurations.put(normalizedKey, config);
     // New dynamic slots start inactive — they become active when an item is tagged
     slotActivityRegistry.putIfAbsent(normalizedKey, false);
@@ -219,6 +279,7 @@ public class ConfigManager {
 
     String normalizedKey = key.toLowerCase();
     SlotConfiguration removed = slotConfigurations.remove(normalizedKey);
+    apiSlotConfigurations.remove(normalizedKey);
 
     if (removed != null) {
       slotActivityRegistry.remove(normalizedKey);
@@ -266,7 +327,8 @@ public class ConfigManager {
    * @param slotType the slot key (case-insensitive)
    */
   public void markSlotActive(String slotType) {
-    if (slotType == null) return;
+    if (slotType == null)
+      return;
     slotActivityRegistry.put(slotType.toLowerCase(), true);
   }
 
@@ -276,7 +338,8 @@ public class ConfigManager {
    * @param slotType the slot key (case-insensitive)
    */
   public boolean isSlotActive(String slotType) {
-    if (slotType == null) return false;
+    if (slotType == null)
+      return false;
     return Boolean.TRUE.equals(slotActivityRegistry.get(slotType.toLowerCase()));
   }
 
@@ -302,7 +365,8 @@ public class ConfigManager {
    */
   public void initSlotActivityFromItems() {
     org.bg52.curiospaper.manager.ItemDataManager idm = plugin.getItemDataManager();
-    if (idm == null) return;
+    if (idm == null)
+      return;
     for (org.bg52.curiospaper.data.ItemData data : idm.getAllItems().values()) {
       String slotType = data.getSlotType();
       if (slotType != null && !slotType.isEmpty()) {
@@ -380,6 +444,19 @@ public class ConfigManager {
     return keepInventoryType;
   }
 
+  private void loadFeatureSettings() {
+    useVanillaItems = plugin.getConfig().getBoolean("features.use-vanilla-slot-icons", false);
+    showEmptySlots = plugin.getConfig().getBoolean("features.show-empty-slots", true);
+  }
+
+  public boolean isUseVanillaItems() {
+    return useVanillaItems;
+  }
+
+  public boolean isShowEmptySlots() {
+    return showEmptySlots;
+  }
+
   public static class ConfigValidationReport {
     private final List<String> errors = new java.util.ArrayList<>();
     private final List<String> warnings = new java.util.ArrayList<>();
@@ -407,5 +484,112 @@ public class ConfigManager {
     public List<String> getWarnings() {
       return new java.util.ArrayList<>(warnings);
     }
+  }
+
+  private boolean isOlder(String v1, String v2) {
+    String[] parts1 = v1.split("\\.");
+    String[] parts2 = v2.split("\\.");
+    int length = Math.max(parts1.length, parts2.length);
+    for (int i = 0; i < length; i++) {
+      int p1 = i < parts1.length ? Integer.parseInt(parts1[i].replaceAll("[^0-9]", "")) : 0;
+      int p2 = i < parts2.length ? Integer.parseInt(parts2[i].replaceAll("[^0-9]", "")) : 0;
+      if (p1 < p2)
+        return true;
+      if (p1 > p2)
+        return false;
+    }
+    return false;
+  }
+
+  private void migrateConfig(String newVersion) {
+    java.io.File configFile = new java.io.File(plugin.getDataFolder(), "config.yml");
+    java.io.File backupFile = new java.io.File(plugin.getDataFolder(), "config.old.yml");
+
+    if (configFile.exists()) {
+      configFile.renameTo(backupFile);
+    }
+
+    plugin.saveDefaultConfig();
+    plugin.reloadConfig();
+    org.bukkit.configuration.file.FileConfiguration newConfig = plugin.getConfig();
+    org.bukkit.configuration.file.FileConfiguration oldConfig = org.bukkit.configuration.file.YamlConfiguration
+        .loadConfiguration(backupFile);
+
+    for (String key : oldConfig.getKeys(true)) {
+      if (newConfig.contains(key) && !oldConfig.isConfigurationSection(key)) {
+        if (!key.equals("version")) {
+          newConfig.set(key, oldConfig.get(key));
+        }
+      }
+    }
+
+    newConfig.set("version", newVersion);
+
+    try {
+      newConfig.save(configFile);
+    } catch (java.io.IOException e) {
+      plugin.getLogger().severe("Could not save migrated config: " + e.getMessage());
+    }
+
+    // --- Migrate messages.yml ---
+    migrateYamlFile("messages.yml", null);
+
+    // --- Delete resources folder ---
+    java.io.File resourcesFolder = new java.io.File(plugin.getDataFolder(), "resources");
+    if (resourcesFolder.exists()) {
+      deleteDirectory(resourcesFolder);
+      plugin.getLogger().info("Deleted old resources folder.");
+    }
+
+    // --- Cleanup .old.yml files ---
+    backupFile.delete();
+    java.io.File messagesOld = new java.io.File(plugin.getDataFolder(), "messages.old.yml");
+    if (messagesOld.exists()) {
+      messagesOld.delete();
+    }
+  }
+
+  private void migrateYamlFile(String fileName, String versionKey) {
+    java.io.File file = new java.io.File(plugin.getDataFolder(), fileName);
+    java.io.File backupFile = new java.io.File(plugin.getDataFolder(), fileName.replace(".yml", ".old.yml"));
+
+    if (file.exists()) {
+      file.renameTo(backupFile);
+    }
+
+    plugin.saveResource(fileName, true);
+    org.bukkit.configuration.file.FileConfiguration newConfig = org.bukkit.configuration.file.YamlConfiguration
+        .loadConfiguration(file);
+    org.bukkit.configuration.file.FileConfiguration oldConfig = org.bukkit.configuration.file.YamlConfiguration
+        .loadConfiguration(backupFile);
+
+    for (String key : oldConfig.getKeys(true)) {
+      if (newConfig.contains(key) && !oldConfig.isConfigurationSection(key)) {
+        if (versionKey == null || !key.equals(versionKey)) {
+          newConfig.set(key, oldConfig.get(key));
+        }
+      }
+    }
+
+    try {
+      newConfig.save(file);
+      plugin.getLogger().info("Migrated " + fileName);
+    } catch (java.io.IOException e) {
+      plugin.getLogger().severe("Could not save migrated " + fileName + ": " + e.getMessage());
+    }
+  }
+
+  private void deleteDirectory(java.io.File directory) {
+    java.io.File[] files = directory.listFiles();
+    if (files != null) {
+      for (java.io.File file : files) {
+        if (file.isDirectory()) {
+          deleteDirectory(file);
+        } else {
+          file.delete();
+        }
+      }
+    }
+    directory.delete();
   }
 }

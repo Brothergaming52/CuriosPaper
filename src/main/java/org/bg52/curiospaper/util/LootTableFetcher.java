@@ -17,9 +17,9 @@ import java.util.stream.Collectors;
  */
 public final class LootTableFetcher {
 
-  private LootTableFetcher() {}
+  private LootTableFetcher() {
+  }
 
-  @SuppressWarnings("unchecked")
   public static List<NamespacedKey> fetchAllLootTableKeys(JavaPlugin plugin) {
     Objects.requireNonNull(plugin, "plugin");
 
@@ -35,7 +35,8 @@ public final class LootTableFetcher {
           Map<?, ?> map = (Map<?, ?>) registry;
           for (Object rawKey : map.keySet()) {
             NamespacedKey nk = toNamespacedKey(rawKey == null ? null : rawKey.toString());
-            if (nk != null && isValidLootTable(nk)) discovered.add(nk);
+            if (nk != null && isValidLootTable(nk))
+              discovered.add(nk);
           }
           plugin.getLogger().info("[LootTableFetcher] Found " + discovered.size()
               + " chest keys via Bukkit.getLootTableRegistry()");
@@ -65,7 +66,8 @@ public final class LootTableFetcher {
         Method getServerMethod = craftServer.getClass().getMethod("getServer");
         nmsServer = getServerMethod.invoke(craftServer);
       } catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException ex) {
-        plugin.getLogger().fine("[LootTableFetcher] Could not call getServer() on CraftServer: " + ex.getClass().getSimpleName());
+        plugin.getLogger()
+            .fine("[LootTableFetcher] Could not call getServer() on CraftServer: " + ex.getClass().getSimpleName());
       } catch (Throwable t) {
         plugin.getLogger().fine("[LootTableFetcher] Unexpected in getServer(): " + t.getMessage());
       }
@@ -73,16 +75,19 @@ public final class LootTableFetcher {
       if (nmsServer != null) {
         Class<?> nmsServerClass = nmsServer.getClass();
 
-        String[] likelyFieldNames = new String[]{"lootData", "lootDataManager", "lootTableRegistry", "LootDataManager", "f"};
+        String[] likelyFieldNames = new String[] { "lootData", "lootDataManager", "lootTableRegistry",
+            "LootDataManager", "f" };
 
         // 3a) Known field names
         for (String fieldName : likelyFieldNames) {
           try {
             Field f = findFieldIgnoreCase(nmsServerClass, fieldName);
-            if (f == null) continue;
+            if (f == null)
+              continue;
             f.setAccessible(true);
             Object lootDataObj = f.get(nmsServer);
-            if (lootDataObj == null) continue;
+            if (lootDataObj == null)
+              continue;
 
             // methods on lootDataObj returning Map
             List<Method> zeroMapMethods = Arrays.stream(lootDataObj.getClass().getMethods())
@@ -109,22 +114,28 @@ public final class LootTableFetcher {
           }
         }
 
-        // 3b) Heuristic scan: inspect every field on nmsServer and probe methods that return Map
+        // 3b) Heuristic scan: inspect every field on nmsServer and probe methods that
+        // return Map
         try {
           Field[] serverFields = nmsServerClass.getDeclaredFields();
           for (Field f : serverFields) {
             try {
               f.setAccessible(true);
               Object val = f.get(nmsServer);
-              if (val == null) continue;
+              if (val == null)
+                continue;
               for (Method mth : val.getClass().getMethods()) {
-                if (mth.getParameterCount() != 0) continue;
-                if (!Map.class.isAssignableFrom(mth.getReturnType())) continue;
+                if (mth.getParameterCount() != 0)
+                  continue;
+                if (!Map.class.isAssignableFrom(mth.getReturnType()))
+                  continue;
                 try {
                   Object ret = mth.invoke(val);
-                  if (!(ret instanceof Map)) continue;
+                  if (!(ret instanceof Map))
+                    continue;
                   Map<?, ?> map = (Map<?, ?>) ret;
-                  if (map.isEmpty()) continue;
+                  if (map.isEmpty())
+                    continue;
                   int added = addAllowedKeysFromMap(plugin, map, discovered);
                   if (added > 0) {
                     plugin.getLogger().info("[LootTableFetcher] Heuristic: added " + added + " keys from field '"
@@ -158,12 +169,15 @@ public final class LootTableFetcher {
     int added = 0;
     for (Object key : map.keySet()) {
       try {
-        if (key == null) continue;
+        if (key == null)
+          continue;
         String raw = key.toString();
         NamespacedKey nk = toNamespacedKey(raw);
-        if (nk == null) continue;
+        if (nk == null)
+          continue;
         if (isValidLootTable(nk)) {
-          if (discovered.add(nk)) added++;
+          if (discovered.add(nk))
+            added++;
         }
       } catch (Throwable ignored) {
       }
@@ -171,33 +185,44 @@ public final class LootTableFetcher {
     return added;
   }
 
-  // Helper: returns true if this NamespacedKey should appear in the loot table browser.
-  // Excludes entity loot (handled by MobDropListener) and block loot (not injectable).
+  // Helper: returns true if this NamespacedKey should appear in the loot table
+  // browser.
+  // Excludes entity loot (handled by MobDropListener) and block loot (not
+  // injectable).
   private static boolean isValidLootTable(NamespacedKey nk) {
-    if (nk == null) return false;
+    if (nk == null)
+      return false;
     String path = nk.getKey();
-    if (path == null || path.isEmpty()) return false;
+    if (path == null || path.isEmpty())
+      return false;
     path = path.toLowerCase(Locale.ROOT);
 
-    // Exclude entity loot tables — mob drops have their own system (MobDropListener)
-    if (path.startsWith("entities/")) return false;
+    // Exclude entity loot tables — mob drops have their own system
+    // (MobDropListener)
+    if (path.startsWith("entities/"))
+      return false;
 
     // Exclude block loot tables — not injectable via events
-    if (path.startsWith("blocks/")) return false;
+    if (path.startsWith("blocks/"))
+      return false;
 
     // Include everything else: chests, archaeology, gameplay, village, etc.
     return true;
   }
 
-  // Convert objects/string into NamespacedKey. Accepts "namespace:path..." strings.
+  // Convert objects/string into NamespacedKey. Accepts "namespace:path..."
+  // strings.
   private static NamespacedKey toNamespacedKey(String raw) {
-    if (raw == null) return null;
+    if (raw == null)
+      return null;
     raw = raw.trim();
     int colon = raw.indexOf(':');
-    if (colon <= 0 || colon == raw.length() - 1) return null;
+    if (colon <= 0 || colon == raw.length() - 1)
+      return null;
     String ns = raw.substring(0, colon);
     String path = raw.substring(colon + 1);
-    if (ns.isEmpty() || path.isEmpty()) return null;
+    if (ns.isEmpty() || path.isEmpty())
+      return null;
     try {
       return new NamespacedKey(ns, path);
     } catch (Exception ex) {
@@ -208,7 +233,8 @@ public final class LootTableFetcher {
   // Find field ignoring case
   private static Field findFieldIgnoreCase(Class<?> clazz, String name) {
     for (Field f : clazz.getDeclaredFields()) {
-      if (f.getName().equalsIgnoreCase(name)) return f;
+      if (f.getName().equalsIgnoreCase(name))
+        return f;
     }
     return null;
   }

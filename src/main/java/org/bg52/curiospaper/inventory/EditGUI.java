@@ -39,7 +39,7 @@ public class EditGUI implements Listener {
   public void open(Player player, String itemId) {
     ItemData itemData = itemDataManager.getItemData(itemId);
     if (itemData == null) {
-      player.sendMessage("§cItem not found!");
+      player.sendMessage(plugin.getMessagesManager().get("editor.item-not-found"));
       return;
     }
 
@@ -188,7 +188,7 @@ public class EditGUI implements Listener {
               if (single != null && !single.trim().isEmpty()) {
                 itemData.setDisplayName(single.replace('&', '§'));
                 itemDataManager.saveItemData(itemId);
-                player.sendMessage("§a Display name updated!");
+                player.sendMessage(plugin.getMessagesManager().get("editor.display-name-updated"));
               }
               Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
             },
@@ -206,9 +206,9 @@ public class EditGUI implements Listener {
                   Material.valueOf(material);
                   itemData.setMaterial(material);
                   itemDataManager.saveItemData(itemId);
-                  player.sendMessage("§a Material set to: " + material);
+                  player.sendMessage(plugin.getMessagesManager().get("editor.material-set", "material", material));
                 } catch (IllegalArgumentException e) {
-                  player.sendMessage("§c Invalid material: " + material);
+                  player.sendMessage(plugin.getMessagesManager().get("editor.material-invalid", "material", material));
                 }
               }
               Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
@@ -225,7 +225,7 @@ public class EditGUI implements Listener {
                 String model = single.trim();
                 itemData.setItemModel(model);
                 itemDataManager.saveItemData(itemId);
-                player.sendMessage("§a Item model set to: " + model);
+                player.sendMessage(plugin.getMessagesManager().get("editor.item-model-set", "model", model));
               }
               Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
             },
@@ -242,15 +242,15 @@ public class EditGUI implements Listener {
                 if (input.equals("remove") || input.equals("clear") || input.equals("none")) {
                   itemData.setCustomModelData(null);
                   itemDataManager.saveItemData(itemId);
-                  player.sendMessage("§a Custom Model Data cleared.");
+                  player.sendMessage(plugin.getMessagesManager().get("editor.cmd-cleared"));
                 } else {
                   try {
                     int val = Integer.parseInt(input);
                     itemData.setCustomModelData(val);
                     itemDataManager.saveItemData(itemId);
-                    player.sendMessage("§a Custom Model Data set to: " + val);
+                    player.sendMessage(plugin.getMessagesManager().get("editor.cmd-set", "value", String.valueOf(val)));
                   } catch (NumberFormatException e) {
-                    player.sendMessage("§c Invalid number.");
+                    player.sendMessage(plugin.getMessagesManager().get("editor.cmd-invalid"));
                   }
                 }
               }
@@ -269,7 +269,7 @@ public class EditGUI implements Listener {
                   .collect(java.util.stream.Collectors.toList());
               itemData.setLore(coloredLore);
               itemDataManager.saveItemData(itemId);
-              player.sendMessage("§a Lore updated with " + lines.size() + " lines!");
+              player.sendMessage(plugin.getMessagesManager().get("editor.lore-updated", "count", String.valueOf(lines.size())));
               Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
             },
             () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
@@ -277,11 +277,11 @@ public class EditGUI implements Listener {
 
       case 30: // Set Required Slot
         player.closeInventory();
-        player.sendMessage("§e Available Slots ");
+        player.sendMessage(plugin.getMessagesManager().get("editor.available-slots-header"));
         for (String slotType : plugin.getCuriosPaperAPI().getAllSlotTypes()) {
-          player.sendMessage("§6 §e" + slotType);
+          player.sendMessage(plugin.getMessagesManager().get("editor.available-slots-entry", "slot", slotType));
         }
-        player.sendMessage("§e");
+        player.sendMessage("");
 
         chatInputManager.startSingleLineSession(player,
             "Enter the slot type this item requires:",
@@ -290,7 +290,7 @@ public class EditGUI implements Listener {
                 String[] slots = single.trim().toLowerCase().split(",\\s*");
                 boolean allValid = true;
                 java.util.List<String> invalidSlots = new java.util.ArrayList<>();
-                
+
                 for (String s : slots) {
                   if (!plugin.getCuriosPaperAPI().isValidSlotType(s.trim())) {
                     allValid = false;
@@ -302,7 +302,7 @@ public class EditGUI implements Listener {
                   String finalSlots = String.join(", ", slots);
                   itemData.setSlotType(finalSlots);
                   itemDataManager.saveItemData(itemId);
-                  player.sendMessage("§aRequired slots set to: " + finalSlots);
+                  player.sendMessage(plugin.getMessagesManager().get("editor.slot-type-set", "slot", finalSlots));
                 } else {
                   player.sendMessage("§cInvalid slot types: " + String.join(", ", invalidSlots));
                 }
@@ -319,7 +319,7 @@ public class EditGUI implements Listener {
         plugin.getLootTableBrowser().open(player, itemId);
         break;
       case 37: // Mob Drops (moved from 33, but wait, 37 was previously Abilities! Now it's Mob
-           // Drops)
+        // Drops)
         plugin.getMobDropEditor().open(player, itemId);
         break;
       case 39: // Villager Trades (moved from 35)
@@ -336,7 +336,7 @@ public class EditGUI implements Listener {
         player.closeInventory();
         currentlyEditing.remove(player.getUniqueId());
         itemDataManager.saveItemData(itemId);
-        player.sendMessage("§a Saved item: §e" + itemId);
+        player.sendMessage(plugin.getMessagesManager().get("editor.item-saved", "item", itemId));
         break;
     }
   }

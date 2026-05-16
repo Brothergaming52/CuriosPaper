@@ -311,6 +311,23 @@ public interface CuriosPaperAPI {
    */
   boolean deleteItem(String itemId);
 
+  /**
+   * Sets whether a custom item should be hidden from the /curios list GUI
+   * 
+   * @param itemId The unique item identifier
+   * @param hidden True to hide the item
+   * @return true if successful
+   */
+  boolean setItemHidden(String itemId, boolean hidden);
+
+  /**
+   * Checks if a custom item is hidden from the list GUI
+   * 
+   * @param itemId The unique item identifier
+   * @return true if hidden, false otherwise
+   */
+  boolean isItemHidden(String itemId);
+
   // ========== 3D MODEL CONFIGURATION ==========
 
   /**
@@ -366,4 +383,6 @@ public interface CuriosPaperAPI {
   void registerResourcePackAssets(org.bukkit.plugin.Plugin plugin, java.io.File folder);
 
   java.io.File registerResourcePackAssetsFromJar(org.bukkit.plugin.Plugin plugin);
+
+  void refreshModels(Player player);
 }

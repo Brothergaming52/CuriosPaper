@@ -1,0 +1,264 @@
+# ============================================================================
+# CuriosPaper Messages Configuration
+# ============================================================================
+#
+# All messages sent by CuriosPaper can be customized here.
+# 
+# SUPPORTED COLOR FORMATS:
+#   Legacy:        &a, &c, &l, &o, etc.
+#   HEX Ampersand: &#FF5555 or &#9700C1
+#   HEX Bracket:   {#FF5555}
+#   HEX Tag:       <#FF5555>
+#   Color Tag:     <color:#FF5555>
+#   Named Tags:    <red>, <gold>, <aqua>, etc.
+#   Gradients:     <gradient:#9700C1:#FF00EE:#9700C1>text</gradient>
+#   Formatting:    <bold>, <italic>, <underlined>, <strikethrough>, <obfuscated>
+#   Reset:         &r or <reset>
+#
+# PLACEHOLDERS: Use {placeholder_name} — replaced at runtime.
+# ============================================================================
+
+# ── Prefix ──────────────────────────────────────────────────────────────────
+prefix: "&6[CuriosPaper] "
+
+# ── Common Messages ─────────────────────────────────────────────────────────
+common:
+  only-players: "&cOnly players can use this command."
+  no-permission: "&cYou don't have permission to use this command."
+  no-permission-exclaim: "&cYou don't have permission to use this command!"
+  player-not-found: "&cPlayer not found: {player}"
+  invalid-amount: "&cInvalid amount: {amount}"
+
+# ── Command Messages ────────────────────────────────────────────────────────
+commands:
+  # Usage messages
+  usage-header: "&6CuriosPaper Commands:"
+  usage-rp: "&e/{label} rp <info|rebuild|conflicts>"
+  usage-editmenu: "&e/{label} editmenu"
+  usage-create: "&e/{label} create <name> &7- Create a new item"
+  usage-edit: "&e/{label} edit <name> &7- Open edit GUI"
+  usage-delete: "&e/{label} delete <name> &7- Delete an item"
+  usage-reload: "&e/{label} reload <config|items|messages> &7- Reload config, items, or messages"
+  usage-list: "&e/{label} list &7- List all items"
+  usage-give: "&e/{label} give <item> [player] [amount]"
+  usage-debug-player: "&e/{label} debug player <name>"
+  usage-debug-item: "&e/{label} debug item"
+
+  # Reload submenu usage
+  reload-usage: "&eUsage: /{label} reload <config|items|messages>"
+
+  # RP commands
+  rp:
+    usage: "&eUsage: /{label} rp <info|rebuild|conflicts>"
+    info-header: "&6==== CuriosPaper Resource Pack ===="
+    info-enabled: "&eEnabled: "
+    info-enabled-true: "&atrue"
+    info-enabled-false: "&cfalse"
+    info-host: "&eHost: &b{host}&7:&b{port}"
+    info-pack-file: "&ePack file: "
+    info-pack-exists: "&a{name}&7 ({size})"
+    info-pack-missing: "&cNOT GENERATED"
+    info-hash: "&eHash: &b{hash}"
+    info-sources: "&eRegistered sources: &b{count}"
+    info-namespaces: "&eNamespaces: &b{namespaces}"
+    info-conflicts: "&eLast build conflicts: "
+    info-conflicts-count: "&c{count}"
+    info-conflicts-zero: "&a0"
+    rebuild-start: "&eRebuilding CuriosPaper resource pack..."
+    rebuild-complete: "&aResource pack rebuild complete."
+    rebuild-disabled: "&7Resource pack HTTP server is disabled; not sending pack to players."
+    rebuild-sent: "&eRe-sent resource pack to &b{count}&e online players."
+    conflicts-header: "&6==== CuriosPaper RP Conflicts ===="
+    conflicts-none: "&aNo conflicts recorded."
+    conflicts-namespace-header: "&eNamespace conflicts:"
+    conflicts-file-header: "&eFile conflicts:"
+    conflicts-entry: "&c- {line}"
+
+  # Create command
+  create:
+    usage: "&cUsage: /curios create <itemname>"
+    editor-disabled: "&cItem editor is disabled in config!"
+    already-exists: "&cAn item with that name already exists!"
+    failed: "&cFailed to create item!"
+    success: "&a Created item: &e{item}"
+    success-hint: "&7Use &e/curios edit {item}&7 to configure it!"
+    save-failed: "&cFailed to save item data!"
+
+  # Edit command
+  edit:
+    usage: "&cUsage: /curios edit <itemname>"
+    editor-disabled: "&cItem editor is disabled in config!"
+    not-found: "&cItem not found! Use &e/curios create {item}&c to create it."
+
+  # Delete command
+  delete:
+    usage: "&cUsage: /curios delete <itemname>"
+    editor-disabled: "&cItem editor is disabled in config!"
+    not-found: "&cItem not found!"
+    success: "&a Deleted item: &e{item}"
+    failed: "&cFailed to delete item!"
+
+  # List command
+  list:
+    empty: "&7No custom items have been created yet."
+
+  # Give command
+  give:
+    usage: "&cUsage: /curios give <itemId> [player] [amount]"
+    editor-disabled: "&cItem editor is disabled in config!"
+    not-found: "&cItem not found! Use &e/curios list&c to view items."
+    load-failed: "&cFailed to load item data: {item}"
+    received: "&a You received &e{amount}x &f{item}"
+    sent: "&a Gave &e{amount}x &f{item}&a to &e{player}"
+    dropped-self: "&a Inventory full — dropped item at your feet."
+    dropped-other: "&a Inventory full — dropped item at {player}'s feet."
+
+  # Reload command
+  reload:
+    config-success: "&aCuriosPaper config reloaded."
+    items-success: "&aCuriosPaper custom items and recipes reloaded."
+    items-disabled: "&cItem manager is not enabled."
+    messages-success: "&aCuriosPaper messages reloaded."
+    config-warning: "&c&lWARNING: &eReloading the main configuration can break some internal state! It is highly recommended to restart the server before playing normally."
+
+  # Debug commands
+  debug:
+    usage: "&eUsage: /{label} debug <player <name> | item>"
+    no-permission: "&cYou don't have permission to use debug commands."
+    player:
+      usage: "&eUsage: /{label} debug player <name>"
+      never-joined: "&cPlayer '{player}' has never joined."
+      header: "&6==== Curios Debug: Player {player} ===="
+      no-slots: "&cNo slot types configured."
+      slot-info: "&bSlot: {slot}&7 (count={count}, equipped={equipped})"
+      item-entry: "&7 [{index}] &f{name}&8 ({material})"
+      required-slot-valid: "&7   Required Slot: &a{slot}"
+      required-slot-invalid: "&7   Required Slot: &c{slot} (INVALID)"
+      required-slot-none: "&7   Required Slot: &cnone"
+      pdc-keys: "&7   PDC Keys: (Hidden/Unavailable on 1.14)"
+    item:
+      only-players: "&cOnly players can use /curios debug item."
+      no-item: "&cYou must be holding an item in your main hand."
+      header: "&6==== Curios Debug: Item in hand ===="
+      type: "&eType: &b{type}"
+      name: "&eName: &b{name}"
+      is-accessory-true: "&eIs accessory: &atrue"
+      is-accessory-false: "&eIs accessory: &cfalse"
+      required-slot-valid: "&eRequired slot: &a{slot}"
+      required-slot-invalid: "&eRequired slot: &c{slot} (INVALID)"
+      required-slot-none: "&eRequired slot: &cnone"
+      pdc-keys: "&eCurios PDC keys: (Hidden/Unavailable on 1.14)"
+      no-meta: "&eItem has no meta."
+
+# ── GUI Messages ────────────────────────────────────────────────────────────
+gui:
+  # Main GUI title (Tier 1)
+  main-title: "Accessory Slots"
+  # Slot GUI title prefix (Tier 2) — slot name is appended after this
+  slot-title-prefix: "&6Slot: "
+  # Slot button lore
+  slot-button-slots: "&7Slots: &f{amount}"
+  slot-button-click: "&8▶ Click to open"
+  # Invalid slot type message
+  invalid-slot-type: "&cInvalid slot type!"
+  # Back button
+  back-button-name: "&c← Back"
+  back-button-lore-1: "&7Click to return to the"
+  back-button-lore-2: "&7main accessory menu."
+  # Empty slot placeholder
+  empty-slot: "Empty"
+  empty-slot-lore: "&7Equip an item here."
+  # Edit menu
+  edit-menu-title: "&c Edit Accessory Menu "
+  edit-button-key: "&7Key: &f{key}"
+  edit-button-hint: "&e▶ Click to select, then click another slot to swap"
+  selected-marker-name: "&a&l {name}"
+  selected-marker-default: "Selected"
+  selected-marker-lore-1: "&7Click another slot to swap"
+  selected-marker-lore-2: "&7Click here again to deselect"
+  # Layout update notification
+  layout-updated: "&7The accessory menu layout was updated."
+
+# ── Inventory Messages ──────────────────────────────────────────────────────
+inventory:
+  invalid-item: "&cThat item cannot be placed in this slot type!"
+  no-empty-slots: "&cNo empty slots available!"
+  inventory-full: "&cYour inventory is full!"
+  model-enabled: "&a3D model display &2enabled&a for this item."
+  model-disabled: "&c3D model display &4disabled&c for this item."
+
+# ── Item Lore & Properties ──────────────────────────────────────────────────
+items:
+  quick-equip-lore: "&8▶ Shift + Right Click to equip"
+  slot-lore: "&6Slot: &e{slots}"
+  ability-when-worn: "&7When worn:"
+  ability-potion-effect: "&9{effect} {level}"
+  ability-attribute-positive: "&9+{value} {attribute}"
+  ability-attribute-negative: "&c-{value} {attribute}"
+
+
+# ── Quick Equip Messages ────────────────────────────────────────────────────
+quick-equip:
+  equipped: "&a Equipped to &e{slot} &aslot!"
+  no-slots: "&cNo empty slots available for this item!"
+
+# ── Update Checker Messages ─────────────────────────────────────────────────
+update:
+  new-version: "&eA new version is available: &f{version}"
+  up-to-date: "&aYou are running the latest version (&f{version}&a)."
+  download: "&eDownload it at: &fhttps://modrinth.com/project/{id}"
+
+# ── Chat Input Messages ─────────────────────────────────────────────────────
+chat-input:
+  divider: "&e"
+  header: "&6&l &eCHAT INPUT MODE"
+  prompt: "&7{prompt}"
+  hint-single: "&eType &ayour answer &eto submit (or &c'cancel' &eto abort)"
+  hint-multi-done: "&eType &a'done' &eto finish"
+  hint-multi-cancel: "&c'cancel' &eto abort"
+  cancelled: "&c Input cancelled."
+  received: "&a Input received. Processing..."
+  complete: "&a Input complete! Processing..."
+  line-echo: "&8[{number}] &7{text}"
+  max-reached: "&a Input complete (max lines reached). Processing..."
+
+# ── Editor GUI Messages ─────────────────────────────────────────────────────
+# These messages are used by the in-game item editor GUIs.
+editor:
+  item-not-found: "&cItem not found!"
+  display-name-updated: "&a Display name updated!"
+  material-set: "&a Material set to: {material}"
+  material-invalid: "&c Invalid material: {material}"
+  item-model-set: "&a Item model set to: {model}"
+  cmd-cleared: "&a Custom Model Data cleared."
+  cmd-set: "&a Custom Model Data set to: {value}"
+  cmd-invalid: "&c Invalid number."
+  lore-updated: "&a Lore updated with {count} lines!"
+  available-slots-header: "&e Available Slots "
+  available-slots-entry: "&6 &e{slot}"
+  slot-type-set: "&a Slot type set to: {slot}"
+  slot-type-cleared: "&a Slot type cleared."
+  owning-plugin-set: "&a Owning plugin set to: {plugin}"
+  item-saved: "&aSaved item data for {item}"
+  recipe-added: "&aRecipe added!"
+  recipe-removed: "&aRemoved recipe."
+  trade-selected: "&aSelected trade #{index}"
+  trade-no-entry: "&cNo entry selected!"
+  trade-removed: "&aRemoved trade entry."
+  trade-updated: "&aUpdated trade: {trade}"
+  trade-added: "&aAdded trade: {trade}"
+  trade-config-header: "&e Trade Configuration "
+  trade-professions: "&7Professions: {professions}"
+  trade-chance-prompt: "&eEnter the chance (0.0-1.0) for this trade to appear:"
+  trade-chance-invalid: "&cChance must be between 0.0 and 1.0"
+  trade-number-invalid: "&cInvalid number."
+  trade-cost-prompt: "&eEnter cost item #{number} material (or 'skip' for cost #2):"
+  trade-cost-invalid: "&cInvalid material: {material}"
+  trade-amount-min-prompt: "&eEnter min amount for {material}:"
+  trade-amount-max-prompt: "&eEnter max amount for {material} (>= {min}):"
+  trade-amount-exceeds: "&cAmount cannot exceed 64. Please try again."
+  trade-amount-invalid: "&cInvalid integer."
+  trade-levels-prompt: "&eEnter villager levels (1-5, comma-separated, or 'all'):"
+  trade-levels-hint: "&7Example: 1,2,3 or 3,4,5 or all"
+  trade-levels-invalid: "&cNo valid levels specified. Using all levels (1-5)."
+  trade-no-costs: "&cNo costs configured!"

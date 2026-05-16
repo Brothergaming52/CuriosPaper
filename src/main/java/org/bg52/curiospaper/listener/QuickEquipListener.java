@@ -5,7 +5,6 @@ import org.bg52.curiospaper.config.SlotConfiguration;
 import org.bg52.curiospaper.event.AccessoryEquipEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -104,18 +103,8 @@ public class QuickEquipListener implements Listener {
           player, slotType, emptyIndex, null, toEquip, AccessoryEquipEvent.Action.EQUIP);
       Bukkit.getPluginManager().callEvent(equipEvent);
 
-      // Play equip sound
-      if (plugin.getConfig().getBoolean("features.play-equip-sound", true)) {
-        String soundName = plugin.getConfig().getString("features.equip-sound", "ENTITY_ITEM_PICKUP");
-        try {
-          Sound sound = Sound.valueOf(soundName);
-          player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
-        } catch (IllegalArgumentException ignored) {
-        }
-      }
-
       String slotName = org.bukkit.ChatColor.stripColor(config.getName());
-      player.sendMessage("§a Equipped to §e" + slotName + " §aslot!");
+      player.sendMessage(plugin.getMessagesManager().get("quick-equip.equipped", "slot", slotName));
 
       // Cancel the interact event to prevent placing blocks, etc.
       event.setCancelled(true);
@@ -123,7 +112,7 @@ public class QuickEquipListener implements Listener {
     }
 
     // If we get here, all matching slots are full
-    player.sendMessage("§cNo empty slots available for this item!");
+    player.sendMessage(plugin.getMessagesManager().get("quick-equip.no-slots"));
     event.setCancelled(true);
   }
 }

@@ -2,9 +2,12 @@ package org.bg52.curiospaper.command;
 
 import org.bg52.curiospaper.CuriosPaper;
 import org.bg52.curiospaper.api.CuriosPaperAPI;
+import org.bg52.curiospaper.manager.MessagesManager;
 import org.bg52.curiospaper.resourcepack.ResourcePackManager;
+import org.bg52.curiospaper.data.ItemData;
+import org.bg52.curiospaper.inventory.EditGUI;
+import org.bg52.curiospaper.manager.ItemDataManager;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
@@ -29,6 +32,8 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
   private final CuriosPaperAPI api;
   private final ResourcePackManager rpManager;
   private final NamespacedKey slotTypeKey;
+  private final ItemDataManager itemDataManager;
+  private final EditGUI editGUI;
 
   private static final DecimalFormat SIZE_FORMAT = new DecimalFormat("#.##");
 
@@ -37,24 +42,12 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
     this.api = api;
     this.rpManager = plugin.getResourcePackManager();
     this.slotTypeKey = api.getSlotTypeKey();
+    this.itemDataManager = plugin.getItemDataManager();
+    this.editGUI = plugin.getEditGUI();
   }
 
-  private byte[] hexToBytes(String hex) {
-    if (hex == null)
-      return null;
-    hex = hex.trim();
-    if (hex.length() % 2 != 0)
-      return null;
-
-    byte[] data = new byte[hex.length() / 2];
-    for (int i = 0; i < hex.length(); i += 2) {
-      int hi = Character.digit(hex.charAt(i), 16);
-      int lo = Character.digit(hex.charAt(i + 1), 16);
-      if (hi < 0 || lo < 0)
-        return null;
-      data[i / 2] = (byte) ((hi << 4) + lo);
-    }
-    return data;
+  private MessagesManager msg() {
+    return plugin.getMessagesManager();
   }
 
   @Override
@@ -80,6 +73,20 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
         handleEditMenu(sender);
         return true;
 
+      case "create":
+        return handleCreate(sender, args);
+      case "edit":
+        return handleEdit(sender, args);
+      case "reload":
+        return handleReload(sender, label, args);
+      case "delete":
+      case "remove":
+        return handleDelete(sender, args);
+      case "list":
+        return handleList(sender);
+      case "give":
+        return handleGive(sender, args);
+
       default:
         sendUsage(sender, label);
         return true;
@@ -90,12 +97,12 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
 
   private void handleRp(CommandSender sender, String label, String[] args) {
     if (!sender.hasPermission("curiospaper.admin")) {
-      sender.sendMessage(ChatColor.RED + "You don't have permission to use this command.");
+      sender.sendMessage(msg().get("common.no-permission"));
       return;
     }
 
     if (args.length == 0) {
-      sender.sendMessage(ChatColor.YELLOW + "Usage: /" + label + " rp <info|rebuild|conflicts>");
+      sender.sendMessage(msg().get("commands.rp.usage", "label", label));
       return;
     }
 
@@ -115,7 +122,7 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
         break;
 
       default:
-        sender.sendMessage(ChatColor.YELLOW + "Usage: /" + label + " rp <info|rebuild|conflicts>");
+        sender.sendMessage(msg().get("commands.rp.usage", "label", label));
     }
   }
 
@@ -133,33 +140,33 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
     Set<String> namespaces = rpManager.getRegisteredNamespaces();
     int conflictCount = rpManager.getConflictLog().size();
 
-    sender.sendMessage(ChatColor.GOLD + "==== CuriosPaper Resource Pack ====");
-    sender.sendMessage(
-        ChatColor.YELLOW + "Enabled: " + (enabled ? ChatColor.GREEN + "true" : ChatColor.RED + "false"));
-    sender.sendMessage(
-        ChatColor.YELLOW + "Host: " + ChatColor.AQUA + host + ChatColor.GRAY + ":" + ChatColor.AQUA + port);
+    sender.sendMessage(msg().get("commands.rp.info-header"));
+    sender.sendMessage(msg().get("commands.rp.info-enabled")
+        + (enabled ? msg().get("commands.rp.info-enabled-true") : msg().get("commands.rp.info-enabled-false")));
+    sender.sendMessage(msg().get("commands.rp.info-host", "host", host, "port", String.valueOf(port)));
 
-    sender.sendMessage(ChatColor.YELLOW + "Pack file: " +
-        (pack.exists() ? ChatColor.GREEN + pack.getName() + ChatColor.GRAY + " (" + humanSize + ")"
-            : ChatColor.RED + "NOT GENERATED"));
+    sender.sendMessage(msg().get("commands.rp.info-pack-file") +
+        (pack.exists() ? msg().get("commands.rp.info-pack-exists", "name", pack.getName(), "size", humanSize)
+            : msg().get("commands.rp.info-pack-missing")));
 
-    sender.sendMessage(ChatColor.YELLOW + "Hash: " + ChatColor.AQUA + (hash != null ? hash : "none"));
-    sender.sendMessage(ChatColor.YELLOW + "Registered sources: " + ChatColor.AQUA + sourceCount);
+    sender.sendMessage(msg().get("commands.rp.info-hash", "hash", (hash != null ? hash : "none")));
+    sender.sendMessage(msg().get("commands.rp.info-sources", "count", String.valueOf(sourceCount)));
 
-    sender.sendMessage(ChatColor.YELLOW + "Namespaces: " +
-        ChatColor.AQUA + (namespaces.isEmpty() ? "none" : String.join(", ", namespaces)));
+    sender.sendMessage(msg().get("commands.rp.info-namespaces",
+        "namespaces", (namespaces.isEmpty() ? "none" : String.join(", ", namespaces))));
 
-    sender.sendMessage(ChatColor.YELLOW + "Last build conflicts: " +
-        (conflictCount > 0 ? ChatColor.RED + String.valueOf(conflictCount) : ChatColor.GREEN + "0"));
+    sender.sendMessage(msg().get("commands.rp.info-conflicts") +
+        (conflictCount > 0 ? msg().get("commands.rp.info-conflicts-count", "count", String.valueOf(conflictCount))
+            : msg().get("commands.rp.info-conflicts-zero")));
   }
 
   private void cmdRpRebuild(CommandSender sender) {
-    sender.sendMessage(ChatColor.YELLOW + "Rebuilding CuriosPaper resource pack...");
+    sender.sendMessage(msg().get("commands.rp.rebuild-start"));
     rpManager.generatePack();
-    sender.sendMessage(ChatColor.GREEN + "Resource pack rebuild complete.");
+    sender.sendMessage(msg().get("commands.rp.rebuild-complete"));
 
     if (!plugin.getConfig().getBoolean("resource-pack.enabled", false)) {
-      sender.sendMessage(ChatColor.GRAY + "Resource pack HTTP server is disabled; not sending pack to players.");
+      sender.sendMessage(msg().get("commands.rp.rebuild-disabled"));
       return;
     }
 
@@ -183,60 +190,354 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
       }
     }
 
-    sender.sendMessage(ChatColor.YELLOW + "Re-sent resource pack to "
-        + ChatColor.AQUA + count + ChatColor.YELLOW + " online players.");
+    sender.sendMessage(msg().get("commands.rp.rebuild-sent", "count", String.valueOf(count)));
   }
 
   private void cmdRpConflicts(CommandSender sender) {
     List<String> fileConflicts = rpManager.getConflictLog();
     List<String> nsConflicts = rpManager.getNamespaceConflictLog();
 
-    sender.sendMessage(ChatColor.GOLD + "==== CuriosPaper RP Conflicts ====");
+    sender.sendMessage(msg().get("commands.rp.conflicts-header"));
 
     if (fileConflicts.isEmpty() && nsConflicts.isEmpty()) {
-      sender.sendMessage(ChatColor.GREEN + "No conflicts recorded.");
+      sender.sendMessage(msg().get("commands.rp.conflicts-none"));
       return;
     }
 
     if (!nsConflicts.isEmpty()) {
-      sender.sendMessage(ChatColor.YELLOW + "Namespace conflicts:");
+      sender.sendMessage(msg().get("commands.rp.conflicts-namespace-header"));
       for (String line : nsConflicts) {
-        sender.sendMessage(ChatColor.RED + "- " + line);
+        sender.sendMessage(msg().get("commands.rp.conflicts-entry", "line", line));
       }
     }
 
     if (!fileConflicts.isEmpty()) {
-      sender.sendMessage(ChatColor.YELLOW + "File conflicts:");
+      sender.sendMessage(msg().get("commands.rp.conflicts-file-header"));
       for (String line : fileConflicts) {
-        sender.sendMessage(ChatColor.RED + "- " + line);
+        sender.sendMessage(msg().get("commands.rp.conflicts-entry", "line", line));
       }
     }
   }
 
   private void handleEditMenu(CommandSender sender) {
     if (!(sender instanceof Player)) {
-      sender.sendMessage(ChatColor.RED + "Only players can use this command.");
+      sender.sendMessage(msg().get("common.only-players"));
       return;
     }
 
     if (!sender.hasPermission("curiospaper.admin")) {
-      sender.sendMessage(ChatColor.RED + "You don't have permission to use this command.");
+      sender.sendMessage(msg().get("common.no-permission"));
       return;
     }
 
     plugin.getEditMenuGUI().open((Player) sender);
   }
 
+  // ---------------- ITEM EDIT SUBCOMMANDS ----------------
+
+  private boolean handleCreate(CommandSender sender, String[] args) {
+    if (!(sender instanceof Player)) {
+      sender.sendMessage(msg().get("common.only-players"));
+      return true;
+    }
+    Player player = (Player) sender;
+    if (!player.hasPermission("curiospaper.admin")) {
+      sender.sendMessage(msg().get("common.no-permission-exclaim"));
+      return true;
+    }
+
+    if (args.length < 2) {
+      player.sendMessage(msg().get("commands.create.usage"));
+      return true;
+    }
+
+    String itemId = args[1].toLowerCase();
+
+    if (itemDataManager == null) {
+      player.sendMessage(msg().get("commands.create.editor-disabled"));
+      return true;
+    }
+
+    if (itemDataManager.hasItem(itemId)) {
+      player.sendMessage(msg().get("commands.create.already-exists"));
+      return true;
+    }
+
+    ItemData item = itemDataManager.createItem(itemId);
+    if (item == null) {
+      player.sendMessage(msg().get("commands.create.failed"));
+      return true;
+    }
+
+    // Set default values
+    item.setDisplayName("&f" + itemId);
+    item.setMaterial("PAPER");
+
+    if (itemDataManager.saveItemData(itemId)) {
+      player.sendMessage(msg().get("commands.create.success", "item", itemId));
+      player.sendMessage(msg().get("commands.create.success-hint", "item", itemId));
+    } else {
+      player.sendMessage(msg().get("commands.create.save-failed"));
+    }
+
+    return true;
+  }
+
+  private boolean handleEdit(CommandSender sender, String[] args) {
+    if (!(sender instanceof Player)) {
+      sender.sendMessage(msg().get("common.only-players"));
+      return true;
+    }
+    Player player = (Player) sender;
+    if (!player.hasPermission("curiospaper.admin")) {
+      sender.sendMessage(msg().get("common.no-permission-exclaim"));
+      return true;
+    }
+
+    if (args.length < 2) {
+      player.sendMessage(msg().get("commands.edit.usage"));
+      return true;
+    }
+
+    String itemId = args[1].toLowerCase();
+
+    if (itemDataManager == null || editGUI == null) {
+      player.sendMessage(msg().get("commands.edit.editor-disabled"));
+      return true;
+    }
+
+    if (!itemDataManager.hasItem(itemId)) {
+      player.sendMessage(msg().get("commands.edit.not-found", "item", itemId));
+      return true;
+    }
+
+    editGUI.open(player, itemId);
+    return true;
+  }
+
+  private boolean handleReload(CommandSender sender, String label, String[] args) {
+    if (!sender.hasPermission("curiospaper.admin")) {
+      sender.sendMessage(msg().get("common.no-permission"));
+      return true;
+    }
+
+    if (args.length < 2) {
+      sender.sendMessage(msg().get("commands.reload-usage", "label", label));
+      return true;
+    }
+
+    String sub = args[1].toLowerCase(Locale.ROOT);
+
+    switch (sub) {
+      case "config":
+        plugin.getConfigManager().reload();
+        // Also reload messages.yml
+        plugin.getMessagesManager().reload();
+        // Also reload custom GUI layout from config
+        if (plugin.getGUI() != null) {
+          plugin.getGUI().loadCustomLayout();
+        }
+        // Re-init slot activity since slots might have changed
+        plugin.getConfigManager().initSlotActivityFromItems();
+        sender.sendMessage(msg().get("commands.reload.config-success"));
+        sender.sendMessage(msg().get("commands.reload.config-warning"));
+        break;
+
+      case "items":
+        if (itemDataManager != null) {
+          // Unregister recipes first
+          if (plugin.getRecipeListener() != null) {
+            plugin.getRecipeListener().unregisterAllRecipes();
+          }
+
+          itemDataManager.reload();
+
+          // Recalculate which slots are active based on new item data
+          plugin.getConfigManager().recalculateSlotActivityFromItems();
+
+          // Re-register recipes
+          if (plugin.getRecipeListener() != null) {
+            plugin.getRecipeListener().registerAllRecipes();
+          }
+          sender.sendMessage(msg().get("commands.reload.items-success"));
+        } else {
+          sender.sendMessage(msg().get("commands.reload.items-disabled"));
+        }
+        break;
+
+      case "messages":
+        plugin.getMessagesManager().reload();
+        sender.sendMessage(msg().get("commands.reload.messages-success"));
+        break;
+
+      default:
+        sender.sendMessage(msg().get("commands.reload-usage", "label", label));
+        break;
+    }
+
+    return true;
+  }
+
+  private boolean handleDelete(CommandSender sender, String[] args) {
+    if (!(sender instanceof Player)) {
+      sender.sendMessage(msg().get("common.only-players"));
+      return true;
+    }
+    Player player = (Player) sender;
+    if (!player.hasPermission("curiospaper.admin")) {
+      sender.sendMessage(msg().get("common.no-permission-exclaim"));
+      return true;
+    }
+
+    if (args.length < 2) {
+      player.sendMessage(msg().get("commands.delete.usage"));
+      return true;
+    }
+
+    String itemId = args[1].toLowerCase();
+
+    if (itemDataManager == null) {
+      player.sendMessage(msg().get("commands.delete.editor-disabled"));
+      return true;
+    }
+
+    if (!itemDataManager.hasItem(itemId)) {
+      player.sendMessage(msg().get("commands.delete.not-found"));
+      return true;
+    }
+
+    if (itemDataManager.deleteItem(itemId)) {
+      player.sendMessage(msg().get("commands.delete.success", "item", itemId));
+    } else {
+      player.sendMessage(msg().get("commands.delete.failed"));
+    }
+
+    return true;
+  }
+
+  private boolean handleList(CommandSender sender) {
+    if (!(sender instanceof Player)) {
+      sender.sendMessage(msg().get("common.only-players"));
+      return true;
+    }
+    Player player = (Player) sender;
+
+    if (itemDataManager.getAllItemIds().isEmpty()) {
+      player.sendMessage(msg().get("commands.list.empty"));
+      return true;
+    }
+
+    plugin.getItemListGUI().open(player);
+    return true;
+  }
+
+  private boolean handleGive(CommandSender sender, String[] args) {
+    if (!(sender instanceof Player)) {
+      sender.sendMessage(msg().get("common.only-players"));
+      return true;
+    }
+    Player senderPlayer = (Player) sender;
+    if (!senderPlayer.hasPermission("curiospaper.admin")) {
+      senderPlayer.sendMessage(msg().get("common.no-permission-exclaim"));
+      return true;
+    }
+
+    if (args.length < 2) {
+      senderPlayer.sendMessage(msg().get("commands.give.usage"));
+      return true;
+    }
+
+    String itemId = args[1].toLowerCase();
+
+    if (itemDataManager == null) {
+      senderPlayer.sendMessage(msg().get("commands.give.editor-disabled"));
+      return true;
+    }
+
+    if (!itemDataManager.hasItem(itemId)) {
+      senderPlayer.sendMessage(msg().get("commands.give.not-found"));
+      return true;
+    }
+
+    Player target = senderPlayer;
+    int amount = 1;
+
+    if (args.length >= 3) {
+      Player p = Bukkit.getPlayer(args[2]);
+      if (p == null) {
+        try {
+          int parsed = Integer.parseInt(args[2]);
+          amount = clampAmount(parsed);
+        } catch (NumberFormatException ignored) {
+          senderPlayer.sendMessage(msg().get("common.player-not-found", "player", args[2]));
+          return true;
+        }
+      } else {
+        target = p;
+      }
+    }
+
+    if (args.length >= 4) {
+      try {
+        amount = clampAmount(Integer.parseInt(args[3]));
+      } catch (NumberFormatException e) {
+        senderPlayer.sendMessage(msg().get("common.invalid-amount", "amount", args[3]));
+        return true;
+      }
+    }
+
+    ItemData data = itemDataManager.getItemData(itemId);
+    if (data == null) {
+      senderPlayer.sendMessage(msg().get("commands.give.load-failed", "item", itemId));
+      return true;
+    }
+
+    ItemStack stack = buildItemStack(data, amount);
+
+    if (target.getInventory().addItem(stack).isEmpty()) {
+      target.sendMessage(msg().get("commands.give.received", "amount", String.valueOf(amount), "item", itemId));
+      if (!target.equals(senderPlayer)) {
+        senderPlayer.sendMessage(msg().get("commands.give.sent",
+            "amount", String.valueOf(amount), "item", itemId, "player", target.getName()));
+      }
+    } else {
+      target.getWorld().dropItemNaturally(target.getLocation(), stack);
+      target.sendMessage(msg().get("commands.give.dropped-self"));
+      if (!target.equals(senderPlayer)) {
+        senderPlayer.sendMessage(msg().get("commands.give.dropped-other", "player", target.getName()));
+      }
+    }
+
+    return true;
+  }
+
+  private int clampAmount(int v) {
+    if (v < 1)
+      return 1;
+    if (v > 64)
+      return 64;
+    return v;
+  }
+
+  private ItemStack buildItemStack(ItemData data, int amount) {
+    ItemStack item = plugin.getCuriosPaperAPI().createItemStack(data.getItemId());
+    if (item == null) {
+      return new ItemStack(Material.PAPER, amount);
+    }
+    item.setAmount(Math.max(1, Math.min(64, amount)));
+    return item;
+  }
+
   // ---------------- DEBUG SUBCOMMANDS ----------------
 
   private void handleDebug(CommandSender sender, String label, String[] args) {
-    if (!sender.hasPermission("curiospaper.debug")) {
-      sender.sendMessage(ChatColor.RED + "You don't have permission to use debug commands.");
+    if (!sender.hasPermission("curiospaper.admin")) {
+      sender.sendMessage(msg().get("commands.debug.no-permission"));
       return;
     }
 
     if (args.length == 0) {
-      sender.sendMessage(ChatColor.YELLOW + "Usage: /" + label + " debug <player <name> | item>");
+      sender.sendMessage(msg().get("commands.debug.usage", "label", label));
       return;
     }
 
@@ -245,7 +546,7 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
     switch (sub) {
       case "player":
         if (args.length < 2) {
-          sender.sendMessage(ChatColor.YELLOW + "Usage: /" + label + " debug player <name>");
+          sender.sendMessage(msg().get("commands.debug.player.usage", "label", label));
           return;
         }
         cmdDebugPlayer(sender, args[1]);
@@ -256,7 +557,7 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
         break;
 
       default:
-        sender.sendMessage(ChatColor.YELLOW + "Usage: /" + label + " debug <player <name> | item>");
+        sender.sendMessage(msg().get("commands.debug.usage", "label", label));
     }
   }
 
@@ -265,15 +566,15 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
     UUID uuid = target.getUniqueId();
 
     if (!target.hasPlayedBefore() && !target.isOnline()) {
-      sender.sendMessage(ChatColor.RED + "Player '" + name + "' has never joined.");
+      sender.sendMessage(msg().get("commands.debug.player.never-joined", "player", name));
       return;
     }
 
-    sender.sendMessage(ChatColor.GOLD + "==== Curios Debug: Player " + target.getName() + " ====");
+    sender.sendMessage(msg().get("commands.debug.player.header", "player", target.getName()));
 
     List<String> slotTypes = api.getAllSlotTypes();
     if (slotTypes.isEmpty()) {
-      sender.sendMessage(ChatColor.RED + "No slot types configured.");
+      sender.sendMessage(msg().get("commands.debug.player.no-slots"));
       return;
     }
 
@@ -281,9 +582,10 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
       int amount = api.getSlotAmount(slotType);
       List<ItemStack> items = api.getEquippedItems(uuid, slotType);
 
-      sender.sendMessage(ChatColor.AQUA + "Slot: " + slotType +
-          ChatColor.GRAY + " (count=" + amount + ", equipped=" + api.countEquippedItems(uuid, slotType)
-          + ")");
+      sender.sendMessage(msg().get("commands.debug.player.slot-info",
+          "slot", slotType,
+          "count", String.valueOf(amount),
+          "equipped", String.valueOf(api.countEquippedItems(uuid, slotType))));
 
       for (int i = 0; i < items.size(); i++) {
         ItemStack stack = items.get(i);
@@ -299,36 +601,25 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
         String requiredSlot = api.getAccessorySlotType(stack);
         boolean slotValid = requiredSlot != null && api.isValidSlotType(requiredSlot);
 
-        sender.sendMessage(ChatColor.GRAY + " [" + i + "] "
-            + ChatColor.WHITE + displayName
-            + ChatColor.DARK_GRAY + " (" + stack.getType().name() + ")");
+        sender.sendMessage(msg().get("commands.debug.player.item-entry",
+            "index", String.valueOf(i),
+            "name", displayName,
+            "material", stack.getType().name()));
 
-        sender.sendMessage(ChatColor.GRAY + "   Required Slot: "
-            + (requiredSlot != null
-                ? (slotValid ? ChatColor.GREEN + requiredSlot
-                    : ChatColor.RED + requiredSlot + " (INVALID)")
-                : ChatColor.RED + "none"));
+        if (requiredSlot != null) {
+          if (slotValid) {
+            sender.sendMessage(msg().get("commands.debug.player.required-slot-valid", "slot", requiredSlot));
+          } else {
+            sender.sendMessage(msg().get("commands.debug.player.required-slot-invalid", "slot", requiredSlot));
+          }
+        } else {
+          sender.sendMessage(msg().get("commands.debug.player.required-slot-none"));
+        }
 
         // PDC debug
         if (meta != null) {
-          // PDC debug
           if (meta != null) {
-            PersistentDataContainer pdc = meta.getPersistentDataContainer();
-            // On 1.14 getKeys() might not exist or be empty.
-            // We can't iterate easily without knowing keys in 1.14.
-            // For debug, we just show what we know or skip
-            /*
-             * Set<NamespacedKey> keys = pdc.getKeys();
-             * if (!keys.isEmpty()) {
-             * sender.sendMessage(ChatColor.GRAY + "   PDC Keys:");
-             * for (NamespacedKey key : keys) {
-             * sender.sendMessage(ChatColor.DARK_GRAY + "    - "
-             * + ChatColor.YELLOW + key.getNamespace()
-             * + ChatColor.GRAY + ":" + ChatColor.YELLOW + key.getKey());
-             * }
-             * }
-             */
-            sender.sendMessage(ChatColor.GRAY + "   PDC Keys: (Hidden/Unavailable on 1.14)");
+            sender.sendMessage(msg().get("commands.debug.player.pdc-keys"));
           }
         }
       }
@@ -337,7 +628,7 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
 
   private void cmdDebugItem(CommandSender sender) {
     if (!(sender instanceof Player)) {
-      sender.sendMessage(ChatColor.RED + "Only players can use /curios debug item.");
+      sender.sendMessage(msg().get("commands.debug.item.only-players"));
       return;
     }
 
@@ -345,7 +636,7 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
     ItemStack stack = player.getInventory().getItemInMainHand();
 
     if (stack == null || stack.getType() == Material.AIR) {
-      sender.sendMessage(ChatColor.RED + "You must be holding an item in your main hand.");
+      sender.sendMessage(msg().get("commands.debug.item.no-item"));
       return;
     }
 
@@ -354,9 +645,9 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
         ? meta.getDisplayName()
         : stack.getType().name();
 
-    sender.sendMessage(ChatColor.GOLD + "==== Curios Debug: Item in hand ====");
-    sender.sendMessage(ChatColor.YELLOW + "Type: " + ChatColor.AQUA + stack.getType().name());
-    sender.sendMessage(ChatColor.YELLOW + "Name: " + ChatColor.AQUA + displayName);
+    sender.sendMessage(msg().get("commands.debug.item.header"));
+    sender.sendMessage(msg().get("commands.debug.item.type", "type", stack.getType().name()));
+    sender.sendMessage(msg().get("commands.debug.item.name", "name", displayName));
 
     String requiredSlot = null;
     boolean isAccessory = false;
@@ -370,33 +661,24 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
         validSlot = api.isValidSlotType(requiredSlot);
       }
 
-      sender.sendMessage(ChatColor.YELLOW + "Is accessory: " +
-          (isAccessory ? ChatColor.GREEN + "true" : ChatColor.RED + "false"));
+      sender.sendMessage(isAccessory
+          ? msg().get("commands.debug.item.is-accessory-true")
+          : msg().get("commands.debug.item.is-accessory-false"));
 
-      sender.sendMessage(ChatColor.YELLOW + "Required slot: " +
-          (requiredSlot != null
-              ? (validSlot ? ChatColor.GREEN + requiredSlot : ChatColor.RED + requiredSlot + " (INVALID)")
-              : ChatColor.RED + "none"));
+      if (requiredSlot != null) {
+        if (validSlot) {
+          sender.sendMessage(msg().get("commands.debug.item.required-slot-valid", "slot", requiredSlot));
+        } else {
+          sender.sendMessage(msg().get("commands.debug.item.required-slot-invalid", "slot", requiredSlot));
+        }
+      } else {
+        sender.sendMessage(msg().get("commands.debug.item.required-slot-none"));
+      }
 
       // Dump all PDC keys
-      // Dump all PDC keys
-      /*
-       * Set<NamespacedKey> keys = pdc.getKeys();
-       * if (!keys.isEmpty()) {
-       * sender.sendMessage(ChatColor.YELLOW + "Curios PDC keys:");
-       * for (NamespacedKey key : keys) {
-       * sender.sendMessage(ChatColor.DARK_GRAY + " - "
-       * + ChatColor.YELLOW + key.getNamespace()
-       * + ChatColor.GRAY + ":" + ChatColor.YELLOW + key.getKey());
-       * }
-       * } else {
-       * sender.sendMessage(ChatColor.YELLOW + "Curios PDC keys: " + ChatColor.GRAY +
-       * "none");
-       * }
-       */
-      sender.sendMessage(ChatColor.YELLOW + "Curios PDC keys: (Hidden/Unavailable on 1.14)");
+      sender.sendMessage(msg().get("commands.debug.item.pdc-keys"));
     } else {
-      sender.sendMessage(ChatColor.YELLOW + "Item has no meta.");
+      sender.sendMessage(msg().get("commands.debug.item.no-meta"));
     }
   }
 
@@ -406,24 +688,49 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
   public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
 
     if (args.length == 1) {
-      return partial(args[0], Arrays.asList("rp", "debug", "editmenu"));
+      return partial(args[0],
+          Arrays.asList("rp", "debug", "editmenu", "create", "edit", "delete", "remove", "list", "give", "reload"));
     }
 
     if (args.length == 2) {
-      switch (args[0].toLowerCase(Locale.ROOT)) {
+      String sub = args[0].toLowerCase(Locale.ROOT);
+      switch (sub) {
         case "rp":
           return partial(args[1], Arrays.asList("info", "rebuild", "conflicts"));
         case "debug":
           return partial(args[1], Arrays.asList("player", "item"));
+        case "reload":
+          return partial(args[1], Arrays.asList("config", "items", "messages"));
+        case "edit":
+        case "delete":
+        case "remove":
+        case "give":
+          if (itemDataManager != null) {
+            return partial(args[1], new ArrayList<>(itemDataManager.getAllItemIds()));
+          }
+          break;
       }
     }
 
-    if (args.length == 3 && args[0].equalsIgnoreCase("debug") && args[1].equalsIgnoreCase("player")) {
-      String prefix = args[2].toLowerCase(Locale.ROOT);
-      return Bukkit.getOnlinePlayers().stream()
-          .map(Player::getName)
-          .filter(n -> n.toLowerCase(Locale.ROOT).startsWith(prefix))
-          .collect(Collectors.toList());
+    if (args.length == 3) {
+      if (args[0].equalsIgnoreCase("debug") && args[1].equalsIgnoreCase("player")) {
+        String prefix = args[2].toLowerCase(Locale.ROOT);
+        return Bukkit.getOnlinePlayers().stream()
+            .map(Player::getName)
+            .filter(n -> n.toLowerCase(Locale.ROOT).startsWith(prefix))
+            .collect(Collectors.toList());
+      }
+      if (args[0].equalsIgnoreCase("give")) {
+        List<String> options = Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
+        options.addAll(Arrays.asList("1", "16", "32", "64"));
+        return partial(args[2], options);
+      }
+    }
+
+    if (args.length == 4) {
+      if (args[0].equalsIgnoreCase("give")) {
+        return partial(args[3], Arrays.asList("1", "16", "32", "64"));
+      }
     }
 
     return Collections.emptyList();
@@ -439,13 +746,17 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
   // ---------------- UTILS ----------------
 
   private void sendUsage(CommandSender sender, String label) {
-    sender.sendMessage(ChatColor.GOLD + "CuriosPaper Commands:");
-    sender.sendMessage(ChatColor.YELLOW + "/" + label + " rp info");
-    sender.sendMessage(ChatColor.YELLOW + "/" + label + " rp rebuild");
-    sender.sendMessage(ChatColor.YELLOW + "/" + label + " rp conflicts");
-    sender.sendMessage(ChatColor.YELLOW + "/" + label + " editmenu");
-    sender.sendMessage(ChatColor.YELLOW + "/" + label + " debug player <name>");
-    sender.sendMessage(ChatColor.YELLOW + "/" + label + " debug item");
+    sender.sendMessage(msg().get("commands.usage-header"));
+    sender.sendMessage(msg().get("commands.usage-rp", "label", label));
+    sender.sendMessage(msg().get("commands.usage-editmenu", "label", label));
+    sender.sendMessage(msg().get("commands.usage-create", "label", label));
+    sender.sendMessage(msg().get("commands.usage-edit", "label", label));
+    sender.sendMessage(msg().get("commands.usage-delete", "label", label));
+    sender.sendMessage(msg().get("commands.usage-reload", "label", label));
+    sender.sendMessage(msg().get("commands.usage-list", "label", label));
+    sender.sendMessage(msg().get("commands.usage-give", "label", label));
+    sender.sendMessage(msg().get("commands.usage-debug-player", "label", label));
+    sender.sendMessage(msg().get("commands.usage-debug-item", "label", label));
   }
 
   private String humanReadableSize(long bytes) {

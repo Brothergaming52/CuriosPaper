@@ -15,6 +15,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import net.md_5.bungee.api.ChatColor;
+
 import java.util.*;
 
 /**
@@ -474,8 +476,9 @@ public class AbilityEditorGUI implements Listener {
   private void updateAbilityLore(ItemData itemData) {
     List<String> lore = itemData.getLore();
     int tooltipStartIndex = -1;
+    String whenWornRaw = ChatColor.stripColor(plugin.getMessagesManager().get("items.ability-when-worn"));
     for (int i = 0; i < lore.size(); i++) {
-      if (lore.get(i).equals("When worn:")) {
+      if (lore.get(i).equals("When worn:") || ChatColor.stripColor(lore.get(i)).equals(whenWornRaw)) {
         if (i > 0 && lore.get(i - 1).trim().isEmpty()) {
           tooltipStartIndex = i - 1;
         } else {
@@ -492,22 +495,25 @@ public class AbilityEditorGUI implements Listener {
     List<AbilityData> abilities = itemData.getAbilities();
     if (!abilities.isEmpty()) {
       lore.add("");
-      lore.add("When worn:");
+      lore.add(plugin.getMessagesManager().get("items.ability-when-worn"));
       for (AbilityData ability : abilities) {
         if (ability.getEffectType() == AbilityData.EffectType.POTION_EFFECT) {
           String effectName = formatName(ability.getEffectName());
           int level = ability.getAmplifier() + 1;
           String roman = toRoman(level);
-          lore.add("§9" + effectName + " " + roman);
+          lore.add(
+              plugin.getMessagesManager().get("items.ability-potion-effect", "effect", effectName, "level", roman));
         } else {
           double val = ability.getAmplifier() / 100.0;
           String formattedAttr = formatAttributeName(ability.getEffectName());
           if (val >= 0) {
             String valStr = (val == (long) val) ? String.format("%d", (long) val) : String.format("%.2f", val);
-            lore.add("§9+" + valStr + " " + formattedAttr);
+            lore.add(plugin.getMessagesManager().get("items.ability-attribute-positive", "value", valStr, "attribute",
+                formattedAttr));
           } else {
             String valStr = (val == (long) val) ? String.format("%d", (long) -val) : String.format("%.2f", -val);
-            lore.add("§c-" + valStr + " " + formattedAttr);
+            lore.add(plugin.getMessagesManager().get("items.ability-attribute-negative", "value", valStr, "attribute",
+                formattedAttr));
           }
         }
       }

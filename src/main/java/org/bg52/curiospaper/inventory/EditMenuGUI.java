@@ -16,14 +16,23 @@ import java.util.Map;
 
 public class EditMenuGUI {
   private final CuriosPaper plugin;
-  public static final String EDIT_MENU_TITLE = "§c Edit Accessory Menu ";
+  // Loaded from messages.yml at construction
+  private static String EDIT_MENU_TITLE = "§c Edit Accessory Menu ";
   private static final Material FILLER_MATERIAL = Material.GRAY_STAINED_GLASS_PANE;
   private static final Material SELECTED_MATERIAL = Material.LIME_STAINED_GLASS_PANE;
   private static final String FILLER_NAME = "§r";
-  private static final String SELECTED_PREFIX = "§a§l ";
+  private static String SELECTED_PREFIX = "§a§l ";
 
   public EditMenuGUI(CuriosPaper plugin) {
     this.plugin = plugin;
+    if (plugin.getMessagesManager() != null) {
+      EDIT_MENU_TITLE = plugin.getMessagesManager().get("gui.edit-menu-title");
+      // Derive prefix from message pattern
+      String rawPrefix = plugin.getMessagesManager().get("gui.selected-marker-name", "name", "");
+      if (rawPrefix != null && !rawPrefix.isEmpty()) {
+        SELECTED_PREFIX = rawPrefix;
+      }
+    }
   }
 
   /**
@@ -78,9 +87,9 @@ public class EditMenuGUI {
     if (meta != null) {
       meta.setDisplayName(config.getName());
       List<String> lore = new ArrayList<>();
-      lore.add("§7Key: §f" + config.getKey());
+      lore.add(plugin.getMessagesManager().get("gui.edit-button-key", "key", config.getKey()));
       lore.add("");
-      lore.add("§e▶ Click to select, then click another slot to swap");
+      lore.add(plugin.getMessagesManager().get("gui.edit-button-hint"));
       meta.setLore(lore);
       meta.getPersistentDataContainer().set(
           plugin.getSlotTypeKey(), PersistentDataType.STRING, config.getKey());
@@ -96,10 +105,13 @@ public class EditMenuGUI {
     ItemStack marker = new ItemStack(SELECTED_MATERIAL);
     ItemMeta meta = marker.getItemMeta();
     if (meta != null) {
-      meta.setDisplayName(SELECTED_PREFIX + (displayName != null ? displayName : "Selected"));
+      String defaultName = CuriosPaper.getInstance().getMessagesManager().get("gui.selected-marker-default");
+      String name = CuriosPaper.getInstance().getMessagesManager().get("gui.selected-marker-name",
+          "name", (displayName != null ? displayName : defaultName));
+      meta.setDisplayName(name);
       List<String> lore = new ArrayList<>();
-      lore.add("§7Click another slot to swap");
-      lore.add("§7Click here again to deselect");
+      lore.add(CuriosPaper.getInstance().getMessagesManager().get("gui.selected-marker-lore-1"));
+      lore.add(CuriosPaper.getInstance().getMessagesManager().get("gui.selected-marker-lore-2"));
       meta.setLore(lore);
       marker.setItemMeta(meta);
     }

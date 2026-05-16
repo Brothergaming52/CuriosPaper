@@ -57,7 +57,7 @@ public class MobDropEditor implements Listener {
   public void open(Player player, String itemId) {
     ItemData itemData = itemDataManager.getItemData(itemId);
     if (itemData == null) {
-      player.sendMessage("§cItem not found!");
+      player.sendMessage(plugin.getMessagesManager().get("editor.item-not-found"));
       return;
     }
 
@@ -212,8 +212,7 @@ public class MobDropEditor implements Listener {
       if (raw >= 0 && raw <= 26) {
         if (raw < drops.size()) {
           selectedIndex.put(player.getUniqueId(), raw);
-          player.sendMessage(
-              "§aSelected mob drop #" + (raw + 1) + " (" + drops.get(raw).getEntityType() + ")");
+          player.sendMessage(plugin.getMessagesManager().get("editor.trade-selected", "index", String.valueOf(raw + 1)));
           Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
         }
         return;
@@ -230,21 +229,21 @@ public class MobDropEditor implements Listener {
         case 46: // Delete Selected
           Integer sel = selectedIndex.get(player.getUniqueId());
           if (sel == null) {
-            player.sendMessage("§cNo entry selected!");
+            player.sendMessage(plugin.getMessagesManager().get("editor.trade-no-entry"));
           } else if (sel < 0 || sel >= drops.size()) {
-            player.sendMessage("§cSelected index out of range!");
+            player.sendMessage(plugin.getMessagesManager().get("editor.trade-no-entry"));
           } else {
             drops.remove((int) sel);
             itemDataManager.saveItemData(itemId);
             selectedIndex.remove(player.getUniqueId());
-            player.sendMessage("§aRemoved drop entry.");
+            player.sendMessage(plugin.getMessagesManager().get("editor.trade-removed"));
             Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
           }
           break;
         case 47: // Edit Selected -> open preset for selected
           Integer s = selectedIndex.get(player.getUniqueId());
           if (s == null || s < 0 || s >= drops.size()) {
-            player.sendMessage("§cNo entry selected!");
+            player.sendMessage(plugin.getMessagesManager().get("editor.no-entry-selected"));
           } else {
             MobDropData d = drops.get(s);
             pendingMobForPlayer.put(player.getUniqueId(), d.getEntityType());
@@ -256,7 +255,7 @@ public class MobDropEditor implements Listener {
         case 48: // Configure 3D Model
           Integer selIdx = selectedIndex.get(player.getUniqueId());
           if (selIdx == null || selIdx < 0 || selIdx >= drops.size()) {
-            player.sendMessage("§cNo entry selected!");
+            player.sendMessage(plugin.getMessagesManager().get("editor.no-entry-selected"));
           } else {
             player.closeInventory();
             Bukkit.getScheduler().runTaskLater(plugin, () -> 
@@ -269,7 +268,7 @@ public class MobDropEditor implements Listener {
           break;
         case 53: // Save
           itemDataManager.saveItemData(itemId);
-          player.sendMessage("§aSaved item data for " + itemId);
+          player.sendMessage(plugin.getMessagesManager().get("editor.item-saved", "item", itemId));
           break;
       }
       return;
@@ -288,7 +287,7 @@ public class MobDropEditor implements Listener {
       // title format: " - pN (filter) - itemId" or " - pN - itemId"
       String itemId = extractItemIdFromMobTitle(title);
       if (itemId == null) {
-        player.sendMessage("§cMissing item id.");
+        player.sendMessage(plugin.getMessagesManager().get("editor.missing-item-id"));
         return;
       }
 
@@ -310,7 +309,7 @@ public class MobDropEditor implements Listener {
       // Search button (open chat)
       if (raw == 49) {
         player.closeInventory();
-        player.sendMessage("§eEnter search query to filter spawn eggs (empty = clear):");
+        player.sendMessage(plugin.getMessagesManager().get("editor.drop-search-prompt"));
         chatInputManager.startSingleLineSession(player, "Search:", query -> {
           String q = query == null ? "" : query.trim();
           mobSelectFilter.put(player.getUniqueId(), q);
@@ -415,7 +414,7 @@ public class MobDropEditor implements Listener {
           created = new MobDropData(mobName.toUpperCase(), 1.0, 8, 16);
           break;
         default:
-          player.sendMessage("§cNo preset selected.");
+          player.sendMessage(plugin.getMessagesManager().get("editor.no-preset-selected"));
           return;
       }
 
@@ -423,7 +422,7 @@ public class MobDropEditor implements Listener {
       itemData.addMobDrop(created);
       itemDataManager.saveItemData(itemId);
 
-      player.sendMessage("§aAdded mob drop: " + created);
+      player.sendMessage(plugin.getMessagesManager().get("editor.drop-added", "drop", created.toString()));
       // close and reopen main edit GUI
       player.closeInventory();
       Bukkit.getScheduler().runTaskLater(plugin, () -> plugin.getEditGUI().open(player, itemId), 2L);
@@ -450,7 +449,7 @@ public class MobDropEditor implements Listener {
 
   // chat flow for custom values (same as before)
   private void startCustomChatFlow(Player player, String itemId, String mobName) {
-    player.sendMessage("§eEnter chance (0.0 - 1.0) for " + mobName + " (e.g. 0.05):");
+    player.sendMessage(plugin.getMessagesManager().get("editor.drop-chance-prompt", "mob", mobName));
     chatInputManager.startSingleLineSession(player, "Chance:",
         chanceStr -> {
           if (chanceStr == null) {
@@ -461,7 +460,7 @@ public class MobDropEditor implements Listener {
           try {
             chance = Double.parseDouble(chanceStr);
           } catch (NumberFormatException ex) {
-            player.sendMessage("§cInvalid number.");
+            player.sendMessage(plugin.getMessagesManager().get("editor.trade-number-invalid"));
             reopenToEditGui(player, itemId);
             return;
           }
@@ -475,7 +474,7 @@ public class MobDropEditor implements Listener {
                 try {
                   min = Math.max(1, Integer.parseInt(minStr));
                 } catch (NumberFormatException ex) {
-                  player.sendMessage("§cInvalid integer.");
+                  player.sendMessage(plugin.getMessagesManager().get("editor.trade-amount-invalid"));
                   reopenToEditGui(player, itemId);
                   return;
                 }
@@ -489,14 +488,14 @@ public class MobDropEditor implements Listener {
                       try {
                         max = Math.max(min, Integer.parseInt(maxStr));
                       } catch (NumberFormatException ex) {
-                        player.sendMessage("§cInvalid integer.");
+                        player.sendMessage(plugin.getMessagesManager().get("editor.trade-amount-invalid"));
                         reopenToEditGui(player, itemId);
                         return;
                       }
 
                       ItemData itemData = itemDataManager.getItemData(itemId);
                       if (itemData == null) {
-                        player.sendMessage("§cItem not found.");
+                        player.sendMessage(plugin.getMessagesManager().get("editor.item-not-found"));
                         return;
                       }
 
@@ -504,7 +503,7 @@ public class MobDropEditor implements Listener {
                       MobDropData d = new MobDropData(mobUpper, chance, min, max);
                       itemData.addMobDrop(d);
                       itemDataManager.saveItemData(itemId);
-                      player.sendMessage("§aAdded mob drop: " + d);
+                      player.sendMessage(plugin.getMessagesManager().get("editor.drop-added", "drop", d.toString()));
 
                       // close and reopen main edit GUI
                       Bukkit.getScheduler().runTaskLater(plugin,

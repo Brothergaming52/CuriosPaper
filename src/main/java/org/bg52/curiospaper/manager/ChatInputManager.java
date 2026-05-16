@@ -47,20 +47,21 @@ public class ChatInputManager implements Listener {
     ChatInputSession session = new ChatInputSession(promptMessage, onComplete, onCancel, maxLines);
     activeSessions.put(player.getUniqueId(), session);
 
-    player.sendMessage("§e");
-    player.sendMessage("§6§l §eCHAT INPUT MODE");
+    org.bg52.curiospaper.manager.MessagesManager msg = org.bg52.curiospaper.CuriosPaper.getInstance().getMessagesManager();
+    player.sendMessage(msg.get("chat-input.divider"));
+    player.sendMessage(msg.get("chat-input.header"));
     player.sendMessage("");
-    player.sendMessage("§7" + promptMessage);
+    player.sendMessage(msg.get("chat-input.prompt", "prompt", promptMessage));
     player.sendMessage("");
 
     if (maxLines == 1) {
-      player.sendMessage("§eType §ayour answer §eto submit (or §c'cancel' §eto abort)");
+      player.sendMessage(msg.get("chat-input.hint-single"));
     } else {
-      player.sendMessage("§eType §a'done' §eto finish");
-      player.sendMessage("§c'cancel' §eto abort");
+      player.sendMessage(msg.get("chat-input.hint-multi-done"));
+      player.sendMessage(msg.get("chat-input.hint-multi-cancel"));
     }
 
-    player.sendMessage("§e");
+    player.sendMessage(msg.get("chat-input.divider"));
   }
 
   /**
@@ -110,7 +111,7 @@ public class ChatInputManager implements Listener {
     // cancel command
     if (message.equalsIgnoreCase("cancel")) {
       activeSessions.remove(playerId);
-      player.sendMessage("§c Input cancelled.");
+      player.sendMessage(org.bg52.curiospaper.CuriosPaper.getInstance().getMessagesManager().get("chat-input.cancelled"));
 
       Bukkit.getScheduler().runTask(plugin, () -> session.getOnCancel().run());
       return;
@@ -120,7 +121,7 @@ public class ChatInputManager implements Listener {
     if (session.getMaxLines() == 1) {
       session.addInputLine(message);
       activeSessions.remove(playerId);
-      player.sendMessage("§a Input received. Processing...");
+      player.sendMessage(org.bg52.curiospaper.CuriosPaper.getInstance().getMessagesManager().get("chat-input.received"));
 
       Bukkit.getScheduler().runTask(plugin, () -> session.getOnComplete().accept(session.getInputLines()));
       return;
@@ -130,7 +131,7 @@ public class ChatInputManager implements Listener {
     if (message.equalsIgnoreCase("done")) {
       List<String> lines = session.getInputLines();
       activeSessions.remove(playerId);
-      player.sendMessage("§a Input complete! Processing...");
+      player.sendMessage(org.bg52.curiospaper.CuriosPaper.getInstance().getMessagesManager().get("chat-input.complete"));
 
       Bukkit.getScheduler().runTask(plugin, () -> session.getOnComplete().accept(lines));
       return;
@@ -138,13 +139,14 @@ public class ChatInputManager implements Listener {
 
     // Add a line to the session
     session.addInputLine(message);
-    player.sendMessage("§8[" + session.getInputLines().size() + "] §7" + message);
+    player.sendMessage(org.bg52.curiospaper.CuriosPaper.getInstance().getMessagesManager().get("chat-input.line-echo",
+        "number", String.valueOf(session.getInputLines().size()), "text", message));
 
     // If there is a positive maxLines (>1), and we've reached it, auto-complete
     if (session.getMaxLines() > 1 && session.getInputLines().size() >= session.getMaxLines()) {
       List<String> lines = session.getInputLines();
       activeSessions.remove(playerId);
-      player.sendMessage("§a Input complete (max lines reached). Processing...");
+      player.sendMessage(org.bg52.curiospaper.CuriosPaper.getInstance().getMessagesManager().get("chat-input.max-reached"));
 
       Bukkit.getScheduler().runTask(plugin, () -> session.getOnComplete().accept(lines));
     }

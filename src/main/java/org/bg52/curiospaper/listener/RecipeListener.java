@@ -3,6 +3,7 @@ package org.bg52.curiospaper.listener;
 import org.bg52.curiospaper.CuriosPaper;
 import org.bg52.curiospaper.data.ItemData;
 import org.bg52.curiospaper.data.RecipeData;
+import org.bg52.curiospaper.event.CuriosCraftEvent;
 import org.bg52.curiospaper.event.CuriosRecipeTransferEvent;
 import org.bg52.curiospaper.manager.ItemDataManager;
 import org.bg52.curiospaper.util.VersionUtil;
@@ -11,13 +12,14 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockCookEvent;
+import org.bukkit.event.inventory.FurnaceSmeltEvent;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
 import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.ShapelessRecipe;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -52,7 +54,8 @@ public class RecipeListener implements Listener {
     for (ItemData itemData : itemDataManager.getAllItems().values()) {
       List<RecipeData> recipes = itemData.getRecipes();
       for (int i = 0; i < recipes.size(); i++) {
-        if (registerRecipe(itemData, recipes.get(i), i, recipes.size() > 1)) {
+        RecipeData rd = recipes.get(i);
+        if (registerRecipe(itemData, rd, i, recipes.size() > 1)) {
           registered++;
         } else {
           failed++;
@@ -62,6 +65,9 @@ public class RecipeListener implements Listener {
 
     plugin.getLogger().info("Recipe registration complete.");
     plugin.getLogger().info(" Successfully registered: " + registered);
+    if (failed > 0) {
+      plugin.getLogger().info(" Failed to register: " + failed);
+    }
   }
 
   /**
@@ -401,6 +407,16 @@ public class RecipeListener implements Listener {
             result = ensureItemTags(result);
           }
 
+          // Fire CuriosCraftEvent
+          CuriosCraftEvent craftEvent = new CuriosCraftEvent(inv, itemData.getItemId(), result);
+          plugin.getServer().getPluginManager().callEvent(craftEvent);
+
+          if (craftEvent.isCancelled()) {
+            result = null;
+          } else {
+            result = craftEvent.getResult();
+          }
+
           // Set result via reflection
           java.lang.reflect.Method setResult = event.getClass().getMethod("setResult", ItemStack.class);
           setResult.invoke(event, result);
@@ -413,18 +429,28 @@ public class RecipeListener implements Listener {
   private RecipeChoice resolveIngredient(String ingredient) {
     if (ingredient == null)
       return null;
+
     try {
       Material material = Material.valueOf(ingredient.toUpperCase());
       return new RecipeChoice.MaterialChoice(material);
     } catch (IllegalArgumentException e) {
-      if (itemDataManager.hasItem(ingredient)) {
-        ItemData data = itemDataManager.getItemData(ingredient);
-        if (data != null) {
-          try {
-            Material mat = Material.valueOf(data.getMaterial().toUpperCase());
-            return new RecipeChoice.MaterialChoice(mat);
-          } catch (IllegalArgumentException ignored) {
+      // Not a vanilla material, check if it's a custom item ID
+      ItemData data = itemDataManager.getItemData(ingredient);
+      if (data == null) {
+        // Try case-insensitive lookup
+        for (ItemData idata : itemDataManager.getAllItems().values()) {
+          if (idata.getItemId().equalsIgnoreCase(ingredient)) {
+            data = idata;
+            break;
           }
+        }
+      }
+
+      if (data != null) {
+        try {
+          Material mat = Material.valueOf(data.getMaterial().toUpperCase());
+          return new RecipeChoice.MaterialChoice(mat);
+        } catch (IllegalArgumentException ignored) {
         }
       }
     }
@@ -468,16 +494,32 @@ public class RecipeListener implements Listener {
     }
 
     ItemStack result = event.getInventory().getResult();
-    if (sourceForTransfer != null && result != null) {
-      CuriosRecipeTransferEvent transferEvent = new CuriosRecipeTransferEvent(event.getInventory(), result,
-          sourceForTransfer);
-      plugin.getServer().getPluginManager().callEvent(transferEvent);
+    if (result != null) {
+      if (sourceForTransfer != null) {
+        CuriosRecipeTransferEvent transferEvent = new CuriosRecipeTransferEvent(event.getInventory(), result,
+            sourceForTransfer);
+        plugin.getServer().getPluginManager().callEvent(transferEvent);
 
-      if (!transferEvent.isCancelled()) {
-        ItemStack resultItem = transferEvent.getResult();
-        // Ensure tags are applied even if transfer overwrote them
-        resultItem = ensureItemTags(resultItem);
-        event.getInventory().setResult(resultItem);
+        if (!transferEvent.isCancelled()) {
+          result = transferEvent.getResult();
+        }
+      }
+
+      result = ensureItemTags(result);
+
+      // Fire CuriosCraftEvent
+      String itemId = getCustomItemId(result);
+      if (itemId != null) {
+        CuriosCraftEvent craftEvent = new CuriosCraftEvent(event.getInventory(), itemId, result);
+        plugin.getServer().getPluginManager().callEvent(craftEvent);
+
+        if (craftEvent.isCancelled()) {
+          event.getInventory().setResult(null);
+        } else {
+          event.getInventory().setResult(craftEvent.getResult());
+        }
+      } else {
+        event.getInventory().setResult(result);
       }
     }
   }
@@ -603,6 +645,9 @@ public class RecipeListener implements Listener {
 
   private boolean matchesAtOffset(ItemStack[] matrix, char[][] shapeGrid, Map<Character, String> ingredients,
       int rowOffset, int colOffset) {
+
+    // First, verify that all matrix cells match the recipe's requirement at this
+    // offset
     for (int r = 0; r < 3; r++) {
       for (int c = 0; c < 3; c++) {
         int shapeR = r - rowOffset;
@@ -623,13 +668,33 @@ public class RecipeListener implements Listener {
             return false;
           }
         } else {
-          // Expecting Air
+          // Expecting Air (Empty slot in recipe)
           if (!itemIsAir) {
             return false;
           }
         }
       }
     }
+
+    // SECOND: Crucially verify that we haven't "pushed" any required ingredients
+    // out of the 3x3 crafting grid via the offset.
+    for (int sr = 0; sr < 3; sr++) {
+      for (int sc = 0; sc < 3; sc++) {
+        char c = shapeGrid[sr][sc];
+        if (c != ' ' && ingredients.containsKey(c)) {
+          // This cell of the recipe HAS an ingredient. Its position in the matrix must be
+          // valid.
+          int matrixR = sr + rowOffset;
+          int matrixC = sc + colOffset;
+
+          if (matrixR < 0 || matrixR >= 3 || matrixC < 0 || matrixC >= 3) {
+            // A required ingredient was pushed outside the matrix bounds!
+            return false;
+          }
+        }
+      }
+    }
+
     return true;
   }
 
@@ -638,12 +703,24 @@ public class RecipeListener implements Listener {
       return false;
 
     // Check if requirement is a Custom Item ID
-    if (itemDataManager.hasItem(reqString)) {
-      return isCustomItem(item, reqString);
+    ItemData customData = itemDataManager.getItemData(reqString);
+    if (customData == null) {
+      // Case-insensitive lookup for custom item ID
+      for (ItemData idata : itemDataManager.getAllItems().values()) {
+        if (idata.getItemId().equalsIgnoreCase(reqString)) {
+          customData = idata;
+          break;
+        }
+      }
+    }
+
+    if (customData != null) {
+      return isCustomItem(item, customData.getItemId());
     } else {
       // Requirement is a vanilla material, verify item material matches
       try {
-        return item.getType().name().equalsIgnoreCase(reqString);
+        Material reqMat = Material.valueOf(reqString.toUpperCase());
+        return item.getType() == reqMat;
       } catch (Exception e) {
         return false;
       }
@@ -673,43 +750,37 @@ public class RecipeListener implements Listener {
 
     String remaining = keyStr.substring(7); // <plugin>_<itemid>[_variantN]
 
-    int firstUnder = remaining.indexOf('_');
-    if (firstUnder == -1)
-      return null;
-
-    String rest = remaining.substring(firstUnder + 1); // <itemid> or <itemid>_variantN
-
-    // Check for _variant suffix
-    int variantIndex = 0;
-    String itemId = rest;
-
-    int variantMarker = rest.lastIndexOf("_variant");
-    if (variantMarker != -1 && variantMarker + 8 < rest.length()) {
-      try {
-        String numStr = rest.substring(variantMarker + 8);
-        variantIndex = Integer.parseInt(numStr);
-        itemId = rest.substring(0, variantMarker);
-      } catch (NumberFormatException ignored) {
+    // Since both plugin and itemid can contain underscores, we iterate all items
+    // and find which one produces a key that matches this one.
+    for (ItemData data : itemDataManager.getAllItems().values()) {
+      String owningPlugin = data.getOwningPlugin();
+      if (owningPlugin == null || owningPlugin.isEmpty()) {
+        owningPlugin = "curiospaper";
       }
-    }
+      String safePlugin = sanitizeKey(owningPlugin.toLowerCase());
+      String safeItem = sanitizeKey(data.getItemId().toLowerCase());
 
-    ItemData data = itemDataManager.getItemData(itemId);
-    if (data == null) {
-      // Fallback for sanitized ID matching if exact lookup fails
-      for (ItemData idata : itemDataManager.getAllItems().values()) {
-        if (sanitizeKey(idata.getItemId()).equals(itemId)) {
-          data = idata;
-          break;
+      String baseKey = safePlugin + "_" + safeItem;
+      if (remaining.startsWith(baseKey)) {
+        String suffix = remaining.substring(baseKey.length());
+        int variantIndex = 0;
+
+        if (suffix.startsWith("_variant")) {
+          try {
+            variantIndex = Integer.parseInt(suffix.substring(8));
+          } catch (NumberFormatException ignored) {
+          }
+        } else if (!suffix.isEmpty()) {
+          // Some other suffix, doesn't match this item
+          continue;
         }
-      }
-    }
 
-    if (data != null) {
-      List<RecipeData> recipes = data.getRecipes();
-      if (variantIndex >= 0 && variantIndex < recipes.size()) {
-        RecipeDefinition def = new RecipeDefinition();
-        def.recipeData = recipes.get(variantIndex);
-        return def;
+        List<RecipeData> recipes = data.getRecipes();
+        if (variantIndex >= 0 && variantIndex < recipes.size()) {
+          RecipeDefinition def = new RecipeDefinition();
+          def.recipeData = recipes.get(variantIndex);
+          return def;
+        }
       }
     }
 
@@ -758,14 +829,19 @@ public class RecipeListener implements Listener {
           plugin.getServer().getPluginManager().callEvent(transferEvent);
 
           if (!transferEvent.isCancelled()) {
-            // Update the item on cursor or in slot?
-            // Click event: result is what they are clicking.
-            // If we modify current item, it might work if cancellable?
-            // Usually in click event result slot, we modify the result being picked up.
-            // But event.setCurrentItem works on the slot.
             ItemStack resultItem = transferEvent.getResult();
             resultItem = ensureItemTags(resultItem);
-            event.setCurrentItem(resultItem);
+
+            // Fire CuriosCraftEvent
+            CuriosCraftEvent craftEvent = new CuriosCraftEvent(event.getInventory(),
+                pdc.get(itemIdKey, PersistentDataType.STRING), resultItem);
+            plugin.getServer().getPluginManager().callEvent(craftEvent);
+
+            if (craftEvent.isCancelled()) {
+              event.setCurrentItem(null);
+            } else {
+              event.setCurrentItem(craftEvent.getResult());
+            }
           }
         }
       }
@@ -785,48 +861,105 @@ public class RecipeListener implements Listener {
   }
 
   @EventHandler
-  public void onFurnaceSmelt(org.bukkit.event.inventory.FurnaceSmeltEvent event) {
-    ItemStack source = event.getSource();
-    ItemStack result = event.getResult();
+  public void onFurnaceSmelt(FurnaceSmeltEvent event) {
+    handleCooking(event, event.getSource(), event.getResult());
+  }
 
-    if (result != null && result.hasItemMeta()) {
-      NamespacedKey keyIdx = plugin.getCuriosPaperAPI().getItemIdKey();
-      PersistentDataContainer resultPdc = result.getItemMeta().getPersistentDataContainer();
-      if (resultPdc.has(keyIdx, PersistentDataType.STRING)) {
-        String resultId = resultPdc.get(keyIdx, PersistentDataType.STRING);
-        ItemData itemData = itemDataManager.getItemData(resultId);
+  @EventHandler
+  public void onBlockCook(BlockCookEvent event) {
+    if (event instanceof org.bukkit.event.inventory.FurnaceSmeltEvent)
+      return;
+    handleCooking(event, event.getSource(), event.getResult());
+  }
 
-        if (itemData != null) {
-          boolean isValid = false;
-          for (RecipeData recipe : itemData.getRecipes()) {
-            if (isFurnaceType(recipe.getType())) {
-              if (matchesRequirement(recipe.getInputItem(), source)) {
-                isValid = true;
-                break;
-              }
-            }
-          }
+  private void handleCooking(org.bukkit.event.block.BlockCookEvent event, ItemStack source, ItemStack result) {
+    String sourceId = getCustomItemId(source);
+    String resultId = getCustomItemId(result);
 
-          if (!isValid) {
-            event.setCancelled(true);
-            return;
+    // Case 1: Source is a custom item
+    if (sourceId != null) {
+      ItemData matchedItemData = null;
+      // Search for a custom recipe that accepts this specific custom item
+      for (ItemData itemData : itemDataManager.getAllItems().values()) {
+        for (RecipeData recipe : itemData.getRecipes()) {
+          if (isFurnaceType(recipe.getType()) && matchesRequirement(recipe.getInputItem(), source)) {
+            matchedItemData = itemData;
+            break;
           }
         }
+        if (matchedItemData != null)
+          break;
+      }
 
-        if (event.getBlock().getState() instanceof org.bukkit.inventory.InventoryHolder) {
-          org.bukkit.inventory.Inventory inv = ((org.bukkit.inventory.InventoryHolder) event.getBlock()
-              .getState()).getInventory();
-          CuriosRecipeTransferEvent transferEvent = new CuriosRecipeTransferEvent(inv, result, source);
-          plugin.getServer().getPluginManager().callEvent(transferEvent);
+      if (matchedItemData != null) {
+        // We found a valid custom recipe for this custom source.
+        // Ensure the result is set to the correct custom result.
+        if (resultId == null || !resultId.equals(matchedItemData.getItemId())) {
+          ItemStack newResult = createResultItem(matchedItemData);
+          event.setResult(newResult);
+          result = newResult;
+          resultId = matchedItemData.getItemId();
+        }
+      } else {
+        // Strict mode: A custom item was cooked but no custom recipe exists.
+        // Prevent it from becoming a vanilla item.
+        event.setCancelled(true);
+        return;
+      }
+    }
+    // Case 2: Source is vanilla, but result is custom
+    else if (resultId != null) {
+      ItemData resultData = itemDataManager.getItemData(resultId);
+      boolean isValid = false;
+      if (resultData != null) {
+        for (RecipeData recipe : resultData.getRecipes()) {
+          if (isFurnaceType(recipe.getType()) && matchesRequirement(recipe.getInputItem(), source)) {
+            isValid = true;
+            break;
+          }
+        }
+      }
 
-          if (!transferEvent.isCancelled()) {
-            ItemStack resultItem = transferEvent.getResult();
-            resultItem = ensureItemTags(resultItem);
-            event.setResult(resultItem);
+      if (!isValid) {
+        event.setCancelled(true);
+        return;
+      }
+    }
+
+    // Case 3: Both are vanilla - let Bukkit handle it normally (do nothing)
+
+    // Data transfer for custom results
+    if (resultId != null && result != null) {
+      if (event.getBlock().getState() instanceof org.bukkit.inventory.InventoryHolder) {
+        org.bukkit.inventory.Inventory inv = ((org.bukkit.inventory.InventoryHolder) event.getBlock()
+            .getState()).getInventory();
+        CuriosRecipeTransferEvent transferEvent = new CuriosRecipeTransferEvent(inv, result, source);
+        plugin.getServer().getPluginManager().callEvent(transferEvent);
+
+        if (!transferEvent.isCancelled()) {
+          ItemStack finalResult = transferEvent.getResult();
+          finalResult = ensureItemTags(finalResult);
+
+          // Fire CuriosCraftEvent
+          CuriosCraftEvent craftEvent = new CuriosCraftEvent(inv, resultId, finalResult);
+          plugin.getServer().getPluginManager().callEvent(craftEvent);
+
+          if (craftEvent.isCancelled()) {
+            event.setResult(null);
+          } else {
+            event.setResult(craftEvent.getResult());
           }
         }
       }
     }
+  }
+
+  private String getCustomItemId(ItemStack item) {
+    if (item == null || !item.hasItemMeta())
+      return null;
+    PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
+    NamespacedKey key = plugin.getCuriosPaperAPI().getItemIdKey();
+    return pdc.get(key, PersistentDataType.STRING);
   }
 
   private boolean isFurnaceType(RecipeData.RecipeType type) {
@@ -857,7 +990,17 @@ public class RecipeListener implements Listener {
             if (!transferEvent.isCancelled()) {
               ItemStack resultItem = transferEvent.getResult();
               resultItem = ensureItemTags(resultItem);
-              event.setResult(resultItem);
+
+              // Fire CuriosCraftEvent
+              CuriosCraftEvent craftEvent = new CuriosCraftEvent(inv, itemData.getItemId(), resultItem);
+              plugin.getServer().getPluginManager().callEvent(craftEvent);
+
+              if (craftEvent.isCancelled()) {
+                event.setResult(null);
+              } else {
+                event.setResult(craftEvent.getResult());
+              }
+
               plugin.getServer().getScheduler().runTask(plugin, () -> {
                 if (event.getView() != null) {
                   event.getInventory().setRepairCost((int) recipe.getExperience());

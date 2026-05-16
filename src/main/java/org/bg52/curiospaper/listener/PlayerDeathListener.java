@@ -2,6 +2,8 @@ package org.bg52.curiospaper.listener;
 
 import org.bg52.curiospaper.CuriosPaper;
 import org.bg52.curiospaper.config.ConfigManager;
+import org.bg52.curiospaper.event.AccessoryEquipEvent;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -24,9 +26,9 @@ public class PlayerDeathListener implements Listener {
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
         ConfigManager.KeepInventoryType keepType = plugin.getConfigManager().getKeepInventoryType();
-        
+
         boolean keepCurios = false;
-        
+
         if (keepType == ConfigManager.KeepInventoryType.ALWAYS) {
             keepCurios = true;
         } else if (keepType == ConfigManager.KeepInventoryType.NEVER) {
@@ -38,17 +40,33 @@ public class PlayerDeathListener implements Listener {
 
         if (!keepCurios) {
             // Drop curios
-            Map<String, List<ItemStack>> accessories = plugin.getSlotManager().getPlayerAccessoriesMap(player.getUniqueId());
-            
-            for (List<ItemStack> items : accessories.values()) {
-                if (items == null) continue;
-                for (ItemStack item : items) {
+            Map<String, List<ItemStack>> accessories = plugin.getSlotManager()
+                    .getPlayerAccessoriesMap(player.getUniqueId());
+
+            for (Map.Entry<String, List<ItemStack>> entry : accessories.entrySet()) {
+                String slotType = entry.getKey();
+                List<ItemStack> items = entry.getValue();
+                if (items == null)
+                    continue;
+
+                for (int i = 0; i < items.size(); i++) {
+                    ItemStack item = items.get(i);
                     if (item != null && item.getType() != Material.AIR) {
                         event.getDrops().add(item);
+
+                        // Fire AccessoryEquipEvent for unequip
+                        AccessoryEquipEvent equipEvent = new AccessoryEquipEvent(
+                                player,
+                                slotType,
+                                i,
+                                item,
+                                null,
+                                AccessoryEquipEvent.Action.UNEQUIP);
+                        Bukkit.getPluginManager().callEvent(equipEvent);
                     }
                 }
             }
-            
+
             // Clear items from slots
             plugin.getSlotManager().clearAllAccessories(player.getUniqueId());
         }

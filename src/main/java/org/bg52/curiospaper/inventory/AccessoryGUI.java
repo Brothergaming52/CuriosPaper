@@ -17,13 +17,14 @@ import java.util.*;
 
 public class AccessoryGUI {
   private final CuriosPaper plugin;
-  public static final String MAIN_GUI_TITLE = "Accessory Slots";
-  public static final String SLOTS_GUI_PREFIX = ChatColor.GOLD + "Slot: ";
+  // These are loaded from messages.yml at construction time
+  // and used for title matching in static methods
+  private static String MAIN_GUI_TITLE = "Accessory Slots";
+  private static String SLOTS_GUI_PREFIX = ChatColor.GOLD + "Slot: ";
 
   private static final Material FILLER_MATERIAL = Material.GRAY_STAINED_GLASS_PANE;
   private static final Material BORDER_MATERIAL = Material.BLACK_STAINED_GLASS_PANE;
   private static final String FILLER_NAME = "§r";
-  private static final String BACK_BUTTON_NAME = "§c← Back";
 
   // Store slot positions for each slot type (tier-2 GUI)
   private final Map<String, int[]> slotPositionCache = new HashMap<>();
@@ -35,6 +36,11 @@ public class AccessoryGUI {
 
   public AccessoryGUI(CuriosPaper plugin) {
     this.plugin = plugin;
+    // Load titles from messages.yml
+    if (plugin.getMessagesManager() != null) {
+      MAIN_GUI_TITLE = plugin.getMessagesManager().get("gui.main-title");
+      SLOTS_GUI_PREFIX = plugin.getMessagesManager().get("gui.slot-title-prefix");
+    }
   }
 
   // =========================================================================
@@ -91,6 +97,12 @@ public class AccessoryGUI {
     }
 
     fillInventory(mainGUI, FILLER_MATERIAL);
+    if (plugin.getConfig().getBoolean("features.play-gui-sound", true)) {
+      try {
+        org.bukkit.Sound sound = org.bukkit.Sound.valueOf(plugin.getConfig().getString("features.gui-sound", "BLOCK_CHEST_OPEN").toUpperCase());
+        player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
+      } catch (Exception ignored) {}
+    }
     player.openInventory(mainGUI);
   }
 
@@ -291,7 +303,7 @@ public class AccessoryGUI {
   public void openSlotItemsGUI(Player player, String slotType) {
     SlotConfiguration config = plugin.getConfigManager().getSlotConfiguration(slotType);
     if (config == null) {
-      player.sendMessage("§cInvalid slot type!");
+      player.sendMessage(plugin.getMessagesManager().get("gui.invalid-slot-type"));
       return;
     }
 
@@ -311,9 +323,13 @@ public class AccessoryGUI {
     // Back button — first slot of last row
     slotsGUI.setItem(size - 9, createBackButton());
 
-    // Clear accessory slot positions
+    // Load accessory slot positions
     for (int slot : slotPositions) {
-      slotsGUI.setItem(slot, null);
+      if (plugin.getConfigManager().isShowEmptySlots()) {
+        slotsGUI.setItem(slot, createSlotPlaceholder(config));
+      } else {
+        slotsGUI.setItem(slot, null);
+      }
     }
 
     // Load equipped items
@@ -412,8 +428,8 @@ public class AccessoryGUI {
 
   private ItemStack createSlotButton(SlotConfiguration config) {
     Material material = config.getIcon();
-    boolean useResourcePack = plugin.getConfig().getBoolean("resource-pack.enabled", false);
-    if (useResourcePack) {
+
+    if (!plugin.getConfigManager().isUseVanillaItems()) {
       String baseMatName = plugin.getConfig().getString("resource-pack.base-material", "PAPER");
       try {
         material = Material.valueOf(baseMatName.toUpperCase());
@@ -429,11 +445,11 @@ public class AccessoryGUI {
 
       List<String> lore = new ArrayList<>(config.getLore());
       lore.add("");
-      lore.add("§7Slots: §f" + config.getAmount());
-      lore.add("§8▶ Click to open");
+      lore.add(plugin.getMessagesManager().get("gui.slot-button-slots", "amount", String.valueOf(config.getAmount())));
+      lore.add(plugin.getMessagesManager().get("gui.slot-button-click"));
       meta.setLore(lore);
 
-      if (useResourcePack) {
+      if (!plugin.getConfigManager().isUseVanillaItems()) {
         org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, config.getItemModel(),
             config.getCustomModelData());
       }
@@ -448,14 +464,34 @@ public class AccessoryGUI {
     return button;
   }
 
+  private ItemStack createSlotPlaceholder(SlotConfiguration config) {
+    ItemStack placeholder = createSlotButton(config);
+    ItemMeta meta = placeholder.getItemMeta();
+    if (meta != null) {
+      meta.setDisplayName(ChatColor.GRAY + config.getName() + " (" + plugin.getMessagesManager().get("gui.empty-slot", "Empty") + ")");
+      List<String> lore = new ArrayList<>();
+      lore.add(plugin.getMessagesManager().get("gui.empty-slot-lore", "&7Equip an item here."));
+      meta.setLore(lore);
+
+      // Mark as placeholder
+      meta.getPersistentDataContainer().set(
+          new NamespacedKey(plugin, "curios_placeholder"),
+          PersistentDataType.BYTE,
+          (byte) 1);
+
+      placeholder.setItemMeta(meta);
+    }
+    return placeholder;
+  }
+
   private ItemStack createBackButton() {
     ItemStack backButton = new ItemStack(Material.ARROW);
     ItemMeta meta = backButton.getItemMeta();
     if (meta != null) {
-      meta.setDisplayName(BACK_BUTTON_NAME);
+      meta.setDisplayName(plugin.getMessagesManager().get("gui.back-button-name"));
       List<String> lore = new ArrayList<>();
-      lore.add("§7Click to return to the");
-      lore.add("§7main accessory menu.");
+      lore.add(plugin.getMessagesManager().get("gui.back-button-lore-1"));
+      lore.add(plugin.getMessagesManager().get("gui.back-button-lore-2"));
       meta.setLore(lore);
       NamespacedKey backKey = new NamespacedKey(plugin, "curios_back_button");
       meta.getPersistentDataContainer().set(backKey, PersistentDataType.BYTE, (byte) 1);
@@ -469,6 +505,13 @@ public class AccessoryGUI {
       return false;
     NamespacedKey backKey = new NamespacedKey(plugin, "curios_back_button");
     return item.getItemMeta().getPersistentDataContainer().has(backKey, PersistentDataType.BYTE);
+  }
+
+  public boolean isPlaceholder(ItemStack item) {
+    if (item == null || !item.hasItemMeta())
+      return false;
+    NamespacedKey placeholderKey = new NamespacedKey(plugin, "curios_placeholder");
+    return item.getItemMeta().getPersistentDataContainer().has(placeholderKey, PersistentDataType.BYTE);
   }
 
   private ItemStack createFillerItem(Material material) {
@@ -506,7 +549,7 @@ public class AccessoryGUI {
   public boolean hasEmptyAccessorySlot(Inventory inv) {
     for (int i = 0; i < inv.getSize(); i++) {
       ItemStack item = inv.getItem(i);
-      if ((item == null || item.getType() == Material.AIR) && isAccessorySlot(inv, i)) {
+      if ((item == null || item.getType() == Material.AIR || isPlaceholder(item)) && isAccessorySlot(inv, i)) {
         return true;
       }
     }

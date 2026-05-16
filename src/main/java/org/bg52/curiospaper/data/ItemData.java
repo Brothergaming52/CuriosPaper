@@ -4,9 +4,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Represents all data associated with a custom item, including its properties,
@@ -33,6 +31,8 @@ public class ItemData {
   private String modelItemModel;
   private Float pitchUpLimit;
   private Float pitchDownLimit;
+
+  private boolean hidden = false;
 
   public ItemData(String itemId) {
     this.itemId = itemId;
@@ -128,6 +128,10 @@ public class ItemData {
     return modelItemModel;
   }
 
+  public boolean isHidden() {
+    return hidden;
+  }
+
   // ========== SETTERS ==========
 
   public void setDisplayName(String displayName) {
@@ -172,7 +176,7 @@ public class ItemData {
 
   /**
    * @deprecated Use setRecipes() or addRecipe() instead. Replaces all recipes
-   *       with this single one.
+   *             with this single one.
    */
   @Deprecated
   public void setRecipe(RecipeData recipe) {
@@ -240,6 +244,10 @@ public class ItemData {
     this.modelItemModel = modelItemModel;
   }
 
+  public void setHidden(boolean hidden) {
+    this.hidden = hidden;
+  }
+
   // ========== SERIALIZATION ==========
 
   /**
@@ -302,6 +310,7 @@ public class ItemData {
     if (pitchDownLimit != null) {
       config.set("pitch-down-limit", pitchDownLimit);
     }
+    config.set("hidden", hidden);
 
     if (!recipes.isEmpty()) {
       ConfigurationSection recipesSection = config.createSection("recipes");
@@ -386,6 +395,7 @@ public class ItemData {
     if (config.contains("pitch-down-limit")) {
       data.setPitchDownLimit((float) config.getDouble("pitch-down-limit"));
     }
+    data.setHidden(config.getBoolean("hidden", false));
 
     // Load recipes
     ConfigurationSection recipesSection = config.getConfigurationSection("recipes");

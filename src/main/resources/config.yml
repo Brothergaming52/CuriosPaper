@@ -1,5 +1,12 @@
 # Configuration for CuriosPaper Custom Accessory Slots
 
+# DO NOT EDIT THIS
+version: "1.3.1"
+
+# Update Checker
+updates:
+  check-for-updates: true
+
 # Resource Pack Settings
 resource-pack:
   # Enable automatic resource pack generation and serving
@@ -30,7 +37,6 @@ slots:
     amount: 1
     lore:
       - "&7Equip crowns, circlets, or magical headpieces."
-      - "&7Enhances mental abilities."
 
   # Necklace slot for amulets and pendants
   necklace:
@@ -41,7 +47,6 @@ slots:
     amount: 1
     lore:
       - "&7Wear powerful amulets and pendants."
-      - "&7Grants mystical protection."
 
   # Back slot for capes and cloaks
   back:
@@ -52,7 +57,6 @@ slots:
     amount: 1
     lore:
       - "&7Equip magical capes and cloaks."
-      - "&7Provides mobility and defense."
 
   # Body slot for chest accessories
   body:
@@ -63,7 +67,6 @@ slots:
     amount: 1
     lore:
       - "&7Wear chest talismans and armor attachments."
-      - "&7Strengthens your core vitality."
 
   # Belt slot for utility items
   belt:
@@ -74,7 +77,6 @@ slots:
     amount: 1
     lore:
       - "&7Equip utility belts and sashes."
-      - "&7Increases carrying capacity."
 
   # Hands/Gloves slots
   hands:
@@ -85,18 +87,16 @@ slots:
     amount: 2
     lore:
       - "&7Magical gloves for both hands."
-      - "&7Enhances dexterity and grip strength."
 
   # Bracelet slots for wrists
   bracelet:
     name: "Bracelet"
-    icon: "CHAIN"
+    icon: "IRON_CHAIN"
     item-model: "curiospaper:bracelet_slot"
     custom-model-data: 10007
     amount: 2
     lore:
       - "&7Wear enchanted bracelets and bangles."
-      - "&7Mystical bands of power."
 
   # Ring slots for fingers
   ring:
@@ -107,7 +107,6 @@ slots:
     amount: 2
     lore:
       - "&7Holds powerful magical rings."
-      - "&7Ancient bands of arcane energy."
 
   # Charm slots for misc trinkets
   charm:
@@ -118,13 +117,9 @@ slots:
     amount: 4
     lore:
       - "&7Holds small, potent charms and trinkets."
-      - "&7Mystical keepsakes and lucky tokens."
 
 # Feature toggles
 features:
-  # Add lore line to tagged items showing required slot
-  add-slot-lore-to-items: true
-
   # Enable the in-game item editor and custom item system
   # If disabled, custom items, recipes, loot tables,(made using this plugin) and the /edit command will be disabled
   item-editor:
@@ -135,6 +130,9 @@ features:
 
   # Allow players to see empty accessory slots in GUI
   show-empty-slots: true
+
+  # Use vanilla items for accessory slot icons (no custom models)
+  use-vanilla-slot-icons: false
 
   # Play sound when opening GUI
   play-gui-sound: true
@@ -171,52 +169,10 @@ storage:
   # Set to 0 to disable auto-save
   save-interval: 300
 
-  # Save data when inventory is closed
-  save-on-close: true
-
-  # Create backup before saving
-  create-backups: false
-  backup-interval: 3600  # seconds (1 hour)
-  max-backups: 5
-
-# Performance settings
-performance:
-  # Cache player data in memory
-  cache-player-data: true
-
-  # Unload player data after disconnect (saves memory)
-  unload-on-quit: true
-
-  # Maximum items per slot type (safety limit)
-  max-items-per-slot: 54
-
-# GUI customization
-gui:
-  # Main menu title (Tier 1)
-  main-title: "&8Accessory Slots"
-
-  # Slot inventory title prefix (Tier 2)
-  slot-title-prefix: "&8Slots: "
-
-  # Filler material for GUI decoration
-  filler-material: "GRAY_STAINED_GLASS_PANE"
-
-  # Border material for GUI edges
-  border-material: "BLACK_STAINED_GLASS_PANE"
-
-  # Filler item display name
-  filler-name: "&r"
-
 # Debug settings
 debug:
   # Enable debug logging
   enabled: false
 
-  # Log all API calls
-  log-api-calls: false
-
   # Log inventory interactions
   log-inventory-events: false
-
-  # Log slot position calculations
-  log-slot-positions: false

@@ -2,9 +2,6 @@ package org.bg52.curiospaper.data;
 
 import org.bukkit.configuration.ConfigurationSection;
 
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Represents an ability/effect that can be applied when an item is equipped,
  * de-equipped, or while equipped.

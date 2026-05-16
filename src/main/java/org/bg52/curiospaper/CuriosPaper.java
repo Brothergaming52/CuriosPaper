@@ -14,6 +14,7 @@ import org.bg52.curiospaper.listener.QuickEquipListener;
 import org.bg52.curiospaper.listener.RecipeListener;
 import org.bg52.curiospaper.manager.ChatInputManager;
 import org.bg52.curiospaper.manager.ItemDataManager;
+import org.bg52.curiospaper.manager.MessagesManager;
 import org.bg52.curiospaper.manager.SlotManager;
 import org.bg52.curiospaper.model.ModelStandManager;
 import org.bg52.curiospaper.resourcepack.ResourcePackManager;
@@ -25,6 +26,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class CuriosPaper extends JavaPlugin {
   private static CuriosPaper instance;
   private ConfigManager configManager;
+  private MessagesManager messagesManager;
   private SlotManager slotManager;
   private ItemDataManager itemDataManager;
   private ChatInputManager chatInputManager;
@@ -46,12 +48,18 @@ public class CuriosPaper extends JavaPlugin {
   private org.bg52.curiospaper.inventory.MobDropModelConfigGUI mobDropModelConfigGUI;
   private ModelStandManager modelStandManager;
   private AccessoryHotkeyListener accessoryHotkeyListener;
+  private ItemListGUI itemListGUI;
+  private ItemRecipeListGUI itemRecipeListGUI;
+  private RecipeViewGUI recipeViewGUI;
 
   @Override
   public void onEnable() {
     instance = this;
 
     saveDefaultConfig();
+
+    // Initialize messages first so all components can use it
+    messagesManager = new MessagesManager(this);
 
     configManager = new ConfigManager(this);
 
@@ -75,6 +83,10 @@ public class CuriosPaper extends JavaPlugin {
 
       modelConfigGUI = new ModelConfigGUI(this);
       mobDropModelConfigGUI = new org.bg52.curiospaper.inventory.MobDropModelConfigGUI(this);
+
+      itemListGUI = new ItemListGUI(this);
+      itemRecipeListGUI = new ItemRecipeListGUI(this);
+      recipeViewGUI = new RecipeViewGUI(this);
     }
 
     // Initialize Resource Pack Manager
@@ -107,11 +119,6 @@ public class CuriosPaper extends JavaPlugin {
     getCommand("baubles").setExecutor(baublesCommand);
 
     if (itemEditorEnabled) {
-      // Register Edit Command
-      org.bg52.curiospaper.command.EditCommand editCommand = new org.bg52.curiospaper.command.EditCommand(this);
-      getCommand("edit").setExecutor(editCommand);
-      getCommand("edit").setTabCompleter(editCommand);
-
       // Register EditGUI listener
       getServer().getPluginManager().registerEvents(editGUI, this);
 
@@ -120,6 +127,11 @@ public class CuriosPaper extends JavaPlugin {
 
       // Register MobDropModelConfigGUI listener
       getServer().getPluginManager().registerEvents(mobDropModelConfigGUI, this);
+
+      // Register new List and Recipe GUI listeners
+      getServer().getPluginManager().registerEvents(itemListGUI, this);
+      getServer().getPluginManager().registerEvents(itemRecipeListGUI, this);
+      getServer().getPluginManager().registerEvents(recipeViewGUI, this);
     }
 
     getCommand("curios").setExecutor(
@@ -178,7 +190,7 @@ public class CuriosPaper extends JavaPlugin {
     autoSaveTask.runTaskTimer(this, saveInterval, saveInterval);
 
     int pluginId = 29508;
-    Metrics metrics = new Metrics(this, pluginId);
+    new Metrics(this, pluginId);
 
     // Initialize 3D Model Stand Manager
     modelStandManager = new org.bg52.curiospaper.model.ModelStandManager(this);
@@ -307,7 +319,23 @@ public class CuriosPaper extends JavaPlugin {
     return itemDataManager;
   }
 
+  public MessagesManager getMessagesManager() {
+    return messagesManager;
+  }
+
   public ChatInputManager getChatInputManager() {
     return chatInputManager;
+  }
+
+  public ItemListGUI getItemListGUI() {
+    return itemListGUI;
+  }
+
+  public ItemRecipeListGUI getItemRecipeListGUI() {
+    return itemRecipeListGUI;
+  }
+
+  public RecipeViewGUI getRecipeViewGUI() {
+    return recipeViewGUI;
   }
 }

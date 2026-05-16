@@ -52,7 +52,7 @@ public class TradeEditor implements Listener {
   public void open(Player player, String itemId) {
     ItemData itemData = itemDataManager.getItemData(itemId);
     if (itemData == null) {
-      player.sendMessage("§cItem not found!");
+      player.sendMessage(plugin.getMessagesManager().get("editor.item-not-found"));
       return;
     }
 
@@ -183,7 +183,7 @@ public class TradeEditor implements Listener {
       if (raw >= 0 && raw <= 26) {
         if (raw < trades.size()) {
           selectedIndex.put(player.getUniqueId(), raw);
-          player.sendMessage("§aSelected trade #" + (raw + 1));
+          player.sendMessage(plugin.getMessagesManager().get("editor.trade-selected", "index", String.valueOf(raw + 1)));
           Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
         }
         return;
@@ -200,19 +200,19 @@ public class TradeEditor implements Listener {
         case 46: // Delete Selected
           Integer sel = selectedIndex.get(player.getUniqueId());
           if (sel == null || sel < 0 || sel >= trades.size()) {
-            player.sendMessage("§cNo entry selected!");
+            player.sendMessage(plugin.getMessagesManager().get("editor.trade-no-entry"));
           } else {
             trades.remove((int) sel);
             itemDataManager.saveItemData(itemId);
             selectedIndex.remove(player.getUniqueId());
-            player.sendMessage("§aRemoved trade entry.");
+            player.sendMessage(plugin.getMessagesManager().get("editor.trade-removed"));
             Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
           }
           break;
         case 47: // Edit Selected
           Integer s = selectedIndex.get(player.getUniqueId());
           if (s == null || s < 0 || s >= trades.size()) {
-            player.sendMessage("§cNo entry selected!");
+            player.sendMessage(plugin.getMessagesManager().get("editor.trade-no-entry"));
           } else {
             VillagerTradeData existing = trades.get(s);
             // Pre-populate the pending data with existing values
@@ -230,7 +230,7 @@ public class TradeEditor implements Listener {
           break;
         case 53: // Save
           itemDataManager.saveItemData(itemId);
-          player.sendMessage("§aSaved item data for " + itemId);
+          player.sendMessage(plugin.getMessagesManager().get("editor.item-saved", "item", itemId));
           break;
       }
       return;
@@ -350,9 +350,9 @@ public class TradeEditor implements Listener {
   private void startTradeConfigurationFlow(Player player, String itemId) {
     List<String> professions = pendingProfessions.getOrDefault(player.getUniqueId(), new ArrayList<>());
 
-    player.sendMessage("§e Trade Configuration ");
-    player.sendMessage("§7Professions: " + (professions.isEmpty() ? "ALL" : String.join(", ", professions)));
-    player.sendMessage("§eEnter the chance (0.0-1.0) for this trade to appear:");
+    player.sendMessage(plugin.getMessagesManager().get("editor.trade-config-header"));
+    player.sendMessage(plugin.getMessagesManager().get("editor.trade-professions", "professions", (professions.isEmpty() ? "ALL" : String.join(", ", professions))));
+    player.sendMessage(plugin.getMessagesManager().get("editor.trade-chance-prompt"));
 
     chatInputManager.startSingleLineSession(player, "Chance:",
         chanceStr -> {
@@ -365,13 +365,13 @@ public class TradeEditor implements Listener {
           try {
             chance = Double.parseDouble(chanceStr);
             if (chance < 0.0 || chance > 1.0) {
-              player.sendMessage("§cChance must be between 0.0 and 1.0");
+              player.sendMessage(plugin.getMessagesManager().get("editor.trade-chance-invalid"));
               cleanupPendingData(player);
               reopenToEditGui(player, itemId);
               return;
             }
           } catch (NumberFormatException ex) {
-            player.sendMessage("§cInvalid number.");
+            player.sendMessage(plugin.getMessagesManager().get("editor.trade-number-invalid"));
             cleanupPendingData(player);
             reopenToEditGui(player, itemId);
             return;
@@ -390,7 +390,7 @@ public class TradeEditor implements Listener {
   }
 
   private void configureCostItem(Player player, String itemId, int costNumber) {
-    player.sendMessage("§eEnter cost item #" + costNumber + " material (or 'skip' for cost #2):");
+    player.sendMessage(plugin.getMessagesManager().get("editor.trade-cost-prompt", "number", String.valueOf(costNumber)));
 
     chatInputManager.startSingleLineSession(player, "Cost " + costNumber + " Material:",
         matStr -> {
@@ -410,13 +410,13 @@ public class TradeEditor implements Listener {
           try {
             mat = Material.valueOf(matStr.toUpperCase());
           } catch (IllegalArgumentException ex) {
-            player.sendMessage("§cInvalid material: " + matStr);
+            player.sendMessage(plugin.getMessagesManager().get("editor.trade-cost-invalid", "material", matStr));
             cleanupPendingData(player);
             reopenToEditGui(player, itemId);
             return;
           }
 
-          player.sendMessage("§eEnter min amount for " + mat.name() + ":");
+          player.sendMessage(plugin.getMessagesManager().get("editor.trade-amount-min-prompt", "material", mat.name()));
           chatInputManager.startSingleLineSession(player, "Min Amount:",
               minStr -> {
                 if (minStr == null) {
@@ -431,20 +431,19 @@ public class TradeEditor implements Listener {
                     parsedMin = 1;
                   }
                   if (parsedMin > 64) {
-                    player.sendMessage("§cAmount cannot exceed 64. Please try again.");
+                    player.sendMessage(plugin.getMessagesManager().get("editor.trade-amount-exceeds"));
                     configureCostItem(player, itemId, costNumber);
                     return;
                   }
                   validatedMin = parsedMin;
                 } catch (NumberFormatException ex) {
-                  player.sendMessage("§cInvalid integer.");
+                  player.sendMessage(plugin.getMessagesManager().get("editor.trade-amount-invalid"));
                   cleanupPendingData(player);
                   reopenToEditGui(player, itemId);
                   return;
                 }
 
-                player.sendMessage(
-                    "§eEnter max amount for " + mat.name() + " (>= " + validatedMin + "):");
+                player.sendMessage(plugin.getMessagesManager().get("editor.trade-amount-max-prompt", "material", mat.name(), "min", String.valueOf(validatedMin)));
                 chatInputManager.startSingleLineSession(player, "Max Amount:",
                     maxStr -> {
                       if (maxStr == null) {
@@ -459,9 +458,8 @@ public class TradeEditor implements Listener {
                           max = validatedMin;
                         }
                         if (max > 64) {
-                          player.sendMessage("§cAmount cannot exceed 64. Please try again.");
-                          player.sendMessage("§eEnter max amount for " + mat.name() + " (>= "
-                              + validatedMin + "):");
+                          player.sendMessage(plugin.getMessagesManager().get("editor.trade-amount-exceeds"));
+                          player.sendMessage(plugin.getMessagesManager().get("editor.trade-amount-max-prompt", "material", mat.name(), "min", String.valueOf(validatedMin)));
                           // Re-prompt for max amount only
                           chatInputManager.startSingleLineSession(player, "Max Amount:",
                               newMaxStr -> {
@@ -477,13 +475,11 @@ public class TradeEditor implements Listener {
                                     newMax = validatedMin;
                                   }
                                   if (newMax > 64) {
-                                    player.sendMessage(
-                                        "§cAmount cannot exceed 64. Using 64.");
+                                    player.sendMessage(plugin.getMessagesManager().get("editor.trade-amount-exceeds"));
                                     newMax = 64;
                                   }
                                 } catch (NumberFormatException ex2) {
-                                  player.sendMessage(
-                                      "§cInvalid integer. Using minimum value.");
+                                  player.sendMessage(plugin.getMessagesManager().get("editor.trade-amount-invalid"));
                                   newMax = validatedMin;
                                 }
 
@@ -508,7 +504,7 @@ public class TradeEditor implements Listener {
                           return;
                         }
                       } catch (NumberFormatException ex) {
-                        player.sendMessage("§cInvalid integer.");
+                        player.sendMessage(plugin.getMessagesManager().get("editor.trade-amount-invalid"));
                         cleanupPendingData(player);
                         reopenToEditGui(player, itemId);
                         return;
@@ -544,8 +540,8 @@ public class TradeEditor implements Listener {
   }
 
   private void configureLevels(Player player, String itemId) {
-    player.sendMessage("§eEnter villager levels (1-5, comma-separated, or 'all'):");
-    player.sendMessage("§7Example: 1,2,3 or 3,4,5 or all");
+    player.sendMessage(plugin.getMessagesManager().get("editor.trade-levels-prompt"));
+    player.sendMessage(plugin.getMessagesManager().get("editor.trade-levels-hint"));
 
     chatInputManager.startSingleLineSession(player, "Levels:",
         levelStr -> {
@@ -572,7 +568,7 @@ public class TradeEditor implements Listener {
           }
 
           if (levels.isEmpty()) {
-            player.sendMessage("§cNo valid levels specified. Using all levels (1-5).");
+            player.sendMessage(plugin.getMessagesManager().get("editor.trade-levels-invalid"));
             levels = Arrays.asList(1, 2, 3, 4, 5);
           }
 
@@ -590,7 +586,7 @@ public class TradeEditor implements Listener {
   private void finalizeTrade(Player player, String itemId) {
     ItemData itemData = itemDataManager.getItemData(itemId);
     if (itemData == null) {
-      player.sendMessage("§cItem not found.");
+      player.sendMessage(plugin.getMessagesManager().get("editor.item-not-found"));
       cleanupPendingData(player);
       return;
     }
@@ -601,7 +597,7 @@ public class TradeEditor implements Listener {
     List<Integer> levels = pendingLevels.getOrDefault(player.getUniqueId(), Arrays.asList(1, 2, 3, 4, 5));
 
     if (costs == null || costs.isEmpty()) {
-      player.sendMessage("§cNo costs configured!");
+      player.sendMessage(plugin.getMessagesManager().get("editor.trade-no-costs"));
       cleanupPendingData(player);
       reopenToEditGui(player, itemId);
       return;
@@ -614,12 +610,12 @@ public class TradeEditor implements Listener {
     if (editIndex != null && editIndex >= 0 && editIndex < itemData.getVillagerTrades().size()) {
       // Replace existing trade
       itemData.getVillagerTrades().set(editIndex, trade);
-      player.sendMessage("§aUpdated trade: " + trade);
+      player.sendMessage(plugin.getMessagesManager().get("editor.trade-updated", "trade", trade.toString()));
       selectedIndex.remove(player.getUniqueId());
     } else {
       // Add new trade
       itemData.addVillagerTrade(trade);
-      player.sendMessage("§aAdded trade: " + trade);
+      player.sendMessage(plugin.getMessagesManager().get("editor.trade-added", "trade", trade.toString()));
     }
 
     itemDataManager.saveItemData(itemId);

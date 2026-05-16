@@ -14,7 +14,6 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
@@ -182,6 +181,24 @@ public class InventoryListener implements Listener {
     ItemStack cursorItem = event.getCursor();
     Inventory clickedInventory = event.getClickedInventory();
 
+    // Block picking up placeholders or handle placing on them
+    if (gui.isPlaceholder(clickedItem) && clickedInventory == topInventory) {
+      if (cursorItem == null || cursorItem.getType() == org.bukkit.Material.AIR) {
+        event.setCancelled(true);
+        return;
+      } else {
+        // Player is placing something on a placeholder.
+        // Check if the item is a valid accessory first
+        if (!plugin.getCuriosPaperAPI().isValidAccessory(cursorItem, slotType)) {
+          event.setCancelled(true);
+          player.sendMessage(plugin.getMessagesManager().get("inventory.invalid-item"));
+          return;
+        }
+        // Remove placeholder so it doesn't swap to cursor
+        event.setCurrentItem(null);
+      }
+    }
+
     // Handle RIGHT-click on an equipped item to toggle 3D model visibility
     if (event.isRightClick() && !event.isShiftClick()
         && clickedInventory == topInventory
@@ -203,10 +220,10 @@ public class InventoryListener implements Listener {
             boolean isHidden = pdc.getOrDefault(modelHiddenKey, PersistentDataType.BYTE, (byte) 0) == 1;
             if (isHidden) {
               pdc.remove(modelHiddenKey);
-              player.sendMessage("§a3D model display §2enabled§a for this item.");
+              player.sendMessage(plugin.getMessagesManager().get("inventory.model-enabled"));
             } else {
               pdc.set(modelHiddenKey, PersistentDataType.BYTE, (byte) 1);
-              player.sendMessage("§c3D model display §4disabled§c for this item.");
+              player.sendMessage(plugin.getMessagesManager().get("inventory.model-disabled"));
             }
             clickedItem.setItemMeta(meta);
 
@@ -237,15 +254,34 @@ public class InventoryListener implements Listener {
       if (clickedItem != null && clickedItem.getType() != org.bukkit.Material.AIR) {
         if (!plugin.getCuriosPaperAPI().isValidAccessory(clickedItem, slotType)) {
           event.setCancelled(true);
-          player.sendMessage("§cThat item cannot be placed in this slot type!");
+          player.sendMessage(plugin.getMessagesManager().get("inventory.invalid-item"));
           return;
         }
 
-        // Check if there's space in accessory slots
+        // Check if there's space in accessory slots (including placeholders)
         if (!gui.hasEmptyAccessorySlot(topInventory)) {
           event.setCancelled(true);
-          player.sendMessage("§cNo empty slots available!");
+          player.sendMessage(plugin.getMessagesManager().get("inventory.no-empty-slots"));
           return;
+        }
+
+        // Manual shift-click to handle placeholders
+        int targetSlot = -1;
+        for (int slot : gui.getAccessorySlots(slotType)) {
+          ItemStack item = topInventory.getItem(slot);
+          if (item == null || item.getType() == Material.AIR || gui.isPlaceholder(item)) {
+            targetSlot = slot;
+            break;
+          }
+        }
+
+        if (targetSlot != -1) {
+          event.setCancelled(true);
+          ItemStack toMove = clickedItem.clone();
+          toMove.setAmount(1);
+          topInventory.setItem(targetSlot, toMove);
+          clickedItem.setAmount(clickedItem.getAmount() - 1);
+          player.updateInventory();
         }
       }
     }
@@ -259,7 +295,7 @@ public class InventoryListener implements Listener {
 
       if (!plugin.getCuriosPaperAPI().isValidAccessory(cursorItem, slotType)) {
         event.setCancelled(true);
-        player.sendMessage("§cThat item cannot be placed in this slot type!");
+        player.sendMessage(plugin.getMessagesManager().get("inventory.invalid-item"));
         return;
       }
     }
@@ -271,7 +307,7 @@ public class InventoryListener implements Listener {
       if (event.isShiftClick()) {
         if (!hasInventorySpace(player, clickedItem)) {
           event.setCancelled(true);
-          player.sendMessage("§cYour inventory is full!");
+          player.sendMessage(plugin.getMessagesManager().get("inventory.inventory-full"));
           return;
         }
       }
@@ -288,7 +324,7 @@ public class InventoryListener implements Listener {
       if (hotbarItem != null && hotbarItem.getType() != org.bukkit.Material.AIR) {
         if (!plugin.getCuriosPaperAPI().isValidAccessory(hotbarItem, slotType)) {
           event.setCancelled(true);
-          player.sendMessage("§cThat item cannot be placed in this slot type!");
+          player.sendMessage(plugin.getMessagesManager().get("inventory.invalid-item"));
           return;
         }
       }
@@ -372,7 +408,7 @@ public class InventoryListener implements Listener {
       if (draggedItem != null && draggedItem.getType() != org.bukkit.Material.AIR) {
         if (!plugin.getCuriosPaperAPI().isValidAccessory(draggedItem, slotType)) {
           event.setCancelled(true);
-          player.sendMessage("§cThat item cannot be placed in this slot type!");
+          player.sendMessage(plugin.getMessagesManager().get("inventory.invalid-item"));
         }
       }
       Bukkit.getScheduler().runTask(plugin, () -> {
@@ -405,7 +441,7 @@ public class InventoryListener implements Listener {
 
       for (int slot : accessorySlots) {
         ItemStack item = inventory.getItem(slot);
-        newItems.add(item != null && item.getType() != org.bukkit.Material.AIR ? item.clone() : null);
+        newItems.add(item != null && item.getType() != org.bukkit.Material.AIR && !gui.isPlaceholder(item) ? item.clone() : null);
       }
 
       // Get previous state to detect changes
@@ -478,7 +514,7 @@ public class InventoryListener implements Listener {
         if (online.getOpenInventory() != null
             && AccessoryGUI.isMainGUI(online.getOpenInventory().getTitle())) {
           online.closeInventory();
-          online.sendMessage("§e§l[CuriosPaper] §7The accessory menu layout was updated.");
+          online.sendMessage(plugin.getMessagesManager().get("gui.layout-updated"));
         }
       }
     });
@@ -491,8 +527,10 @@ public class InventoryListener implements Listener {
   }
 
   private void fireEquipEvents(Player player, String slotType, List<ItemStack> oldItems, List<ItemStack> newItems) {
-    if (oldItems == null) oldItems = new ArrayList<>();
-    if (newItems == null) newItems = new ArrayList<>();
+    if (oldItems == null)
+      oldItems = new ArrayList<>();
+    if (newItems == null)
+      newItems = new ArrayList<>();
     int maxSize = Math.max(oldItems.size(), newItems.size());
 
     for (int i = 0; i < maxSize; i++) {
@@ -522,6 +560,30 @@ public class InventoryListener implements Listener {
         AccessoryEquipEvent equipEvent = new AccessoryEquipEvent(
             player, slotType, i, oldItem, newItem, AccessoryEquipEvent.Action.SWAP);
         Bukkit.getPluginManager().callEvent(equipEvent);
+      }
+    }
+  }
+
+  @EventHandler
+  public void onAccessoryEquipEvent(AccessoryEquipEvent event) {
+    if (event.isCancelled()) return;
+    org.bukkit.entity.Player player = event.getPlayer();
+    
+    if (event.getAction() == AccessoryEquipEvent.Action.EQUIP || event.getAction() == AccessoryEquipEvent.Action.SWAP) {
+      if (plugin.getConfig().getBoolean("features.play-equip-sound", true)) {
+        try {
+          org.bukkit.Sound sound = org.bukkit.Sound.valueOf(plugin.getConfig().getString("features.equip-sound", "ENTITY_ITEM_PICKUP").toUpperCase());
+          player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
+        } catch (Exception ignored) {}
+      }
+    }
+    
+    if (event.getAction() == AccessoryEquipEvent.Action.UNEQUIP || event.getAction() == AccessoryEquipEvent.Action.SWAP) {
+      if (plugin.getConfig().getBoolean("features.play-unequip-sound", true)) {
+        try {
+          org.bukkit.Sound sound = org.bukkit.Sound.valueOf(plugin.getConfig().getString("features.unequip-sound", "ENTITY_ITEM_PICKUP").toUpperCase());
+          player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
+        } catch (Exception ignored) {}
       }
     }
   }

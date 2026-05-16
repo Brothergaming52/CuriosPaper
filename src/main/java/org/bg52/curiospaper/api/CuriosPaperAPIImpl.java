@@ -50,14 +50,14 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
       if (meta != null) {
         // Set display name
         if (itemData.getDisplayName() != null) {
-          meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', itemData.getDisplayName()));
+          meta.setDisplayName(org.bg52.curiospaper.util.ColorUtil.translate(itemData.getDisplayName()));
         }
 
         // Set lore
         if (!itemData.getLore().isEmpty()) {
           List<String> coloredLore = new ArrayList<>();
           for (String line : itemData.getLore()) {
-            coloredLore.add(ChatColor.translateAlternateColorCodes('&', line));
+            coloredLore.add(org.bg52.curiospaper.util.ColorUtil.translate(line));
           }
           meta.setLore(coloredLore);
         }
@@ -163,34 +163,32 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
 
       if (addLore) {
         List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
-        StringBuilder loreBuilder = new StringBuilder();
-        loreBuilder.append(ChatColor.GOLD).append("Slot: ").append(ChatColor.YELLOW);
-
+        StringBuilder slotsStr = new StringBuilder();
         for (int i = 0; i < slots.length; i++) {
           SlotConfiguration config = plugin.getConfigManager().getSlotConfiguration(slots[i].trim());
           String slotName = config != null ? config.getName() : slots[i].trim();
           slotName = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', slotName));
-          loreBuilder.append(slotName);
+          slotsStr.append(slotName);
           if (i < slots.length - 1) {
-            loreBuilder.append(", ");
+            slotsStr.append(", ");
           }
         }
-
-        String newLoreLine = loreBuilder.toString();
+        String newLoreLine = plugin.getMessagesManager().get("items.slot-lore", "slots", slotsStr.toString());
         
         lore.removeIf(line -> {
-          String stripped = ChatColor.stripColor(line);
-          return stripped.startsWith("Required Slot:") || stripped.startsWith("Slot:");
+          String stripped = org.bg52.curiospaper.util.ColorUtil.stripAll(line);
+          String rawPrefix = org.bg52.curiospaper.util.ColorUtil.stripAll(plugin.getMessagesManager().get("items.slot-lore", "slots", "")).trim();
+          return stripped.startsWith("Required Slot:") || stripped.startsWith("Slot:") || (!rawPrefix.isEmpty() && stripped.startsWith(rawPrefix));
         });
         
         // Remove trailing empty lines if we just removed the slot line
-        while (!lore.isEmpty() && ChatColor.stripColor(lore.get(lore.size() - 1)).trim().isEmpty()) {
+        while (!lore.isEmpty() && org.bg52.curiospaper.util.ColorUtil.stripAll(lore.get(lore.size() - 1)).trim().isEmpty()) {
           lore.remove(lore.size() - 1);
         }
 
         lore.add("");
         lore.add(newLoreLine);
-        lore.add("§8▶ Shift + Right Click to equip");
+        lore.add(plugin.getMessagesManager().get("items.quick-equip-lore"));
         meta.setLore(lore);
       }
 
@@ -633,6 +631,22 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
     return itemDataManager.deleteItem(itemId);
   }
 
+  @Override
+  public boolean setItemHidden(String itemId, boolean hidden) {
+    org.bg52.curiospaper.data.ItemData itemData = getItemData(itemId);
+    if (itemData == null) {
+      return false;
+    }
+    itemData.setHidden(hidden);
+    return saveItemData(itemId);
+  }
+
+  @Override
+  public boolean isItemHidden(String itemId) {
+    org.bg52.curiospaper.data.ItemData itemData = getItemData(itemId);
+    return itemData != null && itemData.isHidden();
+  }
+
   // ========== 3D MODEL CONFIGURATION ==========
 
   @Override
@@ -807,6 +821,12 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
           }
         }
       }
+    }
+  }
+  @Override
+  public void refreshModels(Player player) {
+    if (player != null && player.isOnline()) {
+      plugin.getModelStandManager().updateStandsForPlayer(player, true);
     }
   }
 }

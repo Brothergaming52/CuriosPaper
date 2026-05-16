@@ -19,7 +19,7 @@ public class BaublesCommand implements CommandExecutor {
   @Override
   public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
     if (!(sender instanceof Player)) {
-      sender.sendMessage("§cOnly players can use this command.");
+      sender.sendMessage(plugin.getMessagesManager().get("common.only-players"));
       return true;
     }
     Player player = (Player) sender;

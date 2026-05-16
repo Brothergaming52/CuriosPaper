@@ -11,6 +11,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bg52.curiospaper.event.CuriosMobModelEquipEvent;
 
 import java.util.*;
 
@@ -79,31 +81,36 @@ public class MobDropListener implements Listener {
     }
 
     if (equippedItemId != null) {
-      if (random.nextDouble() < 0.5) {
-        ItemData itemData = itemDataManager.getItemData(equippedItemId);
-        if (itemData != null) {
-          MobDropData matchDrop = null;
-          for (MobDropData mobDrop : itemData.getMobDrops()) {
-            if (matchesEntityType(entityType, mobDrop.getEntityType()) && mobDrop.isModelEnabled()) {
-              matchDrop = mobDrop;
+      // Drop equipped model with its specific chance
+      ItemData itemData = itemDataManager.getItemData(equippedItemId);
+      if (itemData != null) {
+        MobDropData matchDrop = null;
+        for (MobDropData mobDrop : itemData.getMobDrops()) {
+          // If the mob was equipped with this model, it should use this drop's chance
+          if (matchesEntityType(entityType, mobDrop.getEntityType())) {
+            matchDrop = mobDrop;
+            // Prioritize the entry that has model enabled if multiple exist
+            if (mobDrop.isModelEnabled())
               break;
-            }
           }
-          if (matchDrop != null) {
-            ItemStack item = createItemStack(itemData, matchDrop);
-            if (item != null) {
-              org.bg52.curiospaper.event.CuriosMobDropEvent dropEvent = new org.bg52.curiospaper.event.CuriosMobDropEvent(entity, itemData.getItemId(), item);
-              plugin.getServer().getPluginManager().callEvent(dropEvent);
-              if (!dropEvent.isCancelled() && dropEvent.getItem() != null) {
-                event.getDrops().add(dropEvent.getItem());
-                if (debug)
-                  plugin.getLogger().info("[MobDrop] => Dropped equipped model item: " + equippedItemId);
-              } else if (debug) {
-                plugin.getLogger().info("[MobDrop] => Drop cancelled: " + equippedItemId);
-              }
-              return;
+        }
+        if (matchDrop != null) {
+          ItemStack item = createItemStack(itemData, matchDrop);
+          if (item != null) {
+            org.bg52.curiospaper.event.CuriosMobDropEvent dropEvent = new org.bg52.curiospaper.event.CuriosMobDropEvent(
+                entity, itemData.getItemId(), item);
+            plugin.getServer().getPluginManager().callEvent(dropEvent);
+            if (!dropEvent.isCancelled() && dropEvent.getItem() != null) {
+              event.getDrops().add(dropEvent.getItem());
+              if (debug)
+                plugin.getLogger().info("[MobDrop] => Dropped equipped model item: " + equippedItemId);
             }
+            return;
+          } else if (debug) {
+            plugin.getLogger().warning("[MobDrop] => Failed to create ItemStack for: " + equippedItemId);
           }
+        } else if (debug) {
+          plugin.getLogger().warning("[MobDrop] => No matching MobDropData found for equipped item: " + equippedItemId);
         }
       }
       // If equipped with a 3D model, they don't drop any other custom item
@@ -133,7 +140,8 @@ public class MobDropListener implements Listener {
       if (random.nextDouble() < c.mobDrop.getChance()) {
         ItemStack item = createItemStack(c.itemData, c.mobDrop);
         if (item != null) {
-          org.bg52.curiospaper.event.CuriosMobDropEvent dropEvent = new org.bg52.curiospaper.event.CuriosMobDropEvent(entity, c.itemData.getItemId(), item);
+          org.bg52.curiospaper.event.CuriosMobDropEvent dropEvent = new org.bg52.curiospaper.event.CuriosMobDropEvent(
+              entity, c.itemData.getItemId(), item);
           plugin.getServer().getPluginManager().callEvent(dropEvent);
           if (!dropEvent.isCancelled() && dropEvent.getItem() != null) {
             event.getDrops().add(dropEvent.getItem());
@@ -169,7 +177,8 @@ public class MobDropListener implements Listener {
           if (mobDrop.getModelItem() == null)
             continue; // safety check
 
-          if (random.nextDouble() < (mobDrop.getChance() * 2.0)) {
+          // Use raw chance for equipping models (no 2.0 multiplier)
+          if (random.nextDouble() < mobDrop.getChance()) {
             equipModelOnMob(entity, itemData, mobDrop);
             return; // Equip at most one model
           }
@@ -179,6 +188,20 @@ public class MobDropListener implements Listener {
   }
 
   private void equipModelOnMob(org.bukkit.entity.LivingEntity mob, ItemData itemData, MobDropData mobDrop) {
+    Material modelMat;
+    try {
+      modelMat = Material.valueOf(mobDrop.getModelItem().toUpperCase());
+    } catch (IllegalArgumentException e) {
+      return;
+    }
+
+    CuriosMobModelEquipEvent equipEvent = new CuriosMobModelEquipEvent(
+        mob, itemData.getItemId(), modelMat, mobDrop.getModelCustomModelData(), mobDrop.getModelItemModel());
+    plugin.getServer().getPluginManager().callEvent(equipEvent);
+
+    if (equipEvent.isCancelled())
+      return;
+
     org.bukkit.NamespacedKey equippedModelKey = new org.bukkit.NamespacedKey(plugin, "mob_equipped_model_item_id");
     mob.getPersistentDataContainer().set(equippedModelKey, org.bukkit.persistence.PersistentDataType.STRING,
         itemData.getItemId());
@@ -198,20 +221,33 @@ public class MobDropListener implements Listener {
       as.setPersistent(false);
       as.setCanPickupItems(false);
       as.setCollidable(false);
+
+      if (org.bg52.curiospaper.util.VersionUtil.supportsScaleAttribute()) {
+        try {
+          org.bukkit.attribute.Attribute scaleAttr = org.bukkit.attribute.Attribute.valueOf("GENERIC_SCALE");
+          org.bukkit.attribute.AttributeInstance mobScale = mob.getAttribute(scaleAttr);
+          if (mobScale != null) {
+            org.bukkit.attribute.AttributeInstance asScale = as.getAttribute(scaleAttr);
+            if (asScale != null) {
+              asScale.setBaseValue(mobScale.getValue());
+            }
+          }
+        } catch (Throwable ignored) {
+        }
+      }
     });
 
     org.bukkit.NamespacedKey standTagKey = new org.bukkit.NamespacedKey(plugin, "curios_mob_drop_stand");
     stand.getPersistentDataContainer().set(standTagKey, org.bukkit.persistence.PersistentDataType.BYTE, (byte) 1);
 
-    org.bukkit.inventory.ItemStack modelHelmet = new org.bukkit.inventory.ItemStack(
-        org.bukkit.Material.valueOf(mobDrop.getModelItem().toUpperCase()));
+    org.bukkit.inventory.ItemStack modelHelmet = new org.bukkit.inventory.ItemStack(equipEvent.getModelMaterial());
     org.bukkit.inventory.meta.ItemMeta meta = modelHelmet.getItemMeta();
     if (meta != null) {
       if (itemData.getDisplayName() != null) {
         meta.setDisplayName(itemData.getDisplayName());
       }
-      org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, mobDrop.getModelItemModel(),
-          mobDrop.getModelCustomModelData());
+      org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, equipEvent.getItemModel(),
+          equipEvent.getCustomModelData());
       modelHelmet.setItemMeta(meta);
     }
 
@@ -245,39 +281,43 @@ public class MobDropListener implements Listener {
    */
   private ItemStack createItemStack(ItemData itemData, MobDropData mobDrop) {
     try {
-      Material material = Material.valueOf(itemData.getMaterial().toUpperCase());
-
       // Calculate random amount
       int amount = mobDrop.getMinAmount();
       if (mobDrop.getMaxAmount() > mobDrop.getMinAmount()) {
         amount = random.nextInt(mobDrop.getMaxAmount() - mobDrop.getMinAmount() + 1) + mobDrop.getMinAmount();
       }
 
-      ItemStack item = new ItemStack(material, amount);
-
-      // Set display name, lore, and item model
-      if (itemData.getDisplayName() != null) {
-        org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+      // Create base item with all required metadata (ID, Slot, etc.)
+      ItemStack item = plugin.getCuriosPaperAPI().createItemStack(itemData.getItemId());
+      if (item == null) {
+        // Fallback to manual creation if API fails (unlikely but possible during
+        // reloads)
+        Material material;
+        try {
+          material = Material.valueOf(itemData.getMaterial().toUpperCase());
+        } catch (Exception e) {
+          return null;
+        }
+        item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-          meta.setDisplayName(itemData.getDisplayName());
-          if (!itemData.getLore().isEmpty()) {
-            meta.setLore(itemData.getLore());
+          if (itemData.getDisplayName() != null) {
+            meta.setDisplayName(org.bukkit.ChatColor.translateAlternateColorCodes('&', itemData.getDisplayName()));
           }
-          // Apply item model if specified (version-aware)
-          if (itemData.getItemModel() != null && !itemData.getItemModel().isEmpty()) {
-            org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemData.getItemModel(),
-                itemData.getCustomModelData());
-          }
+          org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemData.getItemModel(),
+              itemData.getCustomModelData());
+          meta.getPersistentDataContainer().set(plugin.getCuriosPaperAPI().getItemIdKey(),
+              org.bukkit.persistence.PersistentDataType.STRING, itemData.getItemId());
           item.setItemMeta(meta);
+        }
+        if (itemData.getSlotType() != null && !itemData.getSlotType().isEmpty()) {
+          item = plugin.getCuriosPaperAPI().tagAccessoryItem(item, itemData.getSlotType());
         }
       }
 
-      // Tag the item for the appropriate slot if specified
-      if (itemData.getSlotType() != null && !itemData.getSlotType().isEmpty()) {
-        item = plugin.getCuriosPaperAPI().tagAccessoryItem(item, itemData.getSlotType());
-      }
-
+      item.setAmount(amount);
       return item;
+
     } catch (IllegalArgumentException e) {
       plugin.getLogger()
           .warning("Invalid material '" + itemData.getMaterial() + "' for item " + itemData.getItemId());
