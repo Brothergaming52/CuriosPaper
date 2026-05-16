@@ -418,6 +418,124 @@ public class CraftingAttributionListener implements Listener {
 
 ---
 
+---
+
+## CuriosCraftEvent
+
+Fired when a custom CuriosPaper item is crafted, smelted, smith-transformed, or repaired. This event is fired after any data transfer has occurred and allows for final modification of the result item.
+
+### Example: Tracking Crafted Items
+
+```java
+import org.bg52.curiospaper.event.CuriosCraftEvent;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
+public class CraftTracker implements Listener {
+
+    @EventHandler
+    public void onCuriosCraft(CuriosCraftEvent event) {
+        String itemId = event.getItemId();
+        event.getInventory().getViewers().forEach(player -> 
+            player.sendMessage("§aYou just created a: " + itemId));
+    }
+}
+```
+
+### CuriosCraftEvent Properties
+
+| Method | Return | Description |
+|---|---|---|
+| `getInventory()` | `Inventory` | The inventory where the craft is occurring |
+| `getItemId()` | `String` | The internal ID of the custom item being created |
+| `getResult()` | `ItemStack` | The result item |
+| `setResult(ItemStack)` | `void` | Replace the result item |
+| `isCancelled()` | `boolean` | Whether the event is cancelled |
+| `setCancelled(boolean)` | `void` | Cancel the craft |
+
+---
+
+## CuriosModelEquipEvent
+
+Fired when a curios item's 3D model is about to be equipped or displayed on a player. This event allows other plugins to modify the model item, material, custom model data, and item model component on the fly.
+
+### Example: Dynamically Changing Model Materials
+
+```java
+import org.bg52.curiospaper.event.CuriosModelEquipEvent;
+import org.bukkit.Material;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
+public class ModelMaterialChanger implements Listener {
+
+    @EventHandler
+    public void onModelEquip(CuriosModelEquipEvent event) {
+        // Change all models to gold material for a specific player
+        if (event.getPlayer().getName().equals("Midas")) {
+            event.setModelMaterial(Material.GOLD_BLOCK);
+        }
+    }
+}
+```
+
+### CuriosModelEquipEvent Properties
+
+| Method | Return | Description |
+|---|---|---|
+| `getPlayer()` | `Player` | The player for whom the model is being equipped |
+| `getCuriosityStack()` | `ItemStack` | The curios item stack that triggered the 3D model |
+| `getSlotType()` | `String` | The type of the curios slot (e.g., "ring", "back") |
+| `getSlotIndex()` | `int` | The index of the curios slot |
+| `getModelMaterial()` | `Material` | The material that will be used for the model helmet |
+| `setModelMaterial(Material)` | `void` | Set the material for the model helmet |
+| `getCustomModelData()` | `Integer` | The custom model data that will be applied |
+| `setCustomModelData(Integer)` | `void` | Set the custom model data |
+| `getItemModel()` | `String` | The item model string (for 1.21.4+) |
+| `setItemModel(String)` | `void` | Set the item model string |
+
+---
+
+## CuriosMobModelEquipEvent
+
+Fired when a mob is about to equip a 3D model. Similar to `CuriosModelEquipEvent`, but for entities other than players.
+
+### Example: Randomizing Mob Accessory Models
+
+```java
+import org.bg52.curiospaper.event.CuriosMobModelEquipEvent;
+import org.bukkit.Material;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import java.util.Random;
+
+public class MobModelRandomizer implements Listener {
+    private final Random random = new Random();
+
+    @EventHandler
+    public void onMobModelEquip(CuriosMobModelEquipEvent event) {
+        if (random.nextBoolean()) {
+            event.setCustomModelData(1001); // Use a variant model
+        }
+    }
+}
+```
+
+### CuriosMobModelEquipEvent Properties
+
+| Method | Return | Description |
+|---|---|---|
+| `getEntity()` | `LivingEntity` | The mob equipping the model |
+| `getItemId()` | `String` | The internal ID of the curios item |
+| `getModelMaterial()` | `Material` | The material that will be used for the model helmet |
+| `setModelMaterial(Material)` | `void` | Set the material for the model helmet |
+| `getCustomModelData()` | `Integer` | The custom model data that will be applied |
+| `setCustomModelData(Integer)` | `void` | Set the custom model data |
+| `getItemModel()` | `String` | The item model string (for 1.21.4+) |
+| `setItemModel(String)` | `void` | Set the item model string |
+
+---
+
 ## Event Summary
 
 | Event | When It Fires | Cancellable | Can Modify Item |
@@ -425,7 +543,10 @@ public class CraftingAttributionListener implements Listener {
 | `AccessoryEquipEvent` | Player equips/unequips/swaps an accessory | ✅ | ❌ |
 | `CuriosLootGenerateEvent` | Custom item generated in a loot container | ✅ | ✅ |
 | `CuriosMobDropEvent` | Custom item dropped by a killed mob | ✅ | ✅ |
-| `CuriosRecipeTransferEvent` | Custom item crafted via a recipe | ✅ | ✅ |
+| `CuriosRecipeTransferEvent` | Custom item crafted via a recipe (data transfer) | ✅ | ✅ |
+| `CuriosCraftEvent` | Custom item crafted/smelted/repaired (final) | ✅ | ✅ |
+| `CuriosModelEquipEvent` | 3D model about to be displayed on player | ✅ | ✅ |
+| `CuriosMobModelEquipEvent` | 3D model about to be displayed on mob | ✅ | ✅ |
 
 ---
 
@@ -443,6 +564,8 @@ public class MyPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new LootWorldRestriction(), this);
         getServer().getPluginManager().registerEvents(new MobDropLogger(), this);
         getServer().getPluginManager().registerEvents(new CraftingAttributionListener(), this);
+        getServer().getPluginManager().registerEvents(new CraftTracker(), this);
+        getServer().getPluginManager().registerEvents(new ModelMaterialChanger(), this);
     }
 }
 ```

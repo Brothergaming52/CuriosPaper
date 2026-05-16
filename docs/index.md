@@ -28,6 +28,7 @@ CuriosPaper adds a fully configurable accessory slot system to your Minecraft se
 | **Villager Trades** | Add custom accessories to villager trade pools |
 | **Resource Pack Hosting** | Built-in HTTP server auto-generates and serves resource packs |
 | **Elytra Back Slot** | Equip elytra in the back accessory slot (1.21.3+) |
+| **Paginated Item Browser** | Manage all custom items and their recipes in a visual list |
 | **Developer API** | Full API for other plugins to create and manage accessories |
 | **Version Support** | Compatible with Spigot/Paper 1.14.4 through latest |
 
@@ -87,7 +88,7 @@ CuriosPaper adds a fully configurable accessory slot system to your Minecraft se
 
 | | |
 |---|---|
-| **Version** | 1.2.1 |
+| **Version** | 1.3.1 |
 | **Author** | Brothergaming52 |
 | **API Version** | 1.14-1.21.11 |
 | **Source** | [GitHub](https://github.com/Brothergaming52/CuriosPaper) |

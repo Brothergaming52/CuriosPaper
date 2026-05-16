@@ -10,11 +10,13 @@ CuriosPaper is fully configurable through `config.yml`. This section covers all 
 | [Features](features.md) | Feature toggles, hotkey, death behavior, sounds, resource pack, and GUI settings |
 | [Abilities](abilities.md) | Ability configuration for custom items |
 | [Performance & Storage](performance.md) | Performance tuning, storage, and caching |
+| **Messages** | Plugin messages and localization in `messages.yml` |
 
-## Config File Location
+## Config File Locations
 
 ```
 plugins/CuriosPaper/config.yml
+plugins/CuriosPaper/messages.yml
 ```
 
 ## Reloading Configuration

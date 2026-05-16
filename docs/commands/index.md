@@ -23,15 +23,26 @@ Opens the accessory inventory GUI.
 
 ### `/curios`
 
-Administrative and debug commands for CuriosPaper.
+Administrative, debug, and management commands for CuriosPaper.
 
 | | |
 |---|---|
 | **Aliases** | `/cp`, `/curiospaper` |
 | **Permission** | `curiospaper.admin` |
-| **Usage** | `/curios <rp\|debug>` |
+| **Usage** | `/curios <rp|debug|reload|list|give|create|edit|delete>` |
 
 ![Player using the /curios command to open the accessory GUI](../images/curios-command.png)
+
+#### Management Subcommands
+
+| Command | Description |
+|---|---|
+| `/curios create <itemId>` | Create a new custom item and open the Edit GUI |
+| `/curios edit <itemId>` | Open the Edit GUI for an existing item |
+| `/curios delete <itemId>` | Delete a custom item |
+| `/curios list` | List all custom items in a paginated GUI |
+| `/curios give <itemId> [player] [amount]` | Give a custom item to a player |
+| `/curios reload` | Reload the plugin configuration and messages |
 
 #### Resource Pack Subcommands
 
@@ -53,26 +64,6 @@ Administrative and debug commands for CuriosPaper.
 |---|---|---|
 | `/curios debug player <name>` | `curiospaper.debug` | Inspect a player's equipped accessories, PDC data, and slot info |
 | `/curios debug item` | `curiospaper.debug` | Inspect the held item's accessory tag, slot type, and PDC keys |
-
-### `/edit`
-
-Create and manage custom items using the in-game editor.
-
-| | |
-|---|---|
-| **Aliases** | `/itemedit` |
-| **Permission** | `curiospaper.edit` |
-| **Requires** | `features.item-editor.enabled: true` in config |
-
-![Player using the /edit command to open the accessory GUI](../images/edit-command.png)
-
-| Command | Description |
-|---|---|
-| `/edit create <itemId>` | Create a new custom item and open the Edit GUI |
-| `/edit gui <itemId>` | Open the Edit GUI for an existing item |
-| `/edit delete <itemId>` | Delete a custom item |
-| `/edit list` | List all custom items |
-| `/edit give <itemId> [player] [amount]` | Give a custom item to a player |
 
 !!! tip "Tab Completion"
     All commands support tab completion for subcommands, item IDs, and player names.

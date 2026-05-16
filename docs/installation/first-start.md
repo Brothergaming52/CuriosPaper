@@ -10,16 +10,19 @@ When the server starts with CuriosPaper for the first time, the plugin will:
 2. **Create the `items/` directory** for custom item definitions
 3. **Create the `playerdata/` directory** for per-player accessory storage
 4. **Initialize the resource pack manager** and extract default assets
-5. **Register commands** (`/baubles`, `/curios`, `/edit`)
-6. **Start bStats metrics** (anonymous usage statistics, plugin ID: 29508)
+5. **Register commands** (`/baubles`, `/curios`)
+6. **Initialize messages** from `messages.yml`
+7. **Start bStats metrics** (anonymous usage statistics, plugin ID: 29508)
 
 ## Console Output
 
 A successful first start will show:
 
 ```
+[CuriosPaper] Enabling CuriosPaper v1.3.1
 [CuriosPaper] CuriosPaper has been enabled!
 [CuriosPaper] Loaded 9 slot types.
+[CuriosPaper] Loaded 0 custom items.
 ```
 
 <!-- TODO: Add image - Screenshot of the server console showing CuriosPaper's successful startup messages -->

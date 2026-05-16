@@ -112,9 +112,9 @@ public class SpeedRingPlugin extends JavaPlugin {
 ### In-Game Commands
 
 ```
-/edit create speed_ring
-/edit give speed_ring
-/edit give speed_ring Steve 2
+/curios create speed_ring
+/curios give speed_ring
+/curios give speed_ring Steve 2
 ```
 
 ---

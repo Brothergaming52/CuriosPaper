@@ -7,7 +7,7 @@
 **Causes & Solutions:**
 
 1. **Item not tagged** — The item needs a `curiospaper:slot_type` PDC tag
-    - Use `/edit gui <itemId>` to set the slot type
+    - Use `/curios edit <itemId>` to set the slot type
     - Or use the API: `api.tagAccessoryItem(item, "ring")`
 
 2. **Wrong slot type** — The item's tag doesn't match the target slot

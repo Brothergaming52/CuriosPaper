@@ -4,9 +4,8 @@
 
 | Permission | Default | Description |
 |---|---|---|
-| `curiospaper.admin` | OP | Access to `/curios` admin commands (resource pack management) |
+| `curiospaper.admin` | OP | Access to `/curios` admin and management commands |
 | `curiospaper.debug` | OP | Access to `/curios debug` commands (player and item inspection) |
-| `curiospaper.edit` | OP | Access to `/edit` command (create and manage custom items) |
 
 ## Command-Permission Mapping
 
@@ -16,13 +15,14 @@
 | `/curios rp info` | `curiospaper.admin` |
 | `/curios rp rebuild` | `curiospaper.admin` |
 | `/curios rp conflicts` | `curiospaper.admin` |
+| `/curios reload` | `curiospaper.admin` |
+| `/curios create <id>` | `curiospaper.admin` |
+| `/curios edit <id>` | `curiospaper.admin` |
+| `/curios delete <id>` | `curiospaper.admin` |
+| `/curios list` | `curiospaper.admin` |
+| `/curios give <id> [player] [amount]` | `curiospaper.admin` |
 | `/curios debug player <name>` | `curiospaper.debug` |
 | `/curios debug item` | `curiospaper.debug` |
-| `/edit create <id>` | `curiospaper.edit` |
-| `/edit gui <id>` | `curiospaper.edit` |
-| `/edit delete <id>` | `curiospaper.edit` |
-| `/edit list` | `curiospaper.edit` |
-| `/edit give <id> [player] [amount]` | `curiospaper.edit` |
 
 ## Setting Permissions
 
@@ -33,7 +33,6 @@ You can configure permissions using any permissions plugin (e.g., LuckPerms, Per
 ```
 /lp group admin permission set curiospaper.admin true
 /lp group admin permission set curiospaper.debug true
-/lp group admin permission set curiospaper.edit true
 ```
 
 ### permissions.yml (Bukkit)

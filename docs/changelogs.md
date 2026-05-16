@@ -2,7 +2,24 @@
 
 See the full changelogs in the [CHANGELOGS.md](https://github.com/Brothergaming52/CuriosPaper/blob/main/CHANGELOGS.md) file.
 
-## Latest: v1.3.0
+## Latest: v1.3.1
+
+### Highlights
+
+- **Consolidated Commands** — The `/edit` command has been merged into `/curios` for a more streamlined administrative experience.
+- **New Messaging System** — All plugin messages are now fully configurable and localizable in the new `messages.yml`.
+- **Integrated Item Management** — New paginated GUIs for listing custom items, viewing recipes, and managing inventories directly from the `/curios list` command.
+- **Enhanced Event System** — Added `CuriosCraftEvent` for final result modification and `CuriosModelEquipEvent` / `CuriosMobModelEquipEvent` for dynamic 3D model customization.
+- **Auto-Update Checker** — Built-in version checking to keep your server up to date with the latest features and bug fixes.
+- **Performance & Logic Refinement** — Significant refactoring of configuration management, item data handling, and 3D model synchronization.
+
+### Breaking Changes
+
+- `/edit` command has been removed; use `/curios <create|edit|delete|list|give>` instead.
+- `curiospaper.edit` permission has been merged into `curiospaper.admin`.
+- `config.yml` now focuses on functional settings, with all text moved to `messages.yml`.
+
+## v1.3.0
 
 ### Highlights
 

@@ -5,7 +5,7 @@ This guide walks you through creating your first custom accessory item using the
 ## Prerequisites
 
 - CuriosPaper installed and running
-- Operator permissions (or `curiospaper.edit` permission)
+- Operator permissions (or `curiospaper.admin` permission)
 - The `item-editor` feature enabled in `config.yml` (enabled by default)
 
 ## Step 1: Create the Item
@@ -13,7 +13,7 @@ This guide walks you through creating your first custom accessory item using the
 Run the following command:
 
 ```
-/edit create speed_ring
+/curios create speed_ring
 ```
 
 This creates a new custom item with the ID `speed_ring` and opens the **Edit GUI**.
@@ -79,8 +79,8 @@ G = GOLD_INGOT, D = DIAMOND
 You can also give the item directly:
 
 ```
-/edit give speed_ring
-/edit give speed_ring PlayerName 3
+/curios give speed_ring
+/curios give speed_ring PlayerName 3
 ```
 
 !!! success "Congratulations!"

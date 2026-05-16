@@ -1,11 +1,12 @@
 # GUI Editors
 
-CuriosPaper provides in-game visual editors for creating and configuring custom items. These editors are accessible through the `/edit` command.
+CuriosPaper provides in-game visual editors for creating and configuring custom items. These editors are accessible through the `/curios` command.
 
 ## Sections
 
 | Page | Description |
 |---|---|
+| [Item List](item-list.md) | Browse and manage all custom items in a paginated GUI |
 | [Ability Editor](ability-editor.md) | Configure potion effects and attribute modifiers |
 | [Recipe Editor](recipe-editor.md) | Create shaped, shapeless, furnace, anvil, and smithing recipes |
 | [Loot Table Editor](loot-table-editor.md) | Browse, add, edit, and delete loot table entries with a 3-screen editor |
@@ -17,11 +18,12 @@ CuriosPaper provides in-game visual editors for creating and configuring custom 
 ## Accessing the Editor
 
 ```
-/edit create <itemId>   — Create a new item and open the editor
-/edit gui <itemId>      — Open the editor for an existing item
+/curios create <itemId>   — Create a new item and open the editor
+/curios edit <itemId>     — Open the editor for an existing item
+/curios list              — Open the paginated Item List GUI
 ```
 
-**Permission required:** `curiospaper.edit`
+**Permission required:** `curiospaper.admin`
 
 ## Main Edit GUI
 
@@ -55,7 +57,7 @@ The Mob Drop Model Editor is a sub-editor accessible from the Mob Drop Editor. I
 
 ### Accessing
 
-1. Open the item editor: `/edit gui <itemId>`
+1. Open the item editor: `/curios edit <itemId>`
 2. Click the **Mob Drops** button (zombie head icon)
 3. Click on an existing mob drop entry
 4. Click the **3D Model** button
