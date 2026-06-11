@@ -306,8 +306,6 @@ public class LootTableListener implements Listener {
    */
   private ItemStack createItemStack(ItemData itemData, LootTableData lootData) {
     try {
-      Material material = Material.valueOf(itemData.getMaterial().toUpperCase());
-
       // Calculate random amount
       int amount = lootData.getMinAmount();
       if (lootData.getMaxAmount() > lootData.getMinAmount()) {
@@ -315,13 +313,22 @@ public class LootTableListener implements Listener {
             + lootData.getMinAmount();
       }
 
-      ItemStack item = new ItemStack(material, amount);
-
-      // Set display name, lore, and item model
-      if (itemData.getDisplayName() != null) {
+      // Create base item with all required metadata (ID, Slot, etc.)
+      ItemStack item = plugin.getCuriosPaperAPI().createItemStack(itemData.getItemId());
+      if (item == null) {
+        // Fallback to manual creation if API fails (unlikely but possible during reloads)
+        Material material;
+        try {
+          material = Material.valueOf(itemData.getMaterial().toUpperCase());
+        } catch (Exception e) {
+          return null;
+        }
+        item = new ItemStack(material);
         org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-          meta.setDisplayName(itemData.getDisplayName());
+          if (itemData.getDisplayName() != null) {
+            meta.setDisplayName(org.bukkit.ChatColor.translateAlternateColorCodes('&', itemData.getDisplayName()));
+          }
           if (!itemData.getLore().isEmpty()) {
             meta.setLore(itemData.getLore());
           }
@@ -330,15 +337,17 @@ public class LootTableListener implements Listener {
             org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemData.getItemModel(),
                 itemData.getCustomModelData());
           }
+          // Set custom ID in PDC
+          meta.getPersistentDataContainer().set(plugin.getCuriosPaperAPI().getItemIdKey(),
+              org.bukkit.persistence.PersistentDataType.STRING, itemData.getItemId());
           item.setItemMeta(meta);
+        }
+        if (itemData.getSlotType() != null && !itemData.getSlotType().isEmpty()) {
+          item = plugin.getCuriosPaperAPI().tagAccessoryItem(item, itemData.getSlotType());
         }
       }
 
-      // Tag the item for the appropriate slot if specified
-      if (itemData.getSlotType() != null && !itemData.getSlotType().isEmpty()) {
-        item = plugin.getCuriosPaperAPI().tagAccessoryItem(item, itemData.getSlotType());
-      }
-
+      item.setAmount(amount);
       return item;
     } catch (IllegalArgumentException e) {
       plugin.getLogger()

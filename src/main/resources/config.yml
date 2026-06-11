@@ -1,7 +1,7 @@
 # Configuration for CuriosPaper Custom Accessory Slots
 
 # DO NOT EDIT THIS
-version: "1.3.1"
+version: "1.3.2"
 
 # Update Checker
 updates:
@@ -9,12 +9,22 @@ updates:
 
 # Resource Pack Settings
 resource-pack:
-  # Enable automatic resource pack generation and serving
+  # Resource pack hosting mode:
+  # - SELF: Automatically generate and host the resource pack on this server using an embedded HTTP server.
+  # - LINK: Deliver the pack via a direct external download link (configured in 'url' below).
+  # - NONE: Disable automatic resource pack downloading/hosting completely.
+  mode: SELF
+
+  # Direct download link for the resource pack (only used if mode is LINK)
+  # IMPORTANT: This must be a direct download link (the URL must start downloading the file immediately, not open a web page).
+  url: "https://example.com/your-resource-pack.zip"
+
+  # (Legacy option) Enable automatic resource pack generation and serving (fallback if mode is not specified)
   enabled: true
-  # Port for the embedded HTTP server
+  # Port for the embedded HTTP server (only used if mode is SELF)
   # You need a seperate port using the default port will not work and may break things if tried
   port: 8080
-  # Public IP or Hostname of the server (for players to download the pack)
+  # Public IP or Hostname of the server (for players to download the pack - only used if mode is SELF)
   host-ip: "localhost"
   # Base material for custom icons (usually PAPER or LEATHER_HORSE_ARMOR)
   base-material: "PAPER"
@@ -159,6 +169,23 @@ features:
     # - Auto drops or keeps the inventory according to the gamerule keepinventory (also applies for regions where drops are enabled and disabled)
     # - Never makes the player drop their inventory even when keep inventory is true
     type: "Auto"
+
+  # Random Teleport (RTP) trigger settings
+  # You can record these interactively in-game using /curios recordrtp
+  rtp:
+    # Set to false to completely disable all RTP compatibility checks and recordings
+    enabled: false
+    # Commands that trigger temporary model dismounting
+    # You can use the in game recordrtp command to record these interactively
+    commands:
+      - "rtp"
+      - "wild"
+    # Interacted blocks (materials or "world,x,y,z") that trigger temporary model dismounting
+    blocks: []
+    # Entities/NPC names that trigger temporary model dismounting
+    entities: []
+    # GUIs (titles or "title:slot") that trigger temporary model dismounting
+    guis: []
 
 # Storage settings
 storage:

@@ -60,13 +60,21 @@ public class EditGUI implements Listener {
           meta.setLore(itemData.getLore());
         }
         // Apply item model or custom model data
-        if (itemData.getItemModel() != null && !itemData.getItemModel().trim().isEmpty()) {
-          // Use version-safe method with item model string
-          org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemData.getItemModel(),
-              itemData.getCustomModelData());
-        } else if (itemData.getCustomModelData() != null) {
-          // Only custom model data is set (no item model string)
-          meta.setCustomModelData(itemData.getCustomModelData());
+        boolean isPlayerHead = mat == Material.PLAYER_HEAD;
+        if (isPlayerHead && itemData.getItemModel() != null && !itemData.getItemModel().isEmpty()) {
+          if (meta instanceof org.bukkit.inventory.meta.SkullMeta) {
+            org.bg52.curiospaper.util.VersionUtil.setSkullBase64((org.bukkit.inventory.meta.SkullMeta) meta,
+                itemData.getItemModel());
+          }
+        } else {
+          if (itemData.getItemModel() != null && !itemData.getItemModel().trim().isEmpty()) {
+            // Use version-safe method with item model string
+            org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemData.getItemModel(),
+                itemData.getCustomModelData());
+          } else if (itemData.getCustomModelData() != null) {
+            // Only custom model data is set (no item model string)
+            meta.setCustomModelData(itemData.getCustomModelData());
+          }
         }
         preview.setItemMeta(meta);
       }
@@ -82,55 +90,58 @@ public class EditGUI implements Listener {
     }
 
     // Basic Properties
-    gui.setItem(19, createGuiItem(Material.NAME_TAG, "§e Edit Display Name",
+    gui.setItem(10, createGuiItem(Material.NAME_TAG, "§e Edit Display Name",
         "§7Current: " + (itemData.getDisplayName() != null ? itemData.getDisplayName() : "§cnone"),
         "", "§eClick to edit via chat"));
 
-    gui.setItem(21, createGuiItem(Material.IRON_BLOCK, "§e Set Material",
+    gui.setItem(12, createGuiItem(Material.IRON_BLOCK, "§e Set Material",
         "§7Current: " + (itemData.getMaterial() != null ? itemData.getMaterial() : "§cnone"),
         "", "§eClick to edit via chat"));
 
-    gui.setItem(23, createGuiItem(Material.PAINTING, "§e Set Item Model",
+    gui.setItem(14, createGuiItem(Material.PAINTING, "§e Set Item Model",
         "§7Current: " + (itemData.getItemModel() != null ? itemData.getItemModel() : "§cnone"),
         "", "§eClick to set custom model",
         "§7Format: namespace:model_name"));
 
-    gui.setItem(25, createGuiItem(Material.MAP, "§e Set Custom Model Data",
+    gui.setItem(16, createGuiItem(Material.MAP, "§e Set Custom Model Data",
         "§7Current: " + (itemData.getCustomModelData() != null ? itemData.getCustomModelData() : "§cnone"),
         "", "§eClick to set custom model data",
         "§7Enter an integer or 'remove' to clear"));
 
     // Row 3 (shifted)
-    gui.setItem(28, createGuiItem(Material.BOOK, "§e Edit Lore",
+    gui.setItem(19, createGuiItem(Material.BOOK, "§e Edit Lore",
         "§7Lines: " + itemData.getLore().size(),
         "", "§eClick to edit via chat"));
 
-    gui.setItem(30, createGuiItem(Material.CHEST, "§e Set Required Slot ",
+    gui.setItem(21, createGuiItem(Material.COMMAND_BLOCK, "§e NBT & Enchants Editor",
+        "", "§eClick to open NBT/Enchants editor"));
+
+    gui.setItem(23, createGuiItem(Material.CHEST, "§e Set Required Slot ",
         "§7Current: " + (itemData.getSlotType() != null ? itemData.getSlotType() : "§cnone"),
         "", "§eClick to select slot"));
 
-    gui.setItem(32, createGuiItem(Material.CRAFTING_TABLE, "§e Recipe",
-        itemData.getRecipes() != null ? "§a Configured" : "§7Not configured",
+    gui.setItem(25, createGuiItem(Material.CRAFTING_TABLE, "§e Recipe",
+        (itemData.getRecipes() != null && !itemData.getRecipes().isEmpty()) ? "§a Configured" : "§7Not configured",
         "", "§eClick to configure recipe"));
 
-    gui.setItem(34, createGuiItem(Material.CHEST_MINECART, "§e Loot Tables",
+    gui.setItem(28, createGuiItem(Material.CHEST_MINECART, "§e Loot Tables",
         "§7Entries: " + itemData.getLootTables().size(),
         "", "§eClick to manage loot tables"));
 
     // Row 4 (shifted)
-    gui.setItem(37, createGuiItem(Material.ZOMBIE_HEAD, "§e Mob Drops",
+    gui.setItem(30, createGuiItem(Material.ZOMBIE_HEAD, "§e Mob Drops",
         "§7Entries: " + itemData.getMobDrops().size(),
         "", "§eClick to manage mob drops"));
 
-    gui.setItem(39, createGuiItem(Material.EMERALD, "§e Villager Trades",
+    gui.setItem(32, createGuiItem(Material.EMERALD, "§e Villager Trades",
         "§7Entries: " + itemData.getVillagerTrades().size(),
         "", "§eClick to manage trades"));
 
-    gui.setItem(41, createGuiItem(Material.POTION, "§e Abilities",
+    gui.setItem(34, createGuiItem(Material.POTION, "§e Abilities",
         "§7Configured: " + itemData.getAbilities().size(),
         "", "§eClick to manage abilities"));
 
-    gui.setItem(43, createGuiItem(Material.ARMOR_STAND, "§e 3D Model Settings",
+    gui.setItem(37, createGuiItem(Material.ARMOR_STAND, "§e 3D Model Settings",
         "§7Model: " + (itemData.isModelEnabled() ? "§aEnabled" : "§cDisabled"),
         "§7Item: " + (itemData.getModelItem() != null ? itemData.getModelItem() : "§cnone"),
         "", "§eClick to configure 3D model"));
@@ -180,7 +191,7 @@ public class EditGUI implements Listener {
       return;
 
     switch (raw) {
-      case 19: // Edit Display Name (single-line)
+      case 10: // Edit Display Name (single-line)
         player.closeInventory();
         chatInputManager.startSingleLineSession(player,
             "Enter the display name for this item (supports color codes with &):",
@@ -195,7 +206,7 @@ public class EditGUI implements Listener {
             () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
         break;
 
-      case 21: // Set Material (single-line)
+      case 12: // Set Material (single-line)
         player.closeInventory();
         chatInputManager.startSingleLineSession(player,
             "Enter the material type (e.g., DIAMOND, GOLD_INGOT, PAPER):",
@@ -216,7 +227,7 @@ public class EditGUI implements Listener {
             () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
         break;
 
-      case 23: // Set Item Model (single-line)
+      case 14: // Set Item Model (single-line)
         player.closeInventory();
         chatInputManager.startSingleLineSession(player,
             "Enter the item model (format: namespace:model_name or just model_name for curiospaper:):",
@@ -232,7 +243,7 @@ public class EditGUI implements Listener {
             () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
         break;
 
-      case 25: // Set Custom Model Data
+      case 16: // Set Custom Model Data
         player.closeInventory();
         chatInputManager.startSingleLineSession(player,
             "Enter Custom Model Data (integer) or type 'remove' to clear:",
@@ -259,7 +270,7 @@ public class EditGUI implements Listener {
             () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
         break;
 
-      case 28: // Edit Lore
+      case 19: // Edit Lore
         player.closeInventory();
         chatInputManager.startSession(player,
             "Enter lore lines (one per message, supports & color codes):",
@@ -269,13 +280,18 @@ public class EditGUI implements Listener {
                   .collect(java.util.stream.Collectors.toList());
               itemData.setLore(coloredLore);
               itemDataManager.saveItemData(itemId);
-              player.sendMessage(plugin.getMessagesManager().get("editor.lore-updated", "count", String.valueOf(lines.size())));
+              player.sendMessage(
+                  plugin.getMessagesManager().get("editor.lore-updated", "count", String.valueOf(lines.size())));
               Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L);
             },
             () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
         break;
 
-      case 30: // Set Required Slot
+      case 21: // NBT & Enchants Editor
+        plugin.getNbtEditor().open(player, itemId);
+        break;
+
+      case 23: // Set Required Slot
         player.closeInventory();
         player.sendMessage(plugin.getMessagesManager().get("editor.available-slots-header"));
         for (String slotType : plugin.getCuriosPaperAPI().getAllSlotTypes()) {
@@ -312,23 +328,23 @@ public class EditGUI implements Listener {
             () -> Bukkit.getScheduler().runTaskLater(plugin, () -> open(player, itemId), 2L));
         break;
 
-      case 32: // Recipe
+      case 25: // Recipe
         plugin.getRecipeEditor().open(player, itemId);
         break;
-      case 34: // Loot Tables
+      case 28: // Loot Tables
         plugin.getLootTableBrowser().open(player, itemId);
         break;
-      case 37: // Mob Drops (moved from 33, but wait, 37 was previously Abilities! Now it's Mob
+      case 30: // Mob Drops (moved from 33, but wait, 37 was previously Abilities! Now it's Mob
         // Drops)
         plugin.getMobDropEditor().open(player, itemId);
         break;
-      case 39: // Villager Trades (moved from 35)
+      case 32: // Villager Trades (moved from 35)
         plugin.getTradeEditor().open(player, itemId);
         break;
-      case 41: // Abilities (moved from 37)
+      case 34: // Abilities (moved from 37)
         plugin.getAbilityEditor().open(player, itemId);
         break;
-      case 43: // 3D Model Settings
+      case 37: // 3D Model Settings
         plugin.getModelConfigGUI().open(player, itemId);
         break;
 

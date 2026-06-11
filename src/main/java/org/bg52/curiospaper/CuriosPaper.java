@@ -43,6 +43,7 @@ public class CuriosPaper extends JavaPlugin {
   private MobDropEditor mobDropEditor;
   private TradeEditor tradeEditor;
   private AbilityEditorGUI abilityEditor;
+  private org.bg52.curiospaper.inventory.NbtEditorGUI nbtEditor;
   private AbilityListener abilityListener;
   private ModelConfigGUI modelConfigGUI;
   private org.bg52.curiospaper.inventory.MobDropModelConfigGUI mobDropModelConfigGUI;
@@ -167,6 +168,9 @@ public class CuriosPaper extends JavaPlugin {
       this.abilityEditor = new AbilityEditorGUI(this);
       getServer().getPluginManager().registerEvents(this.abilityEditor, this);
 
+      this.nbtEditor = new org.bg52.curiospaper.inventory.NbtEditorGUI(this);
+      getServer().getPluginManager().registerEvents(this.nbtEditor, this);
+
       this.abilityListener = new AbilityListener(this);
       getServer().getPluginManager().registerEvents(this.abilityListener, this);
     }
@@ -230,6 +234,10 @@ public class CuriosPaper extends JavaPlugin {
 
   public AbilityEditorGUI getAbilityEditor() {
     return abilityEditor;
+  }
+
+  public org.bg52.curiospaper.inventory.NbtEditorGUI getNbtEditor() {
+    return nbtEditor;
   }
 
   public ModelConfigGUI getModelConfigGUI() {

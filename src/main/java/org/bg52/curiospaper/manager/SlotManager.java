@@ -30,12 +30,19 @@ public class SlotManager {
   }
 
   public void loadPlayerData(Player player) {
-    UUID playerId = player.getUniqueId();
+    loadPlayerData(player.getUniqueId());
+  }
+
+  /**
+   * Loads player accessory data from disk by UUID.
+   * Works for both online and offline players.
+   */
+  public void loadPlayerData(UUID playerId) {
     File playerFile = new File(dataFolder, playerId.toString() + ".yml");
 
     if (!playerFile.exists()) {
       playerAccessories.put(playerId, new HashMap<>());
-      plugin.getLogger().fine("No existing data for player: " + player.getName());
+      plugin.getLogger().fine("No existing data for player: " + playerId);
       return;
     }
 
@@ -53,9 +60,9 @@ public class SlotManager {
       }
 
       playerAccessories.put(playerId, accessories);
-      plugin.getLogger().info("Loaded accessory data for player: " + player.getName());
+      plugin.getLogger().info("Loaded accessory data for player: " + playerId);
     } catch (Exception e) {
-      plugin.getLogger().severe("Failed to load player data for " + player.getName() + ": " + e.getMessage());
+      plugin.getLogger().severe("Failed to load player data for " + playerId + ": " + e.getMessage());
       e.printStackTrace();
       // Initialize with empty data to prevent null pointer issues
       playerAccessories.put(playerId, new HashMap<>());

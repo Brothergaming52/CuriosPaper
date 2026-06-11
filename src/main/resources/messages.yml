@@ -41,6 +41,7 @@ commands:
   usage-reload: "&e/{label} reload <config|items|messages> &7- Reload config, items, or messages"
   usage-list: "&e/{label} list &7- List all items"
   usage-give: "&e/{label} give <item> [player] [amount]"
+  usage-inspect: "&e/{label} inspect <player> [slot] &7- View player's curios"
   usage-debug-player: "&e/{label} debug player <name>"
   usage-debug-item: "&e/{label} debug item"
 
@@ -149,6 +150,13 @@ commands:
       required-slot-none: "&eRequired slot: &cnone"
       pdc-keys: "&eCurios PDC keys: (Hidden/Unavailable on 1.14)"
       no-meta: "&eItem has no meta."
+
+  # Inspect command (admin: view another player's curios)
+  inspect:
+    usage: "&cUsage: /curios inspect <player> [slot]"
+    invalid-slot: "&cInvalid slot type: {slot}"
+    gui-title: "&8Inspect: {player}"
+    slot-gui-title: "&8{player} - {slot}"
 
 # ── GUI Messages ────────────────────────────────────────────────────────────
 gui:

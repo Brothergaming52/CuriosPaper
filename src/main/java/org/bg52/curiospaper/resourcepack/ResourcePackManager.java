@@ -20,6 +20,12 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 
 public class ResourcePackManager {
+  public enum HostingMode {
+    SELF,
+    LINK,
+    NONE
+  }
+
   private final CuriosPaper plugin;
   private final File resourcePackDir;
   private final File packFile;
@@ -243,8 +249,8 @@ public class ResourcePackManager {
         generatePack();
     }, 200L); // 10 seconds
 
-    // Start server if enabled
-    if (plugin.getConfig().getBoolean("resource-pack.enabled", false)) {
+    // Start server if mode is SELF
+    if (getHostingMode() == HostingMode.SELF) {
       int port = plugin.getConfig().getInt("resource-pack.port", 8080);
       server = new ResourcePackServer(plugin, port, packFile);
       server.start();
@@ -382,7 +388,36 @@ public class ResourcePackManager {
     return packHash;
   }
 
+  public HostingMode getHostingMode() {
+    String modeStr = plugin.getConfig().getString("resource-pack.mode");
+    if (modeStr != null) {
+      try {
+        return HostingMode.valueOf(modeStr.toUpperCase(Locale.ROOT));
+      } catch (IllegalArgumentException e) {
+        // Invalid mode config, fall back to enabled
+      }
+    }
+    boolean enabled = plugin.getConfig().getBoolean("resource-pack.enabled", true);
+    return enabled ? HostingMode.SELF : HostingMode.NONE;
+  }
+
+  public void reload() {
+    shutdown();
+    this.allowMinecraftNamespace = plugin.getConfig().getBoolean("resource-pack.allow-minecraft-namespace", false);
+    this.allowNamespaceConflicts = plugin.getConfig().getBoolean("resource-pack.allow-namespace-conflicts", false);
+    if (getHostingMode() == HostingMode.SELF) {
+      int port = plugin.getConfig().getInt("resource-pack.port", 8080);
+      server = new ResourcePackServer(plugin, port, packFile);
+      server.start();
+    }
+  }
+
   public String getPackUrl() {
+    HostingMode mode = getHostingMode();
+    if (mode == HostingMode.LINK) {
+      return plugin.getConfig().getString("resource-pack.url", "");
+    }
+
     String host = plugin.getConfig().getString("resource-pack.host-ip", "localhost");
     int port = plugin.getConfig().getInt("resource-pack.port", 8080);
 

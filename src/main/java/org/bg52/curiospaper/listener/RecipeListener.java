@@ -14,6 +14,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockCookEvent;
 import org.bukkit.event.inventory.FurnaceSmeltEvent;
+import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
@@ -214,7 +215,7 @@ public class RecipeListener implements Listener {
     recipe.shape(shape[0], shape[1], shape[2]);
 
     for (Map.Entry<Character, String> entry : recipeData.getIngredients().entrySet()) {
-      RecipeChoice choice = resolveIngredient(entry.getValue());
+      RecipeChoice choice = resolveIngredient(entry.getValue(), true);
       if (choice == null)
         return false;
       recipe.setIngredient(entry.getKey(), choice);
@@ -227,8 +228,9 @@ public class RecipeListener implements Listener {
   private boolean registerShapelessRecipe(NamespacedKey key, ItemStack result, RecipeData recipeData) {
     ShapelessRecipe recipe = new ShapelessRecipe(key, result);
 
+    boolean allowExact = isExactChoiceSupportedForShapeless();
     for (String ingredient : recipeData.getIngredients().values()) {
-      RecipeChoice choice = resolveIngredient(ingredient);
+      RecipeChoice choice = resolveIngredient(ingredient, allowExact);
       if (choice == null)
         return false;
       recipe.addIngredient(choice);
@@ -240,7 +242,7 @@ public class RecipeListener implements Listener {
 
   private boolean registerFurnaceRecipe(NamespacedKey key, ItemStack result, RecipeData recipe, boolean blast,
       boolean smoker) {
-    RecipeChoice input = resolveIngredient(recipe.getInputItem());
+    RecipeChoice input = resolveIngredient(recipe.getInputItem(), true);
     if (input == null)
       return false;
 
@@ -261,7 +263,7 @@ public class RecipeListener implements Listener {
   }
 
   private boolean registerCampfireRecipe(NamespacedKey key, ItemStack result, RecipeData recipe) {
-    RecipeChoice input = resolveIngredient(recipe.getInputItem());
+    RecipeChoice input = resolveIngredient(recipe.getInputItem(), true);
     if (input == null)
       return false;
 
@@ -277,15 +279,15 @@ public class RecipeListener implements Listener {
   }
 
   private boolean registerSmithingRecipe(NamespacedKey key, ItemStack result, RecipeData recipe) {
-    RecipeChoice base = resolveIngredient(recipe.getBaseItem());
-    RecipeChoice addition = resolveIngredient(recipe.getAdditionItem());
+    RecipeChoice base = resolveIngredient(recipe.getBaseItem(), true);
+    RecipeChoice addition = resolveIngredient(recipe.getAdditionItem(), true);
 
     if (base == null || addition == null)
       return false;
 
     if (VersionUtil.supportsSmithingTemplate()) {
       // 1.20+: Use SmithingTransformRecipe with template slot via reflection
-      RecipeChoice template = resolveIngredient(recipe.getTemplateItem());
+      RecipeChoice template = resolveIngredient(recipe.getTemplateItem(), true);
       if (template == null) {
         template = new RecipeChoice.MaterialChoice(Material.AIR);
       }
@@ -426,7 +428,7 @@ public class RecipeListener implements Listener {
     }
   }
 
-  private RecipeChoice resolveIngredient(String ingredient) {
+  private RecipeChoice resolveIngredient(String ingredient, boolean allowExact) {
     if (ingredient == null)
       return null;
 
@@ -447,6 +449,12 @@ public class RecipeListener implements Listener {
       }
 
       if (data != null) {
+        if (allowExact) {
+          ItemStack stack = createResultItem(data);
+          if (stack != null) {
+            return new RecipeChoice.ExactChoice(stack);
+          }
+        }
         try {
           Material mat = Material.valueOf(data.getMaterial().toUpperCase());
           return new RecipeChoice.MaterialChoice(mat);
@@ -457,23 +465,74 @@ public class RecipeListener implements Listener {
     return null;
   }
 
+  private static Boolean exactChoiceSupportedForShapeless = null;
+
+  private boolean isExactChoiceSupportedForShapeless() {
+    if (exactChoiceSupportedForShapeless != null) {
+      return exactChoiceSupportedForShapeless;
+    }
+    try {
+      NamespacedKey testKey = new NamespacedKey(plugin, "curiospaper_test_exact_choice_shapeless");
+      ItemStack result = new ItemStack(Material.DIRT);
+      ShapelessRecipe testRecipe = new ShapelessRecipe(testKey, result);
+      
+      ItemStack ingredient = new ItemStack(Material.DIRT);
+      RecipeChoice.ExactChoice exactChoice = new RecipeChoice.ExactChoice(ingredient);
+      
+      testRecipe.addIngredient(exactChoice);
+      
+      plugin.getServer().addRecipe(testRecipe);
+      
+      // Clean up test recipe
+      Iterator<Recipe> it = plugin.getServer().recipeIterator();
+      while (it.hasNext()) {
+        Recipe r = it.next();
+        if (r instanceof Keyed && ((Keyed) r).getKey().equals(testKey)) {
+          it.remove();
+          break;
+        }
+      }
+      exactChoiceSupportedForShapeless = true;
+    } catch (Throwable t) {
+      plugin.getLogger().info("ExactChoice on shapeless recipes is not supported by this server: " + t.getMessage());
+      exactChoiceSupportedForShapeless = false;
+    }
+    return exactChoiceSupportedForShapeless;
+  }
+
   private ItemStack createResultItem(ItemData itemData) {
     return plugin.getCuriosPaperAPI().createItemStack(itemData.getItemId());
   }
 
   @EventHandler
   public void onPrepareCraft(PrepareItemCraftEvent event) {
-    Recipe recipe = event.getRecipe();
-    if (recipe == null || !(recipe instanceof Keyed))
-      return;
+    ItemStack[] matrix = event.getInventory().getMatrix();
+    boolean containsCustomItem = false;
+    for (ItemStack item : matrix) {
+      if (item != null && getCustomItemId(item) != null) {
+        containsCustomItem = true;
+        break;
+      }
+    }
 
-    NamespacedKey key = ((Keyed) recipe).getKey();
-    if (!key.getNamespace().equalsIgnoreCase(plugin.getName()) || !key.getKey().startsWith("custom_")) {
-      // Not a CuriosPaper custom recipe
+    Recipe recipe = event.getRecipe();
+    if (recipe == null || !(recipe instanceof Keyed)) {
+      if (containsCustomItem) {
+        event.getInventory().setResult(null);
+      }
       return;
     }
 
-    ItemStack[] matrix = event.getInventory().getMatrix();
+    NamespacedKey key = ((Keyed) recipe).getKey();
+    boolean isCuriosRecipe = key.getNamespace().equalsIgnoreCase(plugin.getName()) && key.getKey().startsWith("custom_");
+
+    if (!isCuriosRecipe) {
+      if (containsCustomItem) {
+        event.getInventory().setResult(null);
+      }
+      return;
+    }
+
     // Strict Validation Logic
     if (!validateCustomIngredients(key, matrix)) {
       event.getInventory().setResult(null); // Invalid craft
@@ -521,6 +580,41 @@ public class RecipeListener implements Listener {
       } else {
         event.getInventory().setResult(result);
       }
+    }
+  }
+
+  @EventHandler
+  public void onCraftItem(CraftItemEvent event) {
+    ItemStack[] matrix = event.getInventory().getMatrix();
+    boolean containsCustomItem = false;
+    for (ItemStack item : matrix) {
+      if (item != null && getCustomItemId(item) != null) {
+        containsCustomItem = true;
+        break;
+      }
+    }
+
+    if (!containsCustomItem) {
+      return;
+    }
+
+    Recipe recipe = event.getRecipe();
+    if (recipe == null || !(recipe instanceof Keyed)) {
+      event.setCancelled(true);
+      return;
+    }
+
+    NamespacedKey key = ((Keyed) recipe).getKey();
+    boolean isCuriosRecipe = key.getNamespace().equalsIgnoreCase(plugin.getName()) && key.getKey().startsWith("custom_");
+
+    if (!isCuriosRecipe) {
+      event.setCancelled(true);
+      return;
+    }
+
+    // Also check if validation passes
+    if (!validateCustomIngredients(key, matrix)) {
+      event.setCancelled(true);
     }
   }
 

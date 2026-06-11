@@ -5,6 +5,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Represents all data associated with a custom item, including its properties,
@@ -33,6 +35,11 @@ public class ItemData {
   private Float pitchDownLimit;
 
   private boolean hidden = false;
+  private boolean unbreakable = false;
+  private boolean hideEnchants = false;
+  private boolean placeable = false;
+  private Map<String, Integer> enchants = new HashMap<>();
+  private Map<String, String> nbt = new HashMap<>();
 
   public ItemData(String itemId) {
     this.itemId = itemId;
@@ -42,6 +49,9 @@ public class ItemData {
     this.mobDrops = new ArrayList<>();
     this.villagerTrades = new ArrayList<>();
     this.abilities = new ArrayList<>();
+    this.enchants = new HashMap<>();
+    this.nbt = new HashMap<>();
+    this.hideEnchants = false;
   }
 
   // ========== GETTERS ==========
@@ -248,6 +258,46 @@ public class ItemData {
     this.hidden = hidden;
   }
 
+  public boolean isUnbreakable() {
+    return unbreakable;
+  }
+
+  public void setUnbreakable(boolean unbreakable) {
+    this.unbreakable = unbreakable;
+  }
+
+  public boolean isHideEnchants() {
+    return hideEnchants;
+  }
+
+  public void setHideEnchants(boolean hideEnchants) {
+    this.hideEnchants = hideEnchants;
+  }
+
+  public boolean isPlaceable() {
+    return placeable;
+  }
+
+  public void setPlaceable(boolean placeable) {
+    this.placeable = placeable;
+  }
+
+  public Map<String, Integer> getEnchants() {
+    return enchants != null ? new HashMap<>(enchants) : new HashMap<>();
+  }
+
+  public void setEnchants(Map<String, Integer> enchants) {
+    this.enchants = enchants != null ? new HashMap<>(enchants) : new HashMap<>();
+  }
+
+  public Map<String, String> getNbt() {
+    return nbt != null ? new HashMap<>(nbt) : new HashMap<>();
+  }
+
+  public void setNbt(Map<String, String> nbt) {
+    this.nbt = nbt != null ? new HashMap<>(nbt) : new HashMap<>();
+  }
+
   // ========== SERIALIZATION ==========
 
   /**
@@ -311,6 +361,21 @@ public class ItemData {
       config.set("pitch-down-limit", pitchDownLimit);
     }
     config.set("hidden", hidden);
+    config.set("unbreakable", unbreakable);
+    config.set("hide-enchants", hideEnchants);
+    config.set("placeable", placeable);
+    if (enchants != null && !enchants.isEmpty()) {
+      org.bukkit.configuration.ConfigurationSection enchantsSection = config.createSection("enchants");
+      for (Map.Entry<String, Integer> entry : enchants.entrySet()) {
+        enchantsSection.set(entry.getKey(), entry.getValue());
+      }
+    }
+    if (nbt != null && !nbt.isEmpty()) {
+      org.bukkit.configuration.ConfigurationSection nbtSection = config.createSection("nbt");
+      for (Map.Entry<String, String> entry : nbt.entrySet()) {
+        nbtSection.set(entry.getKey(), entry.getValue());
+      }
+    }
 
     if (!recipes.isEmpty()) {
       ConfigurationSection recipesSection = config.createSection("recipes");
@@ -396,6 +461,29 @@ public class ItemData {
       data.setPitchDownLimit((float) config.getDouble("pitch-down-limit"));
     }
     data.setHidden(config.getBoolean("hidden", false));
+    data.setUnbreakable(config.getBoolean("unbreakable", false));
+    data.setHideEnchants(config.getBoolean("hide-enchants", false));
+    data.setPlaceable(config.getBoolean("placeable", false));
+
+    // Load enchants
+    ConfigurationSection enchantsSection = config.getConfigurationSection("enchants");
+    if (enchantsSection != null) {
+      Map<String, Integer> enchants = new HashMap<>();
+      for (String key : enchantsSection.getKeys(false)) {
+        enchants.put(key, enchantsSection.getInt(key));
+      }
+      data.setEnchants(enchants);
+    }
+
+    // Load nbt
+    ConfigurationSection nbtSection = config.getConfigurationSection("nbt");
+    if (nbtSection != null) {
+      Map<String, String> nbt = new HashMap<>();
+      for (String key : nbtSection.getKeys(false)) {
+        nbt.put(key, nbtSection.getString(key));
+      }
+      data.setNbt(nbt);
+    }
 
     // Load recipes
     ConfigurationSection recipesSection = config.getConfigurationSection("recipes");

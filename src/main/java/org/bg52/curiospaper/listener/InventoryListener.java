@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class InventoryListener implements Listener {
   private final CuriosPaper plugin;
@@ -52,6 +53,8 @@ public class InventoryListener implements Listener {
       handleSlotsGUIClick(event, player, title);
     } else if (EditMenuGUI.isEditMenu(title)) {
       handleEditMenuClick(event, player);
+    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectGUI(title)) {
+      handleInspectGUIClick(event, player);
     }
   }
 
@@ -116,6 +119,189 @@ public class InventoryListener implements Listener {
 
     // Force inventory update to keep client in sync
     Bukkit.getScheduler().runTask(plugin, player::updateInventory);
+  }
+
+  // ---- Inspect GUI handling (admin view — overview read-only, slot GUI editable) ----
+
+  private void handleInspectGUIClick(InventoryClickEvent event, Player player) {
+    String title = event.getView().getTitle();
+
+    // Overview GUI is always read-only (navigation only)
+    if (org.bg52.curiospaper.command.CuriosCommand.isInspectOverviewGUI(title)) {
+      event.setCancelled(true);
+
+      ItemStack clicked = event.getCurrentItem();
+      if (clicked == null || !clicked.hasItemMeta()) return;
+
+      org.bukkit.persistence.PersistentDataContainer pdc = clicked.getItemMeta().getPersistentDataContainer();
+      org.bukkit.NamespacedKey slotTypeKey = new org.bukkit.NamespacedKey(plugin, "inspect_slot_type");
+      org.bukkit.NamespacedKey targetUUIDKey = new org.bukkit.NamespacedKey(plugin, "inspect_target_uuid");
+      org.bukkit.NamespacedKey targetNameKey = new org.bukkit.NamespacedKey(plugin, "inspect_target_name");
+
+      String slotType = pdc.get(slotTypeKey, org.bukkit.persistence.PersistentDataType.STRING);
+      String targetName = pdc.get(targetNameKey, org.bukkit.persistence.PersistentDataType.STRING);
+
+      if (slotType != null && targetName != null) {
+        // Navigate to slot detail view
+        player.performCommand("curios inspect " + targetName + " " + slotType);
+      }
+      return;
+    }
+
+    // Slot GUI is editable — only restrict non-accessory slots
+    if (org.bg52.curiospaper.command.CuriosCommand.isInspectSlotGUI(title)) {
+      int rawSlot = event.getRawSlot();
+      org.bukkit.inventory.Inventory topInv = event.getView().getTopInventory();
+
+      // Check for back button click
+      ItemStack clicked = event.getCurrentItem();
+      if (clicked != null && clicked.hasItemMeta()) {
+        org.bukkit.NamespacedKey backKey = new org.bukkit.NamespacedKey(plugin, "inspect_back");
+        org.bukkit.NamespacedKey targetNameKey = new org.bukkit.NamespacedKey(plugin, "inspect_target_name");
+
+        org.bukkit.persistence.PersistentDataContainer pdc = clicked.getItemMeta().getPersistentDataContainer();
+        if (pdc.has(backKey, org.bukkit.persistence.PersistentDataType.BYTE)) {
+          event.setCancelled(true);
+          // Save before going back
+          saveInspectSlotGUI(player, topInv);
+          String targetName = pdc.get(targetNameKey, org.bukkit.persistence.PersistentDataType.STRING);
+          if (targetName != null) {
+            Bukkit.getScheduler().runTask(plugin, () -> player.performCommand("curios inspect " + targetName));
+          }
+          return;
+        }
+
+        // Check for placeholder click — treat as empty slot
+        org.bukkit.NamespacedKey placeholderKey = new org.bukkit.NamespacedKey(plugin, "inspect_placeholder");
+        if (pdc.has(placeholderKey, org.bukkit.persistence.PersistentDataType.BYTE)) {
+          // If cursor has an item, allow placing
+          ItemStack cursor = event.getCursor();
+          if (cursor != null && cursor.getType() != org.bukkit.Material.AIR) {
+            event.setCurrentItem(null); // Remove placeholder to allow placement
+            return; // Allow the event
+          }
+          event.setCancelled(true); // Don't pick up placeholder
+          return;
+        }
+      }
+
+      // Allow clicks in accessory slots and player inventory
+      if (rawSlot < topInv.getSize()) {
+        int[] accessoryPositions = org.bg52.curiospaper.command.CuriosCommand.getActiveInspectSlotPositions()
+            .get(player.getUniqueId());
+        if (accessoryPositions != null) {
+          boolean isAccessorySlot = false;
+          for (int pos : accessoryPositions) {
+            if (rawSlot == pos) { isAccessorySlot = true; break; }
+          }
+          if (!isAccessorySlot) {
+            event.setCancelled(true); // Block clicks on border/filler
+          }
+          // Accessory slots are free for interaction
+        } else {
+          event.setCancelled(true);
+        }
+      }
+      // Clicks in player inventory area are always allowed
+    }
+  }
+
+  /**
+   * Saves the current state of an inspect slot GUI, fires equip events, and persists to disk.
+   */
+  private void saveInspectSlotGUI(Player admin, org.bukkit.inventory.Inventory topInventory) {
+    UUID adminUUID = admin.getUniqueId();
+    Map<UUID, UUID> sessions = org.bg52.curiospaper.command.CuriosCommand.getActiveInspectSessions();
+    Map<UUID, String> slotTypes = org.bg52.curiospaper.command.CuriosCommand.getActiveInspectSlotTypes();
+    Map<UUID, List<ItemStack>> previousItemsMap = org.bg52.curiospaper.command.CuriosCommand.getActiveInspectPreviousItems();
+    Map<UUID, int[]> slotPositionsMap = org.bg52.curiospaper.command.CuriosCommand.getActiveInspectSlotPositions();
+
+    UUID targetUUID = sessions.get(adminUUID);
+    String slotType = slotTypes.get(adminUUID);
+    List<ItemStack> previousItems = previousItemsMap.get(adminUUID);
+    int[] positions = slotPositionsMap.get(adminUUID);
+
+    if (targetUUID == null || slotType == null || positions == null) return;
+
+    // Read current items from the GUI's accessory positions
+    List<ItemStack> newItems = new ArrayList<>();
+    for (int pos : positions) {
+      ItemStack item = topInventory.getItem(pos);
+      if (item != null && item.getType() != org.bukkit.Material.AIR) {
+        // Skip placeholders
+        if (item.hasItemMeta()) {
+          org.bukkit.NamespacedKey placeholderKey = new org.bukkit.NamespacedKey(plugin, "inspect_placeholder");
+          if (item.getItemMeta().getPersistentDataContainer()
+              .has(placeholderKey, org.bukkit.persistence.PersistentDataType.BYTE)) {
+            newItems.add(null);
+            continue;
+          }
+        }
+        newItems.add(item.clone());
+      } else {
+        newItems.add(null);
+      }
+    }
+
+    // Save the new state to SlotManager
+    plugin.getSlotManager().setAccessories(targetUUID, slotType, newItems);
+    plugin.getSlotManager().savePlayerData(targetUUID);
+
+    // Fire equip/unequip events for any changes (target player as the event subject)
+    Player targetPlayer = Bukkit.getPlayer(targetUUID);
+    if (previousItems != null) {
+      if (previousItems == null) previousItems = new ArrayList<>();
+      int maxSize = Math.max(previousItems.size(), newItems.size());
+
+      for (int i = 0; i < maxSize; i++) {
+        ItemStack oldItem = i < previousItems.size() ? previousItems.get(i) : null;
+        ItemStack newItem = i < newItems.size() ? newItems.get(i) : null;
+
+        boolean oldEmpty = oldItem == null || oldItem.getType() == org.bukkit.Material.AIR;
+        boolean newEmpty = newItem == null || newItem.getType() == org.bukkit.Material.AIR;
+
+        if (oldEmpty && newEmpty) continue;
+
+        // For offline players, we can't fire Bukkit events (no Player object),
+        // but we can still fire for online players
+        if (targetPlayer != null) {
+          if (!oldEmpty && newEmpty) {
+            org.bg52.curiospaper.event.AccessoryEquipEvent equipEvent =
+                new org.bg52.curiospaper.event.AccessoryEquipEvent(
+                    targetPlayer, slotType, i, oldItem, null,
+                    org.bg52.curiospaper.event.AccessoryEquipEvent.Action.UNEQUIP);
+            Bukkit.getPluginManager().callEvent(equipEvent);
+          } else if (oldEmpty && !newEmpty) {
+            org.bg52.curiospaper.event.AccessoryEquipEvent equipEvent =
+                new org.bg52.curiospaper.event.AccessoryEquipEvent(
+                    targetPlayer, slotType, i, null, newItem,
+                    org.bg52.curiospaper.event.AccessoryEquipEvent.Action.EQUIP);
+            Bukkit.getPluginManager().callEvent(equipEvent);
+          } else if (!oldItem.equals(newItem)) {
+            org.bg52.curiospaper.event.AccessoryEquipEvent equipEvent =
+                new org.bg52.curiospaper.event.AccessoryEquipEvent(
+                    targetPlayer, slotType, i, oldItem, newItem,
+                    org.bg52.curiospaper.event.AccessoryEquipEvent.Action.SWAP);
+            Bukkit.getPluginManager().callEvent(equipEvent);
+          }
+        }
+      }
+
+      // Update 3D model stands if target is online
+      if (targetPlayer != null) {
+        Bukkit.getScheduler().runTask(plugin, () ->
+            plugin.getModelStandManager().rescanPlayer(targetPlayer));
+      }
+    }
+
+    // Clean up session data
+    sessions.remove(adminUUID);
+    slotTypes.remove(adminUUID);
+    previousItemsMap.remove(adminUUID);
+    slotPositionsMap.remove(adminUUID);
+
+    plugin.getLogger().info("[CuriosPaper] Admin " + admin.getName() +
+        " modified " + slotType + " slot for player " + targetUUID);
   }
 
   private void handleMainGUIClick(InventoryClickEvent event, Player player) {
@@ -386,6 +572,29 @@ public class InventoryListener implements Listener {
       event.setCancelled(true);
     } else if (EditMenuGUI.isEditMenu(title)) {
       event.setCancelled(true);
+    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectOverviewGUI(title)) {
+      event.setCancelled(true);
+    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectSlotGUI(title)) {
+      // Block drags to non-accessory slots in inspect slot GUI
+      Inventory topInventory = event.getView().getTopInventory();
+      int[] accessoryPositions = org.bg52.curiospaper.command.CuriosCommand.getActiveInspectSlotPositions()
+          .get(player.getUniqueId());
+      if (accessoryPositions != null) {
+        for (int rawSlot : event.getRawSlots()) {
+          if (rawSlot < topInventory.getSize()) {
+            boolean isAccessorySlot = false;
+            for (int pos : accessoryPositions) {
+              if (rawSlot == pos) { isAccessorySlot = true; break; }
+            }
+            if (!isAccessorySlot) {
+              event.setCancelled(true);
+              return;
+            }
+          }
+        }
+      } else {
+        event.setCancelled(true);
+      }
     } else if (AccessoryGUI.isSlotsGUI(title)) {
       String slotType = AccessoryGUI.extractSlotTypeFromTitle(title);
       if (slotType == null) {
@@ -465,6 +674,12 @@ public class InventoryListener implements Listener {
       previousInventoryState.remove(player);
     } else if (EditMenuGUI.isEditMenu(title)) {
       handleEditMenuClose(event);
+    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectSlotGUI(title)) {
+      // Save changes when admin closes the inspect slot GUI
+      saveInspectSlotGUI(player, event.getInventory());
+    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectOverviewGUI(title)) {
+      // Clean up session data when overview is closed directly
+      org.bg52.curiospaper.command.CuriosCommand.getActiveInspectSessions().remove(player.getUniqueId());
     }
   }
 

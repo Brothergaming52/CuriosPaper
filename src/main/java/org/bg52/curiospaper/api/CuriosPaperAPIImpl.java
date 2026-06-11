@@ -13,6 +13,7 @@ import org.bukkit.persistence.PersistentDataType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
 
 public class CuriosPaperAPIImpl implements CuriosPaperAPI {
   private final CuriosPaper plugin;
@@ -62,20 +63,57 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
           meta.setLore(coloredLore);
         }
 
-        // Set item model and custom model data
-        if (itemData.getItemModel() != null && !itemData.getItemModel().isEmpty()) {
-          org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemData.getItemModel(),
-              itemData.getCustomModelData());
-        }
+        // Check if player head and has base64 texture in itemModel
+        boolean isPlayerHead = material == org.bukkit.Material.PLAYER_HEAD;
 
-        if (itemData.getCustomModelData() != null) {
-          // No item model, but custom model data is set — apply it directly
-          meta.setCustomModelData(itemData.getCustomModelData());
+        if (isPlayerHead && itemData.getItemModel() != null && !itemData.getItemModel().isEmpty()) {
+          if (meta instanceof org.bukkit.inventory.meta.SkullMeta) {
+            org.bg52.curiospaper.util.VersionUtil.setSkullBase64((org.bukkit.inventory.meta.SkullMeta) meta, itemData.getItemModel());
+          }
+        } else {
+          // Set item model and custom model data
+          if (itemData.getItemModel() != null && !itemData.getItemModel().isEmpty()) {
+            org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta, itemData.getItemModel(),
+                itemData.getCustomModelData());
+          }
+
+          if (itemData.getCustomModelData() != null) {
+            // No item model, but custom model data is set — apply it directly
+            meta.setCustomModelData(itemData.getCustomModelData());
+          }
         }
 
         // Set custom ID in PDC
         PersistentDataContainer container = meta.getPersistentDataContainer();
         container.set(itemIdKey, PersistentDataType.STRING, itemId);
+
+        // Apply unbreakable
+        if (itemData.isUnbreakable()) {
+          meta.setUnbreakable(true);
+        }
+
+        // Apply enchants
+        if (itemData.getEnchants() != null && !itemData.getEnchants().isEmpty()) {
+          for (Map.Entry<String, Integer> entry : itemData.getEnchants().entrySet()) {
+            org.bukkit.enchantments.Enchantment enchant = org.bukkit.enchantments.Enchantment.getByName(entry.getKey().toUpperCase());
+            if (enchant == null) {
+              enchant = org.bukkit.enchantments.Enchantment.getByKey(org.bukkit.NamespacedKey.minecraft(entry.getKey().toLowerCase()));
+            }
+            if (enchant != null) {
+              meta.addEnchant(enchant, entry.getValue(), true);
+            }
+          }
+        }
+
+        // Apply hideEnchants
+        if (itemData.isHideEnchants()) {
+          meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
+        }
+
+        // Apply custom NBT (PDC)
+        if (itemData.getNbt() != null && !itemData.getNbt().isEmpty()) {
+          org.bg52.curiospaper.util.VersionUtil.applyPdcMap(meta, itemData.getNbt());
+        }
 
         item.setItemMeta(meta);
       }
@@ -827,6 +865,22 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
   public void refreshModels(Player player) {
     if (player != null && player.isOnline()) {
       plugin.getModelStandManager().updateStandsForPlayer(player, true);
+    }
+  }
+
+  @Override
+  public ItemStack createBase64Skull(String base64) {
+    try {
+      ItemStack item = new ItemStack(org.bukkit.Material.PLAYER_HEAD);
+      ItemMeta meta = item.getItemMeta();
+      if (meta instanceof org.bukkit.inventory.meta.SkullMeta) {
+        org.bg52.curiospaper.util.VersionUtil.setSkullBase64((org.bukkit.inventory.meta.SkullMeta) meta, base64);
+        item.setItemMeta(meta);
+      }
+      return item;
+    } catch (Exception e) {
+      plugin.getLogger().warning("Failed to create base64 skull: " + e.getMessage());
+      return null;
     }
   }
 }

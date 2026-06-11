@@ -496,4 +496,426 @@ public class VersionUtil {
       meta.setCustomModelData(customModelData);
     }
   }
+
+  /**
+   * Set a base64 skin texture on a SkullMeta.
+   * Compiles on 1.14.4 and works via reflection on all versions.
+   */
+  public static java.net.URL getUrlFromBase64(String base64) {
+    if (base64 == null || base64.trim().isEmpty()) {
+      return null;
+    }
+    base64 = base64.trim();
+    // Try base64 decode first
+    try {
+      byte[] decodedBytes = java.util.Base64.getDecoder().decode(base64);
+      String decoded = new String(decodedBytes);
+      int urlIndex = decoded.indexOf("http://textures.minecraft.net/texture/");
+      if (urlIndex == -1) {
+        urlIndex = decoded.indexOf("https://textures.minecraft.net/texture/");
+      }
+      if (urlIndex != -1) {
+        int end = urlIndex;
+        while (end < decoded.length()) {
+          char c = decoded.charAt(end);
+          if (c == '"' || c == '\\' || c == ' ' || c == '}' || c == '\'') {
+            break;
+          }
+          end++;
+        }
+        String urlStr = decoded.substring(urlIndex, end);
+        if (urlStr.startsWith("http://")) {
+          urlStr = "https://" + urlStr.substring(7);
+        }
+        return new java.net.URL(urlStr);
+      }
+    } catch (Throwable t) {
+      // Not base64
+    }
+
+    // Try directly as URL
+    try {
+      if (base64.startsWith("http://") || base64.startsWith("https://")) {
+        String urlStr = base64;
+        if (urlStr.startsWith("http://")) {
+          urlStr = "https://" + urlStr.substring(7);
+        }
+        return new java.net.URL(urlStr);
+      }
+      if (base64.length() > 20 && base64.matches("[a-fA-F0-9]+")) {
+        return new java.net.URL("https://textures.minecraft.net/texture/" + base64);
+      }
+    } catch (Throwable t) {
+      // Ignore
+    }
+    return null;
+  }
+
+  public static void setSkullBase64(org.bukkit.inventory.meta.SkullMeta meta, String base64) {
+    if (meta == null || base64 == null || base64.trim().isEmpty()) {
+      return;
+    }
+
+    Throwable path1aErr = null;
+    Throwable path1bErr = null;
+    Throwable path2Err = null;
+    Throwable path3Err = null;
+
+    // Path 1a: Bukkit PlayerProfile + PlayerTextures (Official, stable, avoids property errors on 1.18+)
+    try {
+      java.lang.reflect.Method createPlayerProfileMethod = org.bukkit.Bukkit.class.getMethod("createPlayerProfile", java.util.UUID.class, String.class);
+      createPlayerProfileMethod.setAccessible(true);
+      Object playerProfile = createPlayerProfileMethod.invoke(null, java.util.UUID.randomUUID(), "");
+
+      Class<?> playerProfileClass = Class.forName("org.bukkit.profile.PlayerProfile");
+      Class<?> playerTexturesClass = Class.forName("org.bukkit.profile.PlayerTextures");
+
+      java.lang.reflect.Method getTexturesMethod = playerProfileClass.getMethod("getTextures");
+      getTexturesMethod.setAccessible(true);
+      Object playerTextures = getTexturesMethod.invoke(playerProfile);
+
+      java.net.URL url = getUrlFromBase64(base64);
+      if (url != null) {
+        java.lang.reflect.Method setSkinMethod = playerTexturesClass.getMethod("setSkin", java.net.URL.class);
+        setSkinMethod.setAccessible(true);
+        setSkinMethod.invoke(playerTextures, url);
+
+        java.lang.reflect.Method setTexturesMethod = playerProfileClass.getMethod("setTextures", playerTexturesClass);
+        setTexturesMethod.setAccessible(true);
+        setTexturesMethod.invoke(playerProfile, playerTextures);
+
+        java.lang.reflect.Method setOwnerProfileMethod = org.bukkit.inventory.meta.SkullMeta.class.getMethod("setOwnerProfile", playerProfileClass);
+        setOwnerProfileMethod.setAccessible(true);
+        setOwnerProfileMethod.invoke(meta, playerProfile);
+        return; // Success!
+      } else {
+        path1aErr = new IllegalArgumentException("Parsed skin URL is null from base64 string");
+      }
+    } catch (Throwable t) {
+      path1aErr = t;
+    }
+
+    // Path 1b: Bukkit PlayerProfile + ProfileProperty (Fallback 1.18+)
+    try {
+      java.lang.reflect.Method createPlayerProfileMethod = org.bukkit.Bukkit.class.getMethod("createPlayerProfile", java.util.UUID.class, String.class);
+      createPlayerProfileMethod.setAccessible(true);
+      Object playerProfile = createPlayerProfileMethod.invoke(null, java.util.UUID.randomUUID(), "");
+
+      Class<?> playerProfileClass = Class.forName("org.bukkit.profile.PlayerProfile");
+      java.lang.reflect.Method getPropertiesMethod = playerProfileClass.getMethod("getProperties");
+      getPropertiesMethod.setAccessible(true);
+      java.util.Collection<Object> properties = (java.util.Collection<Object>) getPropertiesMethod.invoke(playerProfile);
+
+      Class<?> profilePropertyClass = Class.forName("org.bukkit.profile.ProfileProperty");
+      java.lang.reflect.Constructor<?> propertyConstructor = profilePropertyClass.getConstructor(String.class, String.class);
+      propertyConstructor.setAccessible(true);
+      Object property = propertyConstructor.newInstance("textures", base64);
+
+      properties.add(property);
+
+      java.lang.reflect.Method setOwnerProfileMethod = org.bukkit.inventory.meta.SkullMeta.class.getMethod("setOwnerProfile", playerProfileClass);
+      setOwnerProfileMethod.setAccessible(true);
+      setOwnerProfileMethod.invoke(meta, playerProfile);
+      return; // Success!
+    } catch (Throwable t) {
+      path1bErr = t;
+    }
+
+    // Path 2: Paper PlayerProfile API (1.12 - 1.17)
+    try {
+      java.lang.reflect.Method createProfileMethod = org.bukkit.Bukkit.class.getMethod("createProfile", java.util.UUID.class);
+      createProfileMethod.setAccessible(true);
+      Object profile = createProfileMethod.invoke(null, java.util.UUID.randomUUID());
+
+      Class<?> paperProfileClass = Class.forName("com.destroystokyo.paper.profile.PlayerProfile");
+      java.lang.reflect.Method getPropertiesMethod = paperProfileClass.getMethod("getProperties");
+      getPropertiesMethod.setAccessible(true);
+      java.util.Collection<Object> properties = (java.util.Collection<Object>) getPropertiesMethod.invoke(profile);
+
+      Class<?> profilePropertyClass = Class.forName("com.destroystokyo.paper.profile.ProfileProperty");
+      java.lang.reflect.Constructor<?> propertyConstructor = profilePropertyClass.getConstructor(String.class, String.class);
+      propertyConstructor.setAccessible(true);
+      Object property = propertyConstructor.newInstance("textures", base64);
+
+      properties.add(property);
+
+      java.lang.reflect.Method setPlayerProfileMethod = org.bukkit.inventory.meta.SkullMeta.class.getMethod("setPlayerProfile", paperProfileClass);
+      setPlayerProfileMethod.setAccessible(true);
+      setPlayerProfileMethod.invoke(meta, profile);
+      return;
+    } catch (Throwable t) {
+      path2Err = t;
+    }
+
+    // Path 3: Legacy GameProfile reflection (1.8 - 1.17)
+    try {
+      Class<?> gameProfileClass = Class.forName("com.mojang.authlib.GameProfile");
+      java.util.UUID uuid = java.util.UUID.randomUUID();
+      java.lang.reflect.Constructor<?> profileConstructor = gameProfileClass.getConstructor(java.util.UUID.class, String.class);
+      profileConstructor.setAccessible(true);
+      Object profile = profileConstructor.newInstance(uuid, "");
+
+      Class<?> propertyClass = Class.forName("com.mojang.authlib.properties.Property");
+      java.lang.reflect.Constructor<?> propertyConstructor = propertyClass.getConstructor(String.class, String.class);
+      propertyConstructor.setAccessible(true);
+      Object property = propertyConstructor.newInstance("textures", base64);
+
+      java.lang.reflect.Method getPropertiesMethod = gameProfileClass.getMethod("getProperties");
+      getPropertiesMethod.setAccessible(true);
+      Object propertiesMap = getPropertiesMethod.invoke(profile);
+
+      java.lang.reflect.Method putMethod = propertiesMap.getClass().getMethod("put", Object.class, Object.class);
+      putMethod.setAccessible(true);
+      putMethod.invoke(propertiesMap, "textures", property);
+
+      java.lang.reflect.Field profileField = null;
+      Class<?> currentClass = meta.getClass();
+      while (currentClass != null && currentClass != Object.class) {
+        try {
+          profileField = currentClass.getDeclaredField("profile");
+          break;
+        } catch (NoSuchFieldException e) {
+          currentClass = currentClass.getSuperclass();
+        }
+      }
+      if (profileField != null) {
+        profileField.setAccessible(true);
+        profileField.set(meta, profile);
+        return;
+      } else {
+        path3Err = new NoSuchFieldException("Could not find field 'profile' in " + meta.getClass().getName() + " or any of its superclasses");
+      }
+    } catch (Throwable t) {
+      path3Err = t;
+    }
+
+    // Log all errors to help with troubleshooting
+    org.bukkit.Bukkit.getLogger().warning("[CuriosPaper] All attempts to set skull base64 texture failed!");
+    if (path1aErr != null) {
+      org.bukkit.Bukkit.getLogger().warning("[CuriosPaper] Path 1a (Bukkit Profile + Textures API) failed: " + path1aErr.toString());
+      if (path1aErr instanceof java.lang.reflect.InvocationTargetException) {
+        org.bukkit.Bukkit.getLogger().warning("[CuriosPaper] Path 1a target error: " + ((java.lang.reflect.InvocationTargetException) path1aErr).getTargetException().toString());
+      }
+    }
+    if (path1bErr != null) org.bukkit.Bukkit.getLogger().warning("[CuriosPaper] Path 1b (Bukkit Profile + Property API) failed: " + path1bErr.toString());
+    if (path2Err != null) org.bukkit.Bukkit.getLogger().warning("[CuriosPaper] Path 2 (Paper Profile API) failed: " + path2Err.toString());
+    if (path3Err != null) org.bukkit.Bukkit.getLogger().warning("[CuriosPaper] Path 3 (Mojang GameProfile Reflection) failed: " + path3Err.toString());
+  }
+
+  public static String getSkullBase64(org.bukkit.inventory.meta.SkullMeta meta) {
+    if (meta == null) {
+      return null;
+    }
+
+    // Path 1: Bukkit PlayerProfile API (1.18+)
+    try {
+      java.lang.reflect.Method getOwnerProfileMethod = org.bukkit.inventory.meta.SkullMeta.class.getMethod("getOwnerProfile");
+      getOwnerProfileMethod.setAccessible(true);
+      Object playerProfile = getOwnerProfileMethod.invoke(meta);
+      if (playerProfile != null) {
+        // Try getting via properties first
+        try {
+          Class<?> playerProfileClass = Class.forName("org.bukkit.profile.PlayerProfile");
+          java.lang.reflect.Method getPropertiesMethod = playerProfileClass.getMethod("getProperties");
+          getPropertiesMethod.setAccessible(true);
+          java.util.Collection<?> properties = (java.util.Collection<?>) getPropertiesMethod.invoke(playerProfile);
+          for (Object prop : properties) {
+            java.lang.reflect.Method getNameMethod = prop.getClass().getMethod("getName");
+            getNameMethod.setAccessible(true);
+            String name = (String) getNameMethod.invoke(prop);
+            if ("textures".equals(name)) {
+              java.lang.reflect.Method getValueMethod = prop.getClass().getMethod("getValue");
+              getValueMethod.setAccessible(true);
+              return (String) getValueMethod.invoke(prop);
+            }
+          }
+        } catch (Throwable e) {
+          // Fallback
+        }
+
+        // Try getting via PlayerTextures
+        try {
+          Class<?> playerProfileClass = Class.forName("org.bukkit.profile.PlayerProfile");
+          Class<?> playerTexturesClass = Class.forName("org.bukkit.profile.PlayerTextures");
+
+          java.lang.reflect.Method getTexturesMethod = playerProfileClass.getMethod("getTextures");
+          getTexturesMethod.setAccessible(true);
+          Object playerTextures = getTexturesMethod.invoke(playerProfile);
+
+          java.lang.reflect.Method getSkinMethod = playerTexturesClass.getMethod("getSkin");
+          getSkinMethod.setAccessible(true);
+          java.net.URL skinUrl = (java.net.URL) getSkinMethod.invoke(playerTextures);
+          if (skinUrl != null) {
+            String json = "{\"textures\":{\"SKIN\":{\"url\":\"" + skinUrl.toString() + "\"}}}";
+            return java.util.Base64.getEncoder().encodeToString(json.getBytes());
+          }
+        } catch (Throwable e) {
+          // Fallback
+        }
+      }
+    } catch (Throwable t) {
+      // Fallback
+    }
+
+    // Path 2: Paper PlayerProfile API (1.12 - 1.17)
+    try {
+      java.lang.reflect.Method getPlayerProfileMethod = org.bukkit.inventory.meta.SkullMeta.class.getMethod("getPlayerProfile");
+      getPlayerProfileMethod.setAccessible(true);
+      Object profile = getPlayerProfileMethod.invoke(meta);
+      if (profile != null) {
+        Class<?> paperProfileClass = Class.forName("com.destroystokyo.paper.profile.PlayerProfile");
+        java.lang.reflect.Method getPropertiesMethod = paperProfileClass.getMethod("getProperties");
+        getPropertiesMethod.setAccessible(true);
+        java.util.Collection<?> properties = (java.util.Collection<?>) getPropertiesMethod.invoke(profile);
+        for (Object prop : properties) {
+          java.lang.reflect.Method getNameMethod = prop.getClass().getMethod("getName");
+          getNameMethod.setAccessible(true);
+          String name = (String) getNameMethod.invoke(prop);
+          if ("textures".equals(name)) {
+            java.lang.reflect.Method getValueMethod = prop.getClass().getMethod("getValue");
+            getValueMethod.setAccessible(true);
+            return (String) getValueMethod.invoke(prop);
+          }
+        }
+      }
+    } catch (Throwable t) {
+      // Fallback
+    }
+
+    // Path 3: Legacy GameProfile reflection (1.8 - 1.20)
+    try {
+      java.lang.reflect.Field profileField = null;
+      Class<?> currentClass = meta.getClass();
+      while (currentClass != null && currentClass != Object.class) {
+        try {
+          profileField = currentClass.getDeclaredField("profile");
+          break;
+        } catch (NoSuchFieldException e) {
+          currentClass = currentClass.getSuperclass();
+        }
+      }
+      if (profileField != null) {
+        profileField.setAccessible(true);
+        Object profile = profileField.get(meta);
+        if (profile != null) {
+          java.lang.reflect.Method getPropertiesMethod = profile.getClass().getMethod("getProperties");
+          getPropertiesMethod.setAccessible(true);
+          Object propertiesMap = getPropertiesMethod.invoke(profile);
+          java.lang.reflect.Method getMethod = propertiesMap.getClass().getMethod("get", Object.class);
+          getMethod.setAccessible(true);
+          java.util.Collection<?> textures = (java.util.Collection<?>) getMethod.invoke(propertiesMap, "textures");
+          for (Object prop : textures) {
+            java.lang.reflect.Method getValueMethod = prop.getClass().getMethod("getValue");
+            getValueMethod.setAccessible(true);
+            return (String) getValueMethod.invoke(prop);
+          }
+        }
+      }
+    } catch (Throwable t) {
+      // Fallback
+    }
+
+    return null;
+  }
+
+  public static java.util.Map<String, String> getPdcMap(org.bukkit.inventory.meta.ItemMeta meta) {
+    java.util.Map<String, String> map = new java.util.HashMap<>();
+    if (meta == null) return map;
+    try {
+      org.bukkit.persistence.PersistentDataContainer container = meta.getPersistentDataContainer();
+      java.util.Set<org.bukkit.NamespacedKey> keys = null;
+      try {
+        java.lang.reflect.Method getKeysMethod = container.getClass().getMethod("getKeys");
+        keys = (java.util.Set<org.bukkit.NamespacedKey>) getKeysMethod.invoke(container);
+      } catch (Exception e) {
+        try {
+          java.lang.reflect.Field field = container.getClass().getDeclaredField("customDataContainer");
+          field.setAccessible(true);
+          java.util.Map<?, ?> internalMap = (java.util.Map<?, ?>) field.get(container);
+          keys = new java.util.HashSet<>();
+          for (Object k : internalMap.keySet()) {
+            if (k instanceof org.bukkit.NamespacedKey) {
+              keys.add((org.bukkit.NamespacedKey) k);
+            }
+          }
+        } catch (Exception ex) {
+          // Ignore
+        }
+      }
+
+      if (keys != null) {
+        for (org.bukkit.NamespacedKey key : keys) {
+          String keyStr = key.toString();
+          // Skip curiospaper own metadata
+          if (keyStr.equals("curiospaper:item_id") || keyStr.endsWith("curios_custom_id") || keyStr.equals("curiospaper:slot_type")) {
+            continue;
+          }
+          if (container.has(key, org.bukkit.persistence.PersistentDataType.STRING)) {
+            map.put(keyStr, "string:" + container.get(key, org.bukkit.persistence.PersistentDataType.STRING));
+          } else if (container.has(key, org.bukkit.persistence.PersistentDataType.INTEGER)) {
+            map.put(keyStr, "int:" + container.get(key, org.bukkit.persistence.PersistentDataType.INTEGER));
+          } else if (container.has(key, org.bukkit.persistence.PersistentDataType.DOUBLE)) {
+            map.put(keyStr, "double:" + container.get(key, org.bukkit.persistence.PersistentDataType.DOUBLE));
+          } else if (container.has(key, org.bukkit.persistence.PersistentDataType.FLOAT)) {
+            map.put(keyStr, "float:" + container.get(key, org.bukkit.persistence.PersistentDataType.FLOAT));
+          } else if (container.has(key, org.bukkit.persistence.PersistentDataType.BYTE)) {
+            map.put(keyStr, "byte:" + container.get(key, org.bukkit.persistence.PersistentDataType.BYTE));
+          } else if (container.has(key, org.bukkit.persistence.PersistentDataType.SHORT)) {
+            map.put(keyStr, "short:" + container.get(key, org.bukkit.persistence.PersistentDataType.SHORT));
+          } else if (container.has(key, org.bukkit.persistence.PersistentDataType.LONG)) {
+            map.put(keyStr, "long:" + container.get(key, org.bukkit.persistence.PersistentDataType.LONG));
+          }
+        }
+      }
+    } catch (Throwable t) {
+      // Ignore if server version doesn't support PDC (pre-1.14), though our targeted versions all do
+    }
+    return map;
+  }
+
+  public static void applyPdcMap(org.bukkit.inventory.meta.ItemMeta meta, java.util.Map<String, String> map) {
+    if (meta == null || map == null) return;
+    try {
+      org.bukkit.persistence.PersistentDataContainer container = meta.getPersistentDataContainer();
+      for (java.util.Map.Entry<String, String> entry : map.entrySet()) {
+        org.bukkit.NamespacedKey key = parseNamespacedKey(entry.getKey());
+        if (key == null) continue;
+        String valStr = entry.getValue();
+        if (valStr == null || !valStr.contains(":")) continue;
+        String[] parts = valStr.split(":", 2);
+        String type = parts[0].toLowerCase();
+        String value = parts[1];
+        try {
+          switch (type) {
+            case "string":
+              container.set(key, org.bukkit.persistence.PersistentDataType.STRING, value);
+              break;
+            case "int":
+            case "integer":
+              container.set(key, org.bukkit.persistence.PersistentDataType.INTEGER, Integer.parseInt(value));
+              break;
+            case "double":
+              container.set(key, org.bukkit.persistence.PersistentDataType.DOUBLE, Double.parseDouble(value));
+              break;
+            case "float":
+              container.set(key, org.bukkit.persistence.PersistentDataType.FLOAT, Float.parseFloat(value));
+              break;
+            case "byte":
+              container.set(key, org.bukkit.persistence.PersistentDataType.BYTE, Byte.parseByte(value));
+              break;
+            case "short":
+              container.set(key, org.bukkit.persistence.PersistentDataType.SHORT, Short.parseShort(value));
+              break;
+            case "long":
+              container.set(key, org.bukkit.persistence.PersistentDataType.LONG, Long.parseLong(value));
+              break;
+          }
+        } catch (Exception e) {
+          // Ignore parse exceptions
+        }
+      }
+    } catch (Throwable t) {
+      // Ignore if server version doesn't support PDC
+    }
+  }
 }

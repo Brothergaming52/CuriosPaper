@@ -32,6 +32,9 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.enchantments.Enchantment;
 
 import java.util.*;
@@ -50,6 +53,16 @@ public class ModelStandManager implements Listener {
   private final Set<UUID> modelEntityIds = ConcurrentHashMap.newKeySet();
   private final Set<UUID> activeTridentUsers = ConcurrentHashMap.newKeySet();
   private final Map<UUID, Long> lastHideTickState = new ConcurrentHashMap<>();
+  private final Map<UUID, BukkitTask> pendingRemounts = new ConcurrentHashMap<>();
+  private final Map<UUID, RecordedSession> activeRecordings = new ConcurrentHashMap<>();
+  
+  private final Set<String> rtpCommands = ConcurrentHashMap.newKeySet();
+  private final Set<String> rtpBlocks = ConcurrentHashMap.newKeySet();
+  private final Set<String> rtpEntities = ConcurrentHashMap.newKeySet();
+  private final Set<String> rtpGuis = ConcurrentHashMap.newKeySet();
+
+  private final Set<UUID> dismountedPlayers = ConcurrentHashMap.newKeySet();
+  private boolean rtpEnabled = true;
 
   private final NamespacedKey modelHiddenKey;
   private final NamespacedKey modelStandTag;
@@ -62,7 +75,12 @@ public class ModelStandManager implements Listener {
     this.modelStandTag = new NamespacedKey(plugin, "curios_model_stand");
   }
 
+  public boolean isRtpEnabled() {
+    return rtpEnabled;
+  }
+
   public void initialize() {
+    loadRtpTriggers();
     Bukkit.getPluginManager().registerEvents(this, plugin);
 
     if (VersionUtil.supportsEntityPoseChangeEvent()) {
@@ -88,6 +106,13 @@ public class ModelStandManager implements Listener {
   }
 
   public void shutdown() {
+    for (BukkitTask task : pendingRemounts.values()) {
+      if (task != null) {
+        task.cancel();
+      }
+    }
+    pendingRemounts.clear();
+
     for (UUID playerId : new HashSet<>(activeStands.keySet())) {
       removeAllStands(playerId);
     }
@@ -110,7 +135,10 @@ public class ModelStandManager implements Listener {
 
   @EventHandler
   public void onPlayerQuit(PlayerQuitEvent event) {
-    removeAllStands(event.getPlayer().getUniqueId());
+    UUID playerId = event.getPlayer().getUniqueId();
+    activeRecordings.remove(playerId);
+    dismountedPlayers.remove(playerId);
+    removeAllStands(playerId);
   }
 
   @EventHandler
@@ -151,30 +179,33 @@ public class ModelStandManager implements Listener {
   @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
   public void onTeleport(PlayerTeleportEvent event) {
     Player player = event.getPlayer();
-    
-    if (event.getFrom().getWorld() != event.getTo().getWorld()) {
-      removeAllStands(player.getUniqueId());
-      Bukkit.getScheduler().runTaskLater(plugin, () -> {
-        if (player.isOnline()) {
-          rescanPlayer(player);
-        }
-      }, 5L);
-    } else {
-      // Same world teleport - Bukkit ejects passengers, so we must remount them
-      Bukkit.getScheduler().runTaskLater(plugin, () -> {
-        if (!player.isOnline()) return;
-        Map<String, Entity> stands = activeStands.get(player.getUniqueId());
-        if (stands != null) {
-          for (Entity stand : stands.values()) {
-            if (stand.isValid() && stand.getVehicle() != player) {
-              stand.teleport(player.getLocation());
-              player.addPassenger(stand);
-            }
-          }
-        }
-        updateStandsForPlayer(player, true);
-      }, 1L);
+    UUID playerId = player.getUniqueId();
+
+    if (rtpEnabled) {
+      // 1. Handle Recording completion on teleport
+      if (activeRecordings.containsKey(playerId)) {
+        RecordedSession session = activeRecordings.remove(playerId);
+        saveRecordedSession(session);
+        player.sendMessage("§a✓ Teleport detected! RTP sequence recording auto-saved successfully.");
+      }
+
+      // 2. Handle matching cleanup
+      dismountedPlayers.remove(playerId);
     }
+    
+    // Always remove all stands before teleport to prevent plugins (e.g. Multiverse,
+    // RTP) from trying to async-teleport the armor stand passengers, which fails.
+    // We recreate them at the destination instead.
+    removeAllStands(playerId);
+    
+    // Use a longer delay for cross-world teleports to let the world fully load
+    long delay = (event.getFrom().getWorld() != event.getTo().getWorld()) ? 5L : 2L;
+    
+    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+      if (player.isOnline()) {
+        rescanPlayer(player);
+      }
+    }, delay);
   }
 
   @EventHandler
@@ -210,17 +241,69 @@ public class ModelStandManager implements Listener {
   }
 
   // Prevent right-click interactions (e.g. villager trade GUI opening)
-  @EventHandler
+  @EventHandler(priority = EventPriority.LOWEST)
   public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
     if (modelEntityIds.contains(event.getRightClicked().getUniqueId())) {
       event.setCancelled(true);
+      return;
+    }
+    if (!rtpEnabled) return;
+
+    Player player = event.getPlayer();
+    UUID playerId = player.getUniqueId();
+    Entity clicked = event.getRightClicked();
+    
+    // 1. Handle Recording
+    if (activeRecordings.containsKey(playerId)) {
+      RecordedSession session = activeRecordings.get(playerId);
+      String name = clicked.getCustomName() != null ? clicked.getCustomName() : clicked.getName();
+      if (!session.entities.contains(name.toLowerCase())) {
+        session.entities.add(name.toLowerCase());
+        player.sendMessage("§e[Recorded] Entity: " + name);
+      }
+    }
+
+    // 2. Handle matching
+    String name = clicked.getCustomName() != null ? clicked.getCustomName() : clicked.getName();
+    String typeName = clicked.getType().name();
+    String uuidStr = clicked.getUniqueId().toString();
+    if (rtpEntities.contains(name.toLowerCase()) || 
+        rtpEntities.contains(typeName.toLowerCase()) || 
+        rtpEntities.contains(uuidStr)) {
+      tempDismount(player);
     }
   }
 
-  @EventHandler
+  @EventHandler(priority = EventPriority.LOWEST)
   public void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent event) {
     if (modelEntityIds.contains(event.getRightClicked().getUniqueId())) {
       event.setCancelled(true);
+      return;
+    }
+    if (!rtpEnabled) return;
+
+    Player player = event.getPlayer();
+    UUID playerId = player.getUniqueId();
+    Entity clicked = event.getRightClicked();
+    
+    // 1. Handle Recording
+    if (activeRecordings.containsKey(playerId)) {
+      RecordedSession session = activeRecordings.get(playerId);
+      String name = clicked.getCustomName() != null ? clicked.getCustomName() : clicked.getName();
+      if (!session.entities.contains(name.toLowerCase())) {
+        session.entities.add(name.toLowerCase());
+        player.sendMessage("§e[Recorded] Entity: " + name);
+      }
+    }
+
+    // 2. Handle matching
+    String name = clicked.getCustomName() != null ? clicked.getCustomName() : clicked.getName();
+    String typeName = clicked.getType().name();
+    String uuidStr = clicked.getUniqueId().toString();
+    if (rtpEntities.contains(name.toLowerCase()) || 
+        rtpEntities.contains(typeName.toLowerCase()) || 
+        rtpEntities.contains(uuidStr)) {
+      tempDismount(player);
     }
   }
 
@@ -233,11 +316,24 @@ public class ModelStandManager implements Listener {
       return;
     }
 
+    Player player = event.getPlayer();
+    UUID playerId = player.getUniqueId();
+    if (dismountedPlayers.contains(playerId)) {
+      if (from.getX() != to.getX() || from.getY() != to.getY() || from.getZ() != to.getZ()) {
+        double distSq = (from.getX() - to.getX()) * (from.getX() - to.getX()) +
+                        (from.getY() - to.getY()) * (from.getY() - to.getY()) +
+                        (from.getZ() - to.getZ()) * (from.getZ() - to.getZ());
+        if (distSq > 0.0025) { // 0.05 blocks distance
+          dismountedPlayers.remove(playerId);
+          remountStandsIfDismounted(player);
+        }
+      }
+    }
+
     boolean rotationChanged = Math.abs(from.getYaw() - to.getYaw()) >= ROTATION_THRESHOLD ||
         Math.abs(from.getPitch() - to.getPitch()) >= ROTATION_THRESHOLD;
 
     // Force update if player is in a state that usually requires model hiding
-    Player player = event.getPlayer();
     boolean forceUpdate = player.isGliding() || player.isSwimming();
 
     if (!rotationChanged && !forceUpdate) {
@@ -392,6 +488,300 @@ public class ModelStandManager implements Listener {
 
   private void cleanupTrident(Player player) {
     activeTridentUsers.remove(player.getUniqueId());
+  }
+
+  public static class RecordedSession {
+    public final List<String> commands = new ArrayList<>();
+    public final List<String> blocks = new ArrayList<>();
+    public final List<String> entities = new ArrayList<>();
+    public final List<String> guis = new ArrayList<>();
+  }
+
+  public void loadRtpTriggers() {
+    rtpCommands.clear();
+    rtpBlocks.clear();
+    rtpEntities.clear();
+    rtpGuis.clear();
+    dismountedPlayers.clear();
+
+    org.bukkit.configuration.file.FileConfiguration config = plugin.getConfig();
+    rtpEnabled = config.getBoolean("features.rtp.enabled", true);
+    if (!rtpEnabled) {
+      return;
+    }
+    
+    List<String> cmds = config.getStringList("features.rtp.commands");
+    if (cmds != null) {
+      for (String cmd : cmds) {
+        rtpCommands.add(cmd.toLowerCase());
+      }
+    }
+    if (rtpCommands.isEmpty()) {
+      rtpCommands.add("rtp");
+      rtpCommands.add("wild");
+      config.set("features.rtp.commands", new ArrayList<>(rtpCommands));
+      plugin.saveConfig();
+    }
+
+    List<String> blks = config.getStringList("features.rtp.blocks");
+    if (blks != null) {
+      for (String blk : blks) {
+        rtpBlocks.add(blk.toUpperCase());
+      }
+    }
+
+    List<String> ents = config.getStringList("features.rtp.entities");
+    if (ents != null) {
+      for (String ent : ents) {
+        rtpEntities.add(ent.toLowerCase());
+      }
+    }
+
+    List<String> gs = config.getStringList("features.rtp.guis");
+    if (gs != null) {
+      for (String g : gs) {
+        rtpGuis.add(g.toLowerCase());
+      }
+    }
+  }
+
+  public void toggleRecording(Player player) {
+    UUID playerId = player.getUniqueId();
+    if (activeRecordings.containsKey(playerId)) {
+      RecordedSession session = activeRecordings.remove(playerId);
+      saveRecordedSession(session);
+      player.sendMessage("§a✓ Recording stopped! Triggers have been saved to config.yml.");
+    } else {
+      activeRecordings.put(playerId, new RecordedSession());
+      player.sendMessage("§e[CuriosPaper] RTP trigger recording started.");
+      player.sendMessage("§ePerform the interaction sequence (commands, NPC/block clicks, GUI buttons) and finally teleport.");
+      player.sendMessage("§eTeleporting will automatically save the recording. You can also run /curios recordrtp again to stop and save manually.");
+    }
+  }
+
+  private void saveRecordedSession(RecordedSession session) {
+    org.bukkit.configuration.file.FileConfiguration config = plugin.getConfig();
+    
+    if (!session.commands.isEmpty()) {
+      List<String> cmds = config.getStringList("features.rtp.commands");
+      if (cmds == null) cmds = new ArrayList<>();
+      for (String cmd : session.commands) {
+        if (!cmds.contains(cmd)) {
+          cmds.add(cmd);
+          rtpCommands.add(cmd.toLowerCase());
+        }
+      }
+      config.set("features.rtp.commands", cmds);
+    }
+
+    if (!session.blocks.isEmpty()) {
+      List<String> blks = config.getStringList("features.rtp.blocks");
+      if (blks == null) blks = new ArrayList<>();
+      for (String blk : session.blocks) {
+        if (!blks.contains(blk)) {
+          blks.add(blk);
+          rtpBlocks.add(blk.toUpperCase());
+        }
+      }
+      config.set("features.rtp.blocks", blks);
+    }
+
+    if (!session.entities.isEmpty()) {
+      List<String> ents = config.getStringList("features.rtp.entities");
+      if (ents == null) ents = new ArrayList<>();
+      for (String ent : session.entities) {
+        if (!ents.contains(ent)) {
+          ents.add(ent);
+          rtpEntities.add(ent.toLowerCase());
+        }
+      }
+      config.set("features.rtp.entities", ents);
+    }
+
+    if (!session.guis.isEmpty()) {
+      List<String> gs = config.getStringList("features.rtp.guis");
+      if (gs == null) gs = new ArrayList<>();
+      for (String g : session.guis) {
+        if (!gs.contains(g)) {
+          gs.add(g);
+          rtpGuis.add(g.toLowerCase());
+        }
+      }
+      config.set("features.rtp.guis", gs);
+    }
+
+    plugin.saveConfig();
+  }
+
+  @EventHandler(priority = EventPriority.LOWEST)
+  public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
+    if (!rtpEnabled) return;
+    Player player = event.getPlayer();
+    UUID playerId = player.getUniqueId();
+    String message = event.getMessage();
+    if (message.isEmpty() || !message.startsWith("/")) return;
+    
+    String cmdName = message.split(" ")[0].substring(1).toLowerCase();
+
+    // 1. Handle Recording
+    if (activeRecordings.containsKey(playerId)) {
+      if (!cmdName.equalsIgnoreCase("curios")) {
+        RecordedSession session = activeRecordings.get(playerId);
+        if (!session.commands.contains(cmdName)) {
+          session.commands.add(cmdName);
+          player.sendMessage("§e[Recorded] Command: /" + cmdName);
+        }
+      }
+    }
+    
+    // 2. Handle matching
+    if (rtpCommands.contains(cmdName)) {
+      tempDismount(player);
+    }
+  }
+
+  @EventHandler(priority = EventPriority.LOWEST)
+  public void onInventoryClick(InventoryClickEvent event) {
+    if (!rtpEnabled) return;
+    if (!(event.getWhoClicked() instanceof Player)) return;
+    Player player = (Player) event.getWhoClicked();
+    UUID playerId = player.getUniqueId();
+    
+    String title = event.getView().getTitle();
+    int slot = event.getRawSlot();
+    if (slot < 0) return;
+    
+    // 1. Handle Recording
+    if (activeRecordings.containsKey(playerId)) {
+      RecordedSession session = activeRecordings.get(playerId);
+      String key = title.toLowerCase() + ":" + slot;
+      if (!session.guis.contains(key)) {
+        session.guis.add(key);
+        player.sendMessage("§e[Recorded] GUI Click: '" + title + "' slot " + slot);
+      }
+    }
+
+    // 2. Handle matching
+    String guiKey = title.toLowerCase();
+    String guiSlotKey = title.toLowerCase() + ":" + slot;
+    if (rtpGuis.contains(guiKey) || rtpGuis.contains(guiSlotKey)) {
+      tempDismount(player);
+    }
+  }
+
+  @EventHandler(priority = EventPriority.LOWEST)
+  public void onInventoryDrag(InventoryDragEvent event) {
+    if (!rtpEnabled) return;
+    if (!(event.getWhoClicked() instanceof Player)) return;
+    Player player = (Player) event.getWhoClicked();
+    UUID playerId = player.getUniqueId();
+    
+    String title = event.getView().getTitle();
+    
+    // 1. Handle Recording
+    if (activeRecordings.containsKey(playerId)) {
+      RecordedSession session = activeRecordings.get(playerId);
+      String key = title.toLowerCase();
+      if (!session.guis.contains(key)) {
+        session.guis.add(key);
+        player.sendMessage("§e[Recorded] GUI Drag in: '" + title + "'");
+      }
+    }
+
+    // 2. Handle matching
+    String guiKey = title.toLowerCase();
+    if (rtpGuis.contains(guiKey)) {
+      tempDismount(player);
+    }
+  }
+
+  @EventHandler(priority = EventPriority.LOWEST)
+  public void onPlayerInteract(PlayerInteractEvent event) {
+    if (!rtpEnabled) return;
+    Player player = event.getPlayer();
+    UUID playerId = player.getUniqueId();
+
+    // 1. Handle Recording
+    if (activeRecordings.containsKey(playerId)) {
+      if (event.getClickedBlock() != null) {
+        Material type = event.getClickedBlock().getType();
+        String locStr = event.getClickedBlock().getWorld().getName() + "," +
+                       event.getClickedBlock().getX() + "," +
+                       event.getClickedBlock().getY() + "," +
+                       event.getClickedBlock().getZ();
+        RecordedSession session = activeRecordings.get(playerId);
+        
+        if (event.getAction() == org.bukkit.event.block.Action.PHYSICAL) {
+          String key = type.name();
+          if (!session.blocks.contains(key)) {
+            session.blocks.add(key);
+            player.sendMessage("§e[Recorded] Stepped on block type: " + key);
+          }
+        } else if (event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) {
+          String keyName = type.name();
+          if (keyName.contains("BUTTON") || keyName.contains("SIGN") || type == Material.LEVER) {
+            if (!session.blocks.contains(locStr)) {
+              session.blocks.add(locStr);
+              player.sendMessage("§e[Recorded] Interacted block location: " + locStr);
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Handle matching
+    if (event.getClickedBlock() != null) {
+      Material type = event.getClickedBlock().getType();
+      String locStr = event.getClickedBlock().getWorld().getName() + "," +
+                     event.getClickedBlock().getX() + "," +
+                     event.getClickedBlock().getY() + "," +
+                     event.getClickedBlock().getZ();
+      if (event.getAction() == org.bukkit.event.block.Action.PHYSICAL) {
+        if (rtpBlocks.contains(type.name())) {
+          tempDismount(player);
+        }
+      } else if (event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) {
+        if (rtpBlocks.contains(type.name()) || rtpBlocks.contains(locStr)) {
+          tempDismount(player);
+        } else {
+          String name = type.name();
+          if (name.contains("BUTTON") || name.contains("SIGN") || type == Material.LEVER) {
+            tempDismount(player);
+          }
+        }
+      }
+    }
+  }
+
+  public void tempDismount(Player player) {
+    Map<String, Entity> playerStands = activeStands.get(player.getUniqueId());
+    if (playerStands == null || playerStands.isEmpty()) {
+      return;
+    }
+
+    for (Entity entity : playerStands.values()) {
+      if (entity != null && entity.isValid()) {
+        player.removePassenger(entity);
+      }
+    }
+
+    dismountedPlayers.add(player.getUniqueId());
+  }
+
+  private void remountStandsIfDismounted(Player player) {
+    Map<String, Entity> playerStands = activeStands.get(player.getUniqueId());
+    if (playerStands == null || playerStands.isEmpty()) {
+      return;
+    }
+
+    for (Entity entity : playerStands.values()) {
+      if (entity != null && entity.isValid() && entity.getWorld().equals(player.getWorld())) {
+        if (!player.getPassengers().contains(entity)) {
+          entity.teleport(player.getLocation());
+          player.addPassenger(entity);
+        }
+      }
+    }
   }
 
   // ========== CORE LOGIC ==========
@@ -609,15 +999,18 @@ public class ModelStandManager implements Listener {
     }
 
     // Pitch limits
+    boolean hideOnlyForWearer = false;
     if (!shouldHide) {
       float pitch = player.getLocation().getPitch();
       Float pitchUp = itemData.getPitchUpLimit();
       Float pitchDown = itemData.getPitchDownLimit();
       if (pitchUp != null && pitch < -pitchUp) {
         shouldHide = true;
+        hideOnlyForWearer = true;
       }
       if (pitchDown != null && pitch > pitchDown) {
         shouldHide = true;
+        hideOnlyForWearer = true;
       }
     }
 
@@ -630,10 +1023,27 @@ public class ModelStandManager implements Listener {
       return;
 
     if (shouldHide) {
-      if (equip.getHelmet() != null && equip.getHelmet().getType() != Material.AIR) {
-        equip.setHelmet(null);
+      if (hideOnlyForWearer) {
+        // Hide only for wearer: keep helmet on stand but hide stand from wearer
+        ItemStack current = equip.getHelmet();
+        ItemStack modelHelmet = createModelHelmet(player, equippedItem, slotKey, itemData);
+        if (modelHelmet != null && (current == null || !modelHelmet.isSimilar(current))) {
+          equip.setHelmet(modelHelmet);
+        }
+        if (canSeeReflection(player, entity)) {
+          hideEntityReflection(player, entity);
+        }
+      } else {
+        // Hide for everyone: remove helmet from stand and hide stand from wearer (just in case)
+        if (equip.getHelmet() != null && equip.getHelmet().getType() != Material.AIR) {
+          equip.setHelmet(null);
+        }
+        if (canSeeReflection(player, entity)) {
+          hideEntityReflection(player, entity);
+        }
       }
     } else {
+      // Show for everyone (including wearer)
       ItemStack current = equip.getHelmet();
       ItemStack modelHelmet = createModelHelmet(player, equippedItem, slotKey, itemData);
       
@@ -641,6 +1051,34 @@ public class ModelStandManager implements Listener {
       if (modelHelmet != null && (current == null || !modelHelmet.isSimilar(current))) {
         equip.setHelmet(modelHelmet);
       }
+      if (!canSeeReflection(player, entity)) {
+        showEntityReflection(player, entity);
+      }
+    }
+  }
+
+  private void hideEntityReflection(Player player, Entity entity) {
+    try {
+      java.lang.reflect.Method hideMethod = player.getClass().getMethod("hideEntity", org.bukkit.plugin.Plugin.class, org.bukkit.entity.Entity.class);
+      hideMethod.invoke(player, plugin, entity);
+    } catch (Throwable ignored) {
+    }
+  }
+
+  private void showEntityReflection(Player player, Entity entity) {
+    try {
+      java.lang.reflect.Method showMethod = player.getClass().getMethod("showEntity", org.bukkit.plugin.Plugin.class, org.bukkit.entity.Entity.class);
+      showMethod.invoke(player, plugin, entity);
+    } catch (Throwable ignored) {
+    }
+  }
+
+  private boolean canSeeReflection(Player player, Entity entity) {
+    try {
+      java.lang.reflect.Method canSeeMethod = player.getClass().getMethod("canSee", org.bukkit.entity.Entity.class);
+      return (Boolean) canSeeMethod.invoke(player, entity);
+    } catch (Throwable ignored) {
+      return true;
     }
   }
 
@@ -662,6 +1100,11 @@ public class ModelStandManager implements Listener {
   }
 
   private void removeAllStands(UUID playerId) {
+    BukkitTask pending = pendingRemounts.remove(playerId);
+    if (pending != null) {
+      pending.cancel();
+    }
+
     Map<String, Entity> playerStands = activeStands.remove(playerId);
     if (playerStands == null)
       return;

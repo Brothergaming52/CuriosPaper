@@ -385,4 +385,12 @@ public interface CuriosPaperAPI {
   java.io.File registerResourcePackAssetsFromJar(org.bukkit.plugin.Plugin plugin);
 
   void refreshModels(Player player);
+
+  /**
+   * Creates a player head ItemStack with a custom base64 texture.
+   * 
+   * @param base64 The base64 texture string
+   * @return The PLAYER_HEAD ItemStack with the texture applied, or null if creation failed
+   */
+  ItemStack createBase64Skull(String base64);
 }
