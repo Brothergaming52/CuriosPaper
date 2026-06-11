@@ -88,7 +88,7 @@ CuriosPaper adds a fully configurable accessory slot system to your Minecraft se
 
 | | |
 |---|---|
-| **Version** | 1.3.1 |
+| **Version** | 1.3.2 |
 | **Author** | Brothergaming52 |
 | **API Version** | 1.14-1.21.11 |
 | **Source** | [GitHub](https://github.com/Brothergaming52/CuriosPaper) |

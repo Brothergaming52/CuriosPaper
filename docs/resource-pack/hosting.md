@@ -9,17 +9,37 @@ CuriosPaper uses an embedded **Netty-based HTTP server** to host and serve the g
 
 ```yaml
 resource-pack:
-  enabled: true
+  # Hosting mode: SELF, LINK, or NONE
+  mode: "SELF"
+  # External link (used only if mode is LINK)
+  url: "https://example.com/your-resource-pack.zip"
+  # Port for the embedded HTTP server (used only if mode is SELF)
   port: 8080
+  # Public IP or Hostname of the server (used only if mode is SELF)
   host-ip: "your-server-ip"
 ```
+
+## Hosting Modes
+
+CuriosPaper supports three modes for delivering the generated resource pack to clients:
+
+- **`SELF` (Default):** Runs an embedded Netty HTTP server on the configured `port` and `host-ip`. The pack is served directly from the Minecraft server at `http://<host-ip>:<port>/pack.zip`.
+- **`LINK`:** Serves the resource pack from a third-party host (e.g. Dropbox, Google Drive direct download, or your web server) defined in the `url` property.
+- **`NONE`:** Disables all automated resource pack hosting and prompts. Players will not be prompted to download a resource pack.
+
+## Cache-Busting
+
+Minecraft clients cache resource packs aggressively by URL. To ensure players always download the latest version when custom items are added or modified, CuriosPaper uses query-parameter cache-busting:
+- On player join or during `/curios rp rebuild`, the server calculates the SHA-1 hash of the generated ZIP.
+- The URL sent to the client is automatically appended with a version parameter containing the hash, e.g., `http://localhost:8080/pack.zip?v=d06a4b12...` or `https://example.com/pack.zip?v=d06a4b12...`.
+- This forces the client to download the updated resource pack instead of using its outdated local cache.
 
 ## How the Server Works
 
 1. On startup, the `ResourcePackManager` generates a ZIP file from all registered asset sources
 2. A SHA-1 hash is calculated for the ZIP
-3. A lightweight HTTP server starts on the configured port
-4. When players join, they receive the resource pack URL: `http://<host-ip>:<port>/pack.zip`
+3. A lightweight HTTP server starts on the configured port (if mode is `SELF`)
+4. When players join, they receive the resource pack URL (with cache-busting hash query parameter appended)
 5. The Minecraft client downloads and applies the pack
 
 ## Port Configuration

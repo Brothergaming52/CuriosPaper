@@ -91,13 +91,40 @@ features:
 
 See [Death Behavior](../systems/death-behavior.md) for detailed documentation.
 
+## Random Teleport (RTP) Compatibility
+
+CuriosPaper includes a temporary dismount and recording system to prevent passenger armor stand glitches during teleports, portals, or random teleports.
+
+```yaml
+features:
+  rtp:
+    enabled: false
+    commands:
+      - "rtp"
+      - "wild"
+    blocks: []
+    entities: []
+    guis: []
+```
+
+| Setting | Default | Description |
+|---|---|---|
+| `enabled` | `false` | Enable/disable RTP dismount checks |
+| `commands` | `["rtp", "wild"]` | Commands that trigger temporary model dismounting |
+| `blocks` | `[]` | Interacted block types (e.g., `STONE_BUTTON`) or locations (`world,x,y,z`) |
+| `entities` | `[]` | Clicked entities or NPC names |
+| `guis` | `[]` | Opened inventory/GUI titles or `title:slot` |
+
+See [3D Model System](../systems/3d-model-system.md#rtp-compatibility) for detailed documentation.
+
 ## Resource Pack Settings
 
 ```yaml
 resource-pack:
-  enabled: true
-  host-ip: "localhost"
+  mode: "SELF"
+  url: "https://example.com/your-resource-pack.zip"
   port: 8080
+  host-ip: "localhost"
   base-material: "PAPER"
   combine-external-rp: false
   allow-minecraft-namespace: true
@@ -106,9 +133,10 @@ resource-pack:
 
 | Setting | Default | Description |
 |---|---|---|
-| `enabled` | `true` | Enable built-in resource pack HTTP server |
-| `host-ip` | `localhost` | IP address for the resource pack server |
-| `port` | `8080` | Port for the resource pack server |
+| `mode` | `SELF` | Hosting mode: `SELF` (embedded Netty server), `LINK` (external download link), `NONE` (disabled) |
+| `url` | `""` | Direct download link for the resource pack (only used if `mode` is `LINK`) |
+| `port` | `8080` | Port for the embedded HTTP server (only used if `mode` is `SELF`) |
+| `host-ip` | `localhost` | Public IP or Hostname of the server (only used if `mode` is `SELF`) |
 | `base-material` | `PAPER` | Base material for custom model data icons |
 | `combine-external-rp` | `false` | Merge external .zip resource packs from the `external-resource-packs/` folder |
 | `allow-minecraft-namespace` | `true` | Allow assets using the `minecraft` namespace |

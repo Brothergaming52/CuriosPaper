@@ -35,7 +35,7 @@ To prevent the armor stand from obscuring the player's vision when in first-pers
 
 ### Pitch Limits
 
-You can configure downward and upward pitch cutoffs per item. When the player looks too far down (or up), the model is hidden from their own view by temporarily unequipping the item from the Armor Stand's helmet slot. It remains visible to other players.
+You can configure downward and upward pitch cutoffs per item. When the player looks too far down (or up), the model is hidden from their own view. Instead of unequipping the item (which would hide it from everyone), CuriosPaper leverages reflection to call the server-side entity hiding packet API (`hideEntity(...)`) to hide the passenger armor stand strictly from the wearer's view. It remains completely visible to other nearby players.
 
 | Limit | Description |
 |---|---|
@@ -71,6 +71,15 @@ When a player uses a trident, the 3D models are temporarily removed to prevent v
 
 - **Normal Throw:** Models are removed when the player starts charging, restored when they release or after a timeout.
 - **Riptide:** Models are removed on riptide activation, restored when the player lands on the ground.
+
+## RTP Compatibility
+
+When a player teleports, especially asynchronously or via Random Teleport (RTP) plugins or portal transitions, passenger entities (the invisible armor stands) can desynchronize, glitch, or become "ghost" entities.
+
+To solve this, CuriosPaper features an RTP dismount mechanism:
+- **Temporary Dismount:** When a registered RTP event is triggered, the model stands are safely dismounted from the player.
+- **Automatic Remount:** As soon as the player begins moving at their destination (tracked by movement exceeding a `0.05` block threshold), the stands are instantly and cleanly remounted.
+- **Recording Sequences:** Admins can record custom trigger interactions (commands, stepped-on blocks, clicked blocks, entity/NPC clicks, or GUI clicks) using the in-game `/curios recordrtp` command. These are saved under the `features.rtp` block in `config.yml`.
 
 ## Scale Synchronization
 

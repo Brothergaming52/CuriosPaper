@@ -29,7 +29,7 @@ Administrative, debug, and management commands for CuriosPaper.
 |---|---|
 | **Aliases** | `/cp`, `/curiospaper` |
 | **Permission** | `curiospaper.admin` |
-| **Usage** | `/curios <rp|debug|reload|list|give|create|edit|delete>` |
+| **Usage** | `/curios <rp|debug|reload|list|give|create|edit|delete|inspect|recordrtp>` |
 
 ![Player using the /curios command to open the accessory GUI](../images/curios-command.png)
 
@@ -42,6 +42,8 @@ Administrative, debug, and management commands for CuriosPaper.
 | `/curios delete <itemId>` | Delete a custom item |
 | `/curios list` | List all custom items in a paginated GUI |
 | `/curios give <itemId> [player] [amount]` | Give a custom item to a player |
+| `/curios inspect <player> [slot]` | Inspect and manage an online or offline player's accessories. If `slot` is omitted, opens a slot overview. Otherwise, opens a slot edit GUI. |
+| `/curios recordrtp` | Toggle interactive recording of Random Teleport (RTP) sequences (commands, blocks, entities, GUIs) |
 | `/curios reload` | Reload the plugin configuration and messages |
 
 #### Resource Pack Subcommands

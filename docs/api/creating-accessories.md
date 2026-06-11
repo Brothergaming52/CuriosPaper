@@ -363,3 +363,33 @@ plugins/MyPlugin/resourcepack/
             └── item/
                 └── fire_amulet.png
 ```
+
+## Example 7: Custom Player Head Skins
+
+CuriosPaper features native support for creating player head items with base64 skin textures or URLs. These are resolved via reflection across all supported versions (1.14-1.21.4+).
+
+### Programmatic Skull Creation
+
+You can use the API's helper method `createBase64Skull(String base64)` to programmatically instantiate custom player heads:
+
+```java
+import org.bg52.curiospaper.CuriosPaper;
+import org.bg52.curiospaper.api.CuriosPaperAPI;
+import org.bukkit.inventory.ItemStack;
+
+public class CustomHeadAccessory {
+
+    public ItemStack createSkullAccessory() {
+        CuriosPaperAPI api = CuriosPaper.getInstance().getCuriosPaperAPI();
+        
+        // Base64 skin value (e.g., from minecraft-heads.com)
+        String textureBase64 = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNTI2YzhkOTgyM2Q1M2ExN2FlNzg5Zjc1MmY1ODVhY2UwNzkwNzNkNzQ3Njc3MTU2MDRmNTdkYjEyODQ4MiJ9fX0=";
+        
+        // Create the skull item stack
+        ItemStack customHead = api.createBase64Skull(textureBase64);
+        
+        // Tag as a head accessory (adds required slot meta and PDC tag)
+        return api.tagAccessoryItem(customHead, "head");
+    }
+}
+```

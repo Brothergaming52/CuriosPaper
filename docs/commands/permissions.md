@@ -21,6 +21,8 @@
 | `/curios delete <id>` | `curiospaper.admin` |
 | `/curios list` | `curiospaper.admin` |
 | `/curios give <id> [player] [amount]` | `curiospaper.admin` |
+| `/curios inspect <player> [slot]` | `curiospaper.admin` |
+| `/curios recordrtp` | `curiospaper.admin` |
 | `/curios debug player <name>` | `curiospaper.debug` |
 | `/curios debug item` | `curiospaper.debug` |
 

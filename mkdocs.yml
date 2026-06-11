@@ -102,6 +102,7 @@ nav:
       - Mob Drop Editor: gui-editors/mob-drop-editor.md
       - Trade Editor: gui-editors/trade-editor.md
       - 3D Model Editor: gui-editors/3d-model-editor.md
+      - NBT & Enchants Editor: gui-editors/nbt-enchants-editor.md
 
   - Developer API:
       - Overview: api/index.md

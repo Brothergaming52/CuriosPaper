@@ -1,5 +1,62 @@
 # Changelogs
 
+## v1.3.2
+
+**Release Date:** 2026-06-11
+
+### 🛠️ Administrative Improvements
+
+#### Admin Inspect Command (`/curios inspect`)
+- **NEW:** Added `/curios inspect <player> [slot]` to inspect and manage other players' accessories (works for both online and offline players).
+- If no slot is specified, it opens a read-only **Overview GUI** showcasing all equipped slots and their item counts. Admins can click a slot button to open the detailed slot GUI.
+- If a slot is specified, opens a **Slot Detail GUI** where admins can add, remove, or swap accessories directly. Saving automatically invokes equip events and updates 3D models for online players.
+- Requires `curiospaper.admin` permission.
+
+#### Custom NBT & Enchants Editor GUI
+- **NEW:** Added an **NBT & Enchants Editor** button (Command Block) in the main Custom Item Editor (slot 21).
+- **Manage NBT (PDC Keys):** Interactively add or delete custom NBT tags stored in the item's Persistent Data Container (PDC) via simple chat input (`key = type:value`, e.g., `myplugin:power = int:42`).
+- **NBT Key Suggester:** Browse and select existing NBT keys from standard Minecraft data components, other custom items, or the admin's inventory.
+- Supported PDC types: `string`, `int`, `double`, `float`, `byte`, `short`, `long`.
+- **Manage Enchantments:** Add or remove enchantments on the custom item with configurable levels.
+- **Hide Enchantments:** Toggle whether enchantment tooltips are hidden from lore (glint only) via `ItemFlag.HIDE_ENCHANTS`.
+- **Unbreakable Toggle:** Easily make the custom item unbreakable.
+- **Placeable Toggle:** Prevent players from placing custom blocks or custom player heads on the ground (cancelled via `BlockPlaceEvent`).
+
+### 📦 Compatibility & Networking
+
+#### Random Teleport (RTP) Compatibility / Dismount System
+- **NEW:** Added a temporary dismount mechanism to resolve passenger teleportation failures during random teleports (RTP) or portal transitions.
+- **RTP Command Recording:** Interactively record sequences (commands, stepped-on blocks, clicked levers/buttons, entity/NPC clicks, and GUI clicks) using `/curios recordrtp`.
+- When a player triggers an RTP interaction, their 3D model armor stands are temporarily dismounted. Once the teleport completes and the player moves again, the armor stands are seamlessly remounted at the destination.
+- Configurable under `features.rtp` in `config.yml`. Can be disabled entirely via `features.rtp.enabled: false`.
+
+#### Resource Pack Hosting Modes
+- **NEW:** Added `resource-pack.mode` setting supporting three hosting modes:
+  - `SELF` — Host the pack locally on the Minecraft server using the built-in Netty HTTP server.
+  - `LINK` — Provide a direct download link (`resource-pack.url`) for external hosting.
+  - `NONE` — Completely disable automatic resource pack hosting/delivery.
+- **Query Parameter Cache-Busting:** On player join, the resource pack URL is automatically appended with `?v=<hash>` (or `&v=<hash>` if a query string already exists) to bust the client cache and force the Minecraft client to redownload the resource pack when it is updated.
+
+### 🧪 Crafting & Recipe Logic
+
+#### Strict Crafting with ExactChoice
+- Upgraded custom recipe ingredient resolution to use `RecipeChoice.ExactChoice` for shaped, furnace, smoker, blasting, campfire, smithing, and shapeless recipes (if supported by server).
+- This ensures recipes strictly require the exact custom Curios item instead of just any item matching the base material.
+- Added strict crafting protection: custom Curios items can no longer be used in vanilla recipes (clears craft results or cancels `CraftItemEvent`/`PrepareItemCraftEvent`).
+
+### ⚡ Performance & API Enhancements
+
+#### Ability Modifier Reconciliation Task
+- **NEW:** Added a background task (`ModifierReconciliationTask`) that runs every 5 seconds to automatically detect and remove orphaned/stale attribute modifiers from players.
+- Fully strips all CuriosPaper-related modifiers (`curiospaper_ability_`) from players on plugin shutdown/reload to prevent persistent attributes across reloads.
+- Upgraded item ID lookup in `AbilityListener` to prioritize PDC metadata (`curiospaper:item_id`) over display name lookup, making tracking much more robust.
+
+#### Custom PLAYER_HEAD Skin Support
+- **NEW:** Setting `item-model` to a base64 skin texture or skin URL on a `PLAYER_HEAD` custom item now automatically downloads and applies the texture using reflection (supporting 1.14-1.21+).
+- Added `ItemStack createBase64Skull(String base64)` to `CuriosPaperAPI` for developers to programmatically create player heads with custom skins.
+
+---
+
 ## v1.3.1
 
 **Release Date:** 2026-05-16

@@ -13,6 +13,7 @@ CuriosPaper provides in-game visual editors for creating and configuring custom 
 | [Mob Drop Editor](mob-drop-editor.md) | Configure mob drops with entity types and chances |
 | [Trade Editor](trade-editor.md) | Set up villager trades with professions and costs |
 | [3D Model Editor](3d-model-editor.md) | Configure 3D model rendering attachments for items |
+| [NBT & Enchants Editor](nbt-enchants-editor.md) | Configure custom NBT/PDC tags, enchantments, and toggles (unbreakable/placeable) |
 | [Mob Drop Model Editor](#mob-drop-model-editor) | Configure 3D models that mobs wear when spawning with drops |
 
 ## Accessing the Editor
@@ -31,17 +32,20 @@ The main Edit GUI displays the current item configuration with clickable buttons
 
 | Button | Icon | Slot | Function |
 |---|---|---|---|
-| Name Tag | Name Tag | — | Set display name |
-| Material Slot | Current Material | — | Change base material |
-| Slot Type | Slot Icon | — | Assign accessory slot |
-| Lore | Book | — | Edit description lines |
-| Model Data | Map | — | Set custom model data / item model |
-| Abilities | Potion | — | Open the Ability Editor |
-| Recipes | Crafting Table | — | Open the Recipe Editor |
-| Loot Tables | Chest | — | Open the Loot Table Editor |
-| Mob Drops | Zombie Head | — | Open the Mob Drop Editor |
-| Trades | Emerald | — | Open the Trade Editor |
-| 3D Model Settings | Armor Stand | 43 | Open the 3D Model Editor |
+| **Display Name** | Name Tag | 10 | Edit item display name (supports color codes) |
+| **Set Material** | Iron Block | 12 | Change item base material |
+| **Set Item Model** | Painting | 14 | Set custom item model (1.21.4+) |
+| **Custom Model Data** | Map | 16 | Set legacy CustomModelData integer |
+| **Edit Lore** | Book | 19 | Edit lore lines (supports color codes) |
+| **NBT & Enchants Editor** | Command Block | 21 | Open the NBT, Enchantments, and Placeable Editor |
+| **Required Slot** | Chest | 23 | Set required accessory slot type(s) |
+| **Recipe** | Crafting Table | 25 | Open the Recipe Editor |
+| **Loot Tables** | Chest Minecart | 28 | Open the Loot Table Editor |
+| **Mob Drops** | Zombie Head | 30 | Open the Mob Drop Editor |
+| **Villager Trades** | Emerald | 32 | Open the Villager Trade Editor |
+| **Abilities** | Potion | 34 | Open the Ability Editor |
+| **3D Model Settings** | Armor Stand | 37 | Open the 3D Model Editor |
+| **Save & Close** | Emerald | 49 | Save all item configuration and close GUI |
 
 !!! info "Chat Input"
     Most editors use a chat-based input system. When prompted, type your value in chat. The `ChatInputManager` handles capturing and processing these inputs.

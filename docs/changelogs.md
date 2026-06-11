@@ -2,7 +2,18 @@
 
 See the full changelogs in the [CHANGELOGS.md](https://github.com/Brothergaming52/CuriosPaper/blob/main/CHANGELOGS.md) file.
 
-## Latest: v1.3.1
+## Latest: v1.3.2
+
+### Highlights
+
+- **Admin Inspect Command (`/curios inspect`)** — Admins can now inspect and manage any online or offline player's equipped accessories directly via the command or a 2-tier GUI.
+- **NBT & Enchants Editor GUI** — Manage item PDC/NBT tags (`key = type:value`), edit enchants with levels, hide enchants (glint only), and toggle unbreakable and placeable flags in-game.
+- **RTP Dismount Compatibility** — Interactively record portal/teleport triggers and automatically dismount 3D model stands to avoid passenger glitches.
+- **Hosting Modes & Cache-Busting** — Configure resource pack delivery via `SELF` (embedded server), `LINK` (external host), or `NONE`, with automatic cache-busting query parameter injection.
+- **Exact Choice Recipes** — Upgraded custom recipe resolution to use `ExactChoice` for perfect item ingredient matching, with strict vanilla crafting blocker.
+- **Base64 Head Skins** — Native base64/URL skin texture support on `PLAYER_HEAD` custom accessories programmatically and via YAML.
+
+## v1.3.1
 
 ### Highlights
 

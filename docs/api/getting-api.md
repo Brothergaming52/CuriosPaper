@@ -15,7 +15,7 @@ Add CuriosPaper as a compile-time dependency:
 <dependency>
     <groupId>com.github.Brothergaming52</groupId>
     <artifactId>CuriosPaper</artifactId>
-    <version>1.3.0</version>
+    <version>1.3.2</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -117,6 +117,7 @@ public class MyPlugin extends JavaPlugin {
 | `tagAccessoryItem(ItemStack, String, boolean)` | `ItemStack` | Tag an item with optional lore |
 | `getAccessorySlotType(ItemStack)` | `String` | Get the slot type an item is tagged for |
 | `createItemStack(String)` | `ItemStack` | Create an ItemStack from a custom item ID |
+| `createBase64Skull(String)` | `ItemStack` | Create a player head skull with a custom base64 skin texture |
 
 ### Slot Methods
 

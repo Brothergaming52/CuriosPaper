@@ -87,7 +87,7 @@ public class MyAccessoryPlugin extends JavaPlugin {
 <dependency>
     <groupId>com.github.Brothergaming52</groupId>
     <artifactId>CuriosPaper</artifactId>
-    <version>1.3.0</version>
+    <version>1.3.2</version>
     <scope>provided</scope>
 </dependency>
 ```

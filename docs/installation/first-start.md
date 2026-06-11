@@ -19,7 +19,7 @@ When the server starts with CuriosPaper for the first time, the plugin will:
 A successful first start will show:
 
 ```
-[CuriosPaper] Enabling CuriosPaper v1.3.1
+[CuriosPaper] Enabling CuriosPaper v1.3.2
 [CuriosPaper] CuriosPaper has been enabled!
 [CuriosPaper] Loaded 9 slot types.
 [CuriosPaper] Loaded 0 custom items.
