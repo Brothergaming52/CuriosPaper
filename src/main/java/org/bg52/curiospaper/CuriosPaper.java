@@ -104,7 +104,14 @@ public class CuriosPaper extends JavaPlugin {
       // Register RecipeListener and register all recipes
       recipeListener = new RecipeListener(this, itemDataManager);
       getServer().getPluginManager().registerEvents(recipeListener, this);
-      recipeListener.registerAllRecipes();
+
+      // Schedule recipe registration to run after all plugins have loaded,
+      // so that items and recipes registered by external plugins are counted.
+      getServer().getScheduler().runTask(this, () -> {
+        if (recipeListener != null) {
+          recipeListener.registerAllRecipes();
+        }
+      });
 
       recipeEditor = new RecipeEditorGUI(this);
       getServer().getPluginManager().registerEvents(recipeEditor, this);

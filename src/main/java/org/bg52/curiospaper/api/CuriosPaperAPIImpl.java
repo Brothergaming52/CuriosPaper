@@ -458,7 +458,9 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
     itemData.addRecipe(recipe);
     if (itemDataManager.saveItemData(itemId)) {
       // Register the new recipe in the server immediately
-      plugin.getRecipeListener().registerRecipe(itemData, recipe);
+      if (plugin.getRecipeListener() != null) {
+        plugin.getRecipeListener().registerRecipe(itemData, recipe);
+      }
       return true;
     }
     return false;
