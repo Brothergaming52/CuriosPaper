@@ -1,5 +1,38 @@
 # Changelogs
 
+## v2.0.0
+
+**Release Date:** 2026-07-01
+
+### 🗄️ Multi-Database Storage Support
+
+CuriosPaper now supports multiple robust database engines for player accessory storage alongside standard flat-file YAML:
+
+- **SQLite Backend:** Perfect for single-server setups, storing accessory data in a local, optimized database file (`storage/curiospaper.db`).
+- **MySQL Backend:** Recommended for BungeeCord/Velocity proxy networks to share accessory inventories across multiple server instances with HikariCP connection pooling.
+- **MongoDB Backend:** Recommended for large-scale deployments, using a native document-oriented Mongo client.
+- **Automatic Migration:** On first boot with a database backend configured, CuriosPaper will automatically parse and migrate all legacy `.yml` files in the `playerdata/` folder into the database tables, renaming migrated files to `.yml.migrated`.
+
+### 🧬 Dynamic Resource Pack & Model Customization
+
+- **Programmatic Custom Model Overrides:** Added `CuriosPaperAPI#registerItemModelOverride(String material, int customModelData, String modelPath)` allowing other plugins to dynamically inject model predicates (e.g. into `carrot_on_a_stick.json`) without editing raw assets by hand.
+- **Combined Elytra Asset Generator:** If a custom Elytra item (possessing a custom equippable asset ID) is placed in the back slot, CuriosPaper scans the resource pack and automatically builds merged humanoid/wings JSON files combining chestplate textures with the custom wings layer. This ensures proper custom textures are displayed on the player model during flight.
+
+### 🔌 API & Event System Extensions
+
+- **New PlayerDeathCurioDropEvent:** Fired when a player dies. Implements `Cancellable`, permitting developers to prevent specific accessories from dropping on death, keeping them equipped (e.g., for keep-inventory perks or specific soulbound items).
+- **Addon Storage API Hook:** Added `CuriosPaperAPI#getStorageAPI()` which returns the `CuriosStorageAPI` instance. This allows third-party addon plugins to save, query, and delete custom data asynchronously using CuriosPaper's configured database backend.
+
+### ⚡ Performance & Quality of Life
+
+- **Asynchronous Resource Pack Rebuilds:** The `/curios rp rebuild` command execution has been offloaded to an asynchronous Bukkit task to prevent main-thread freezing on servers with large packs or extensive asset overrides.
+- **Enhanced Elytra Slot Listeners:** Added additional `InventoryDragEvent` and `InventoryCloseEvent` logic to protect slot 38 (armor slot) from ghost items, duplications, and glitched secret elytras.
+- **Paper AsyncScheduler Support:** Uses Paper's native region-aware threaded `AsyncScheduler` via reflection on Minecraft 1.20.6+ servers, falling back to standard Bukkit schedulers on older servers.
+- **Improved JVM Version Detection:** Version utility improved to correctly resolve Java execution runtimes for compatibility handling.
+- **Mob Drop Model Cleanup:** Fixed passenger armor stands occasionally leaving persistent ghost stands upon entity death.
+
+---
+
 ## v1.3.2
 
 **Release Date:** 2026-06-11

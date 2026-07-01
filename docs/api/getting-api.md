@@ -15,7 +15,7 @@ Add CuriosPaper as a compile-time dependency:
 <dependency>
     <groupId>com.github.Brothergaming52</groupId>
     <artifactId>CuriosPaper</artifactId>
-    <version>1.3.2</version>
+    <version>2.0.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -152,6 +152,7 @@ public class MyPlugin extends JavaPlugin {
 | `hasEquippedItems(UUID, String)` | `boolean` | Check if any items equipped by UUID |
 | `countEquippedItems(Player, String)` | `int` | Count non-empty slots |
 | `countEquippedItems(UUID, String)` | `int` | Count non-empty slots by UUID |
+| `getStorageAPI()` | `CuriosStorageAPI` | Get the storage API instance for addon data persistence |
 
 ### Item Data Management
 
@@ -185,3 +186,4 @@ public class MyPlugin extends JavaPlugin {
 |---|---|---|
 | `registerResourcePackAssets(Plugin, File)` | `void` | Register RP assets from a folder |
 | `registerResourcePackAssetsFromJar(Plugin)` | `File` | Extract and register RP assets from JAR |
+| `registerItemModelOverride(String, int, String)` | `void` | Dynamically register a CustomModelData item override model path |

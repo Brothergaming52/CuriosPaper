@@ -2,7 +2,19 @@
 
 See the full changelogs in the [CHANGELOGS.md](https://github.com/Brothergaming52/CuriosPaper/blob/main/CHANGELOGS.md) file.
 
-## Latest: v1.3.2
+## Latest: v2.0.0
+
+### Highlights
+
+- **Multi-Database Storage Engines** — Added support for SQLite, MySQL, and MongoDB backends alongside YAML.
+- **Auto-Data Migration** — Automatically migrate legacy flat-file YAML player data to database backends on first startup.
+- **Dynamic Model Overrides API** — Programmatically register custom model overrides (`registerItemModelOverride`) without raw asset editing.
+- **Combined Elytra Asset Generator** — Custom back-slot Elytras automatically merge humanoid textures and custom wings layer files for visual flight support.
+- **Player Death Curio Drop Event** — `PlayerDeathCurioDropEvent` allows third-party plugins to selectively cancel accessory drops on death.
+- **Asynchronous Resource Pack Rebuilds** — Offload `/curios rp rebuild` command execution to an asynchronous task to eliminate main-thread server lag.
+- **Optimized Performance & Bug Fixes** — Region-threaded AsyncScheduler support (1.20.6+), improved JVM runtime parsing, and mob model armor stand leaks corrected.
+
+## v1.3.2
 
 ### Highlights
 

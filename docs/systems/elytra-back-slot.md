@@ -40,6 +40,15 @@ When an Elytra is placed in the back accessory slot:
 3. Wings are still visible in third-person view
 4. The secret Elytra is protected from being picked up or moved
 
+### Custom Elytras & Flight Assets
+
+CuriosPaper supports custom Elytra items equipped in the back slot that possess a custom equippable asset ID.
+
+1. **Asset Mapping:** If the back-slot Elytra has a custom equippable asset ID (i.e. not vanilla `minecraft:elytra`), CuriosPaper resolves a combined asset key: `elytra_<chestplate_material>_<sanitized_wings_asset_key>`.
+2. **Resource Pack Integration:** During the resource pack build, CuriosPaper scans registered equipment models. For any custom wings texture detected, it automatically compiles a combined humanoid JSON model template for each chestplate material (leather, chainmail, iron, gold, diamond, netherite) merged with the custom wings layer.
+3. **Dynamic Flight Application:** If a player is wearing a chestplate and a custom Elytra, CuriosPaper checks if the combined asset model JSON exists on disk. If so, it dynamically applies the custom wings flight metadata using the combined asset ID. If no combined model file is found, it falls back to the vanilla wings asset for that chestplate material.
+4. **Secret Elytra Visuals:** If the player is not wearing a chestplate, the secret invisible Elytra equipped in their chest armor slot has the custom flight wings asset applied directly, displaying the correct custom model in third-person.
+
 ## Automatic Tagging
 
 All Elytra items are automatically tagged for the back slot:

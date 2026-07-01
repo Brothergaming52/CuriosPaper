@@ -536,6 +536,47 @@ public class MobModelRandomizer implements Listener {
 
 ---
 
+## PlayerDeathCurioDropEvent
+
+Fired when a player dies and their curios items are being dropped. If cancelled, this curio item will not drop on death and will remain equipped.
+
+### Example: Keeping specific items on death (Soulbound Ring)
+
+```java
+import org.bg52.curiospaper.event.PlayerDeathCurioDropEvent;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.inventory.ItemStack;
+
+public class SoulboundDeathListener implements Listener {
+
+    @EventHandler
+    public void onPlayerDeathCurioDrop(PlayerDeathCurioDropEvent event) {
+        ItemStack item = event.getCurioItem();
+        
+        // If the item is named "Soulbound Ring", prevent it from dropping on death
+        if (item != null && item.hasItemMeta() 
+            && item.getItemMeta().getDisplayName().contains("Soulbound")) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage("§aYour Soulbound accessory was kept equipped upon death!");
+        }
+    }
+}
+```
+
+### PlayerDeathCurioDropEvent Properties
+
+| Method | Return | Description |
+|---|---|---|
+| `getPlayer()` | `Player` | The player who died |
+| `getSlotType()` | `String` | The slot type key (e.g. "ring", "back") |
+| `getSlotIndex()` | `int` | The index of the slot within the slot type |
+| `getCurioItem()` | `ItemStack` | The curio item being dropped |
+| `isCancelled()` | `boolean` | Whether the drop is cancelled |
+| `setCancelled(boolean)` | `void` | Cancel the drop (the item will remain equipped) |
+
+---
+
 ## Event Summary
 
 | Event | When It Fires | Cancellable | Can Modify Item |
@@ -547,6 +588,7 @@ public class MobModelRandomizer implements Listener {
 | `CuriosCraftEvent` | Custom item crafted/smelted/repaired (final) | ✅ | ✅ |
 | `CuriosModelEquipEvent` | 3D model about to be displayed on player | ✅ | ✅ |
 | `CuriosMobModelEquipEvent` | 3D model about to be displayed on mob | ✅ | ✅ |
+| `PlayerDeathCurioDropEvent` | Player dies and their curios items are dropping | ✅ | ❌ |
 
 ---
 
@@ -566,6 +608,7 @@ public class MyPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CraftingAttributionListener(), this);
         getServer().getPluginManager().registerEvents(new CraftTracker(), this);
         getServer().getPluginManager().registerEvents(new ModelMaterialChanger(), this);
+        getServer().getPluginManager().registerEvents(new SoulboundDeathListener(), this);
     }
 }
 ```

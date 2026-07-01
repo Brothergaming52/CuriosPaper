@@ -53,5 +53,14 @@ features:
     type: "Auto"
 ```
 
+## Developer Integration: PlayerDeathCurioDropEvent
+
+For server administrators and developers using custom plugins (such as soulbound item plugins or region-specific inventory managers), CuriosPaper fires the `PlayerDeathCurioDropEvent` whenever a player dies and their curios items are processed for dropping.
+
+- **Cancellability:** The event is `Cancellable`. If cancelled, that specific curio item will **not drop on death** and will **remain equipped** in the player's curios slot.
+- **Granular Control:** Unlike the global configuration settings which apply to the entire curios inventory, this event provides item-by-item control, allowing you to selectively protect specific items (e.g. keeping only "soulbound" accessories while dropping all others).
+
+See the [PlayerDeathCurioDropEvent API Documentation](../api/events.md#playerdeathcuriodropevent) for detailed usage examples and listener registration.
+
 !!! warning "Never Mode"
     When using `Never` mode, players will **always** lose their accessories on death, even in creative mode or when `keepInventory` is enabled. Use with caution.

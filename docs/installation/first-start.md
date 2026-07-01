@@ -4,25 +4,34 @@ After installing CuriosPaper and starting your server, here's what happens and w
 
 ## Startup Sequence
 
-When the server starts with CuriosPaper for the first time, the plugin will:
+When the server starts with CuriosPaper, the plugin will:
 
-1. **Generate `config.yml`** with 9 default accessory slot types
+1. **Generate `config.yml`** with 9 default accessory slot types (if missing)
 2. **Create the `items/` directory** for custom item definitions
-3. **Create the `playerdata/` directory** for per-player accessory storage
-4. **Initialize the resource pack manager** and extract default assets
-5. **Register commands** (`/baubles`, `/curios`)
-6. **Initialize messages** from `messages.yml`
-7. **Start bStats metrics** (anonymous usage statistics, plugin ID: 29508)
+3. **Initialize the Storage Provider** (resolves YAML, SQLite, MySQL, or MongoDB backend)
+4. **Run player data auto-migration** (if configured and legacy files exist)
+5. **Create the `playerdata/` directory** for per-player accessory storage (for YAML fallback)
+6. **Initialize the resource pack manager** and extract default assets
+7. **Register commands** (`/baubles`, `/curios`)
+8. **Initialize messages** from `messages.yml`
+9. **Start bStats metrics** (anonymous usage statistics, plugin ID: 29508)
 
 ## Console Output
 
-A successful first start will show:
+A successful startup will show logs similar to:
 
 ```
-[CuriosPaper] Enabling CuriosPaper v1.3.2
+[CuriosPaper] Enabling CuriosPaper v2.0.0
 [CuriosPaper] CuriosPaper has been enabled!
 [CuriosPaper] Loaded 9 slot types.
 [CuriosPaper] Loaded 0 custom items.
+```
+
+If you configured a database backend (e.g. SQLite) and enabled auto-migration, you will see additional startup logs:
+
+```
+[CuriosPaper] Auto-migrating 12 player data files to SQLITE...
+[CuriosPaper] Migration complete: 12 files migrated to SQLITE
 ```
 
 <!-- TODO: Add image - Screenshot of the server console showing CuriosPaper's successful startup messages -->

@@ -6,7 +6,7 @@
 
 ### The Ultimate Custom Accessory Inventory System for Paper & Spigot
 
-[![Version](https://img.shields.io/badge/version-1.3.2-blueviolet?style=for-the-badge)](https://github.com/Brothergaming52/CuriosPaper/releases)
+[![Version](https://img.shields.io/badge/version-2.0.0-blueviolet?style=for-the-badge)](https://github.com/Brothergaming52/CuriosPaper/releases)
 [![Minecraft](https://img.shields.io/badge/minecraft-1.14.4%20—%201.21+-green?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNSAyIDIgNi41IDIgMTJzNC41IDEwIDEwIDEwIDEwLTQuNSAxMC0xMFMxNy41IDIgMTIgMnoiLz48L3N2Zz4=)](https://www.spigotmc.org/)
 [![Discord](https://img.shields.io/discord/1456137607569346739?label=Discord&style=for-the-badge&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/r5YXqgrGya)
 [![bStats](https://img.shields.io/badge/bStats-live-blue?style=for-the-badge)](https://bstats.org/plugin/bukkit/CuriosPaper/29508)
@@ -247,14 +247,14 @@ The full documentation site covers:
 
 ---
 
-## 🆕 What's New in v1.3.2
+## 🆕 What's New in v2.0.0
 
-- 🕵️ **Admin Inspect** — View and edit online/offline players' accessories directly using `/curios inspect`
-- ⚙️ **NBT & Enchants Editor GUI** — Manage item PDC/NBT tags (`key = type:value`), edit enchants, toggle glint/unbreakable/placeable
-- 🌀 **RTP Dismount Compatibility** — Interactively record portal/RTP sequences and prevent passenger glitches during random teleports
-- 📡 **Hosting Modes & Cache-Busting** — Support for SELF, LINK, and NONE resource pack modes with auto hash query cache-busting
-- 📦 **Exact Choice Recipes** — Upgrade custom recipe choices to `ExactChoice` for perfect item ingredient matching
-- 🧑‍🦲 **Base64 Head Skins** — Set custom textures and skins via URLs/Base64 strings on custom player heads programmatically or in YAML
+- 🗄️ **Multi-Database Storage Engines** — Full database storage support for SQLite, MySQL, and MongoDB backends alongside standard flat-file YAML.
+- 🔄 **Auto-Migration** — Automatic, seamless migration of legacy YAML playerdata to selected database backends on startup.
+- 🧬 **Dynamic Model Overrides API** — Programmatically register custom model overrides (`registerItemModelOverride`) without editing item JSON files.
+- 🪂 **Combined Elytra Asset Generator** — Automated merging of custom wings-layer model files for custom Elytras equipped in the back slot.
+- ☠️ **Death Curio Drop Event** — Listen to and cancel individual curio drops via the new `PlayerDeathCurioDropEvent` to easily support keep-inventory features.
+- ⚡ **Asynchronous Resource Pack Rebuilds** — Rebuild server resource packs asynchronously without causing main-thread server lag.
 
 Full changelog → [**CHANGELOGS.md**](CHANGELOGS.md)
 
@@ -300,7 +300,7 @@ If CuriosPaper has been useful to you, consider leaving a tip — it helps keep 
 <dependency>
     <groupId>com.github.Brothergaming52</groupId>
     <artifactId>CuriosPaper</artifactId>
-    <version>1.3.2</version>
+    <version>2.0.0</version>
     <scope>provided</scope>
 </dependency>
 ```
