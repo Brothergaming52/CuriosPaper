@@ -68,3 +68,19 @@ CuriosPaper supports two methods for custom item textures:
 The plugin automatically uses the correct method based on your server version.
 
 See [Custom Model Data](../resource-pack/custom-model-data.md) for detailed texture setup instructions.
+
+---
+
+## 🌐 Geyser & Bedrock Edition Support
+
+If you have Bedrock Edition players joining your server via GeyserMC, they will need the Geyser Bedrock Resource Pack and custom mappings to view CuriosPaper slot icons correctly.
+
+### Setup Instructions
+
+- **Automatic Setup:** If Geyser is running on the same server, CuriosPaper will automatically detect Geyser's folder on startup, extract the mappings and resource pack, and copy them directly to Geyser's `packs/` and `custom_mappings/` folders.
+- **Manual Setup (Proxy/Separate Server):** If Geyser is hosted on a separate proxy (e.g. Velocity/BungeeCord) or automatic setup is skipped:
+  1. **Locate Mappings:** Retrieve the Geyser files from your server's `plugins/CuriosPaper/geyser/` directory (automatically extracted on startup).
+  2. **Install Resource Pack:** Copy `CuriosPaper_Geyser.zip` and place it in your Geyser's `packs/` folder.
+  3. **Install Mappings:** Copy `CuriosPaper_mappings.json` and place it in your Geyser's `custom_mappings/` directory.
+  4. **Enable Custom Content:** In Geyser's `config.yml`, ensure that `enable-custom-content` is set to `true`.
+  5. **Restart:** Restart your Geyser proxy.

@@ -245,6 +245,9 @@ public class CuriosPaper extends JavaPlugin {
     modelStandManager = new org.bg52.curiospaper.model.ModelStandManager(this);
     modelStandManager.initialize();
 
+    // Setup Geyser integration if Geyser is present
+    checkAndSetupGeyserIntegration();
+
     getLogger().info("CuriosPaper has been enabled!");
     getLogger().info("Loaded " + configManager.getSlotConfigurations().size() + " slot types.");
   }
@@ -397,5 +400,75 @@ public class CuriosPaper extends JavaPlugin {
 
   public RecipeViewGUI getRecipeViewGUI() {
     return recipeViewGUI;
+  }
+
+  private void checkAndSetupGeyserIntegration() {
+    // 1. Always extract to plugins/CuriosPaper/geyser/
+    java.io.File localGeyserFolder = new java.io.File(getDataFolder(), "geyser");
+    if (!localGeyserFolder.exists()) {
+      localGeyserFolder.mkdirs();
+    }
+    
+    java.io.File localMappings = new java.io.File(localGeyserFolder, "CuriosPaper_mappings.json");
+    java.io.File localPack = new java.io.File(localGeyserFolder, "CuriosPaper_Geyser.zip");
+
+    try (java.io.InputStream in = getResource("CuriosPaper_mappings.json")) {
+      if (in != null) {
+        java.nio.file.Files.copy(in, localMappings.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      }
+    } catch (Exception e) {
+      getLogger().warning("Failed to extract CuriosPaper_mappings.json to local geyser folder: " + e.getMessage());
+    }
+
+    try (java.io.InputStream in = getResource("CuriosPaper_Geyser.zip")) {
+      if (in != null) {
+        java.nio.file.Files.copy(in, localPack.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      }
+    } catch (Exception e) {
+      getLogger().warning("Failed to extract CuriosPaper_Geyser.zip to local geyser folder: " + e.getMessage());
+    }
+
+    // 2. Detect GeyserMC plugins folder on the server
+    java.io.File pluginsFolder = getDataFolder().getParentFile();
+    java.io.File geyserFolder = new java.io.File(pluginsFolder, "Geyser-Spigot");
+    if (!geyserFolder.exists()) {
+      geyserFolder = new java.io.File(pluginsFolder, "Geyser");
+    }
+
+    if (geyserFolder.exists() && geyserFolder.isDirectory()) {
+      getLogger().info("GeyserMC directory detected at '" + geyserFolder.getName() + "'! Copying Bedrock compatibility pack & mappings...");
+      try {
+        // Copy Mappings to Geyser's custom_mappings folder
+        java.io.File mappingsDestFolder = new java.io.File(geyserFolder, "custom_mappings");
+        if (!mappingsDestFolder.exists()) {
+          mappingsDestFolder.mkdirs();
+        }
+        java.io.File mappingsDest = new java.io.File(mappingsDestFolder, "CuriosPaper_mappings.json");
+        try (java.io.InputStream in = getResource("CuriosPaper_mappings.json")) {
+          if (in != null) {
+            java.nio.file.Files.copy(in, mappingsDest.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            getLogger().info("Successfully copied CuriosPaper_mappings.json to Geyser custom_mappings.");
+          }
+        }
+
+        // Copy Resource Pack to Geyser's packs folder
+        java.io.File packsDestFolder = new java.io.File(geyserFolder, "packs");
+        if (!packsDestFolder.exists()) {
+          packsDestFolder.mkdirs();
+        }
+        java.io.File packDest = new java.io.File(packsDestFolder, "CuriosPaper_Geyser.zip");
+        try (java.io.InputStream in = getResource("CuriosPaper_Geyser.zip")) {
+          if (in != null) {
+            java.nio.file.Files.copy(in, packDest.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            getLogger().info("Successfully copied CuriosPaper_Geyser.zip to Geyser packs.");
+          }
+        }
+      } catch (Exception e) {
+        getLogger().severe("Failed to copy compatibility files to Geyser MC directory: " + e.getMessage());
+        e.printStackTrace();
+      }
+    } else {
+      getLogger().info("GeyserMC folder not detected in plugins directory. Setup skipped.");
+    }
   }
 }

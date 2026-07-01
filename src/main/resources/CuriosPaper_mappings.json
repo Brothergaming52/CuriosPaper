@@ -1,0 +1,61 @@
+{
+  "format_version": "1",
+  "items": {
+    "minecraft:paper": [
+      {
+        "name": "curiospaper_head_slot",
+        "allow_offhand": true,
+        "icon": "curiospaper_head_slot",
+        "custom_model_data": 10001
+      },
+      {
+        "name": "curiospaper_necklace_slot",
+        "allow_offhand": true,
+        "icon": "curiospaper_necklace_slot",
+        "custom_model_data": 10002
+      },
+      {
+        "name": "curiospaper_back_slot",
+        "allow_offhand": true,
+        "icon": "curiospaper_back_slot",
+        "custom_model_data": 10003
+      },
+      {
+        "name": "curiospaper_body_slot",
+        "allow_offhand": true,
+        "icon": "curiospaper_body_slot",
+        "custom_model_data": 10004
+      },
+      {
+        "name": "curiospaper_belt_slot",
+        "allow_offhand": true,
+        "icon": "curiospaper_belt_slot",
+        "custom_model_data": 10005
+      },
+      {
+        "name": "curiospaper_hands_slot",
+        "allow_offhand": true,
+        "icon": "curiospaper_hands_slot",
+        "custom_model_data": 10006
+      },
+      {
+        "name": "curiospaper_bracelet_slot",
+        "allow_offhand": true,
+        "icon": "curiospaper_bracelet_slot",
+        "custom_model_data": 10007
+      },
+      {
+        "name": "curiospaper_ring_slot",
+        "allow_offhand": true,
+        "icon": "curiospaper_ring_slot",
+        "custom_model_data": 10008
+      },
+      {
+        "name": "curiospaper_charm_slot",
+        "allow_offhand": true,
+        "icon": "curiospaper_charm_slot",
+        "custom_model_data": 10009
+      }
+    ]
+  }
+}

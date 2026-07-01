@@ -165,9 +165,21 @@ api.registerResourcePackAssetsFromJar(myPlugin);
 | **Minecraft** | 1.14.4 — 1.21+ |
 | **Server** | Spigot, Paper, Purpur, Folia* |
 | **Java** | 8+ |
+| **GeyserMC** | Supported (custom Bedrock resource pack & mappings included) |
 | **Dependencies** | None (standalone) |
 
 > *Folia support is experimental
+
+### 🌐 Geyser & Bedrock Edition Support
+
+CuriosPaper provides full GUI slot icon support for Bedrock Edition players joining via GeyserMC.
+
+- **Automatic Setup:** If Geyser is running on the same server, CuriosPaper will automatically detect Geyser's folder on startup, extract the mappings and resource pack, and copy them directly to Geyser's `packs/` and `custom_mappings/` folders.
+- **Manual Setup (Proxy/Separate Server):** If Geyser is hosted on a separate proxy (e.g. Velocity/BungeeCord) or automatic setup is skipped:
+  1. Retrieve the files from your server's `plugins/CuriosPaper/geyser/` directory (extracted on startup).
+  2. Copy `CuriosPaper_Geyser.zip` into your Geyser `packs/` folder.
+  3. Copy `CuriosPaper_mappings.json` into your Geyser `custom_mappings/` folder.
+  4. Ensure `enable-custom-content` is set to `true` in Geyser's `config.yml` and restart Geyser.
 
 ---
 
