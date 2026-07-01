@@ -384,6 +384,18 @@ public interface CuriosPaperAPI {
 
   java.io.File registerResourcePackAssetsFromJar(org.bukkit.plugin.Plugin plugin);
 
+  /**
+   * Registers a CustomModelData override for a specific material and model path.
+   * This is useful for plugins to dynamically register models without manually
+   * editing the vanilla item JSON files (like carrot_on_a_stick.json).
+   * CuriosPaper will merge all registered overrides into the final generated pack.
+   *
+   * @param material        The material name (e.g. "CARROT_ON_A_STICK", "PAPER")
+   * @param customModelData The CustomModelData integer value
+   * @param modelPath       The Minecraft resource model path (e.g. "probablybackpacks:backpack/skin/cat_plushy")
+   */
+  void registerItemModelOverride(String material, int customModelData, String modelPath);
+
   void refreshModels(Player player);
 
   /**
@@ -393,4 +405,14 @@ public interface CuriosPaperAPI {
    * @return The PLAYER_HEAD ItemStack with the texture applied, or null if creation failed
    */
   ItemStack createBase64Skull(String base64);
+
+  // ========== ADDON DATA STORAGE ==========
+
+  /**
+   * Gets the storage API for addon data persistence.
+   * Addons use this to save/load their data through CuriosPaper's configured database.
+   *
+   * @return the storage API instance, or null if not initialized
+   */
+  org.bg52.curiospaper.storage.CuriosStorageAPI getStorageAPI();
 }

@@ -364,6 +364,13 @@ public class ConfigManager {
    * that has a slotType set. Called once after ItemDataManager finishes loading.
    */
   public void initSlotActivityFromItems() {
+    // Force active back slot if elytra back slot feature is enabled and supported
+    if (plugin.getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
+      if (org.bg52.curiospaper.util.VersionUtil.supportsDataComponents()) {
+        markSlotActive("back");
+      }
+    }
+
     org.bg52.curiospaper.manager.ItemDataManager idm = plugin.getItemDataManager();
     if (idm == null)
       return;

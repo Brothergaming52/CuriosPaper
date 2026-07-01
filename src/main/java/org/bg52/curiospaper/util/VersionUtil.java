@@ -16,6 +16,8 @@ public class VersionUtil {
   private static Boolean supportsSmithingTemplate = null;
   private static Boolean supportsEntityPoseChangeEvent = null;
   private static Boolean supportsLootGenerateEvent = null;
+  private static Boolean supportsPaperAsyncScheduler = null;
+  private static int javaVersion = -1;
 
   static {
     parseVersion();
@@ -267,7 +269,6 @@ public class VersionUtil {
           java.lang.reflect.Method method = itemMetaClass.getMethod("setItemModel",
               org.bukkit.NamespacedKey.class);
           method.invoke(meta, key);
-          return;
         }
       } catch (Exception e) {
         // Log and fall through to CustomModelData
@@ -471,6 +472,46 @@ public class VersionUtil {
     }
   }
 
+  /**
+   * Gets the equippable asset ID from an item stack using reflection.
+   */
+  public static org.bukkit.NamespacedKey getEquippableAsset(org.bukkit.inventory.ItemStack item) {
+    if (!supportsDataComponents() || item == null)
+      return null;
+    try {
+      initDataComponents();
+      if (getDataMethod == null)
+        return null;
+      Object currentEquippable = getDataMethod.invoke(item, typeEquippable);
+      if (currentEquippable != null) {
+        Class<?> equippableClass = Class.forName("io.papermc.paper.datacomponent.item.Equippable");
+        java.lang.reflect.Method assetIdMethod = equippableClass.getMethod("assetId");
+        Object key = assetIdMethod.invoke(currentEquippable);
+        if (key != null) {
+          Class<?> keyClass = Class.forName("net.kyori.adventure.key.Key");
+          java.lang.reflect.Method namespaceMethod = keyClass.getMethod("namespace");
+          java.lang.reflect.Method valueMethod = keyClass.getMethod("value");
+          String namespace = (String) namespaceMethod.invoke(key);
+          String value = (String) valueMethod.invoke(key);
+          return new org.bukkit.NamespacedKey(namespace, value);
+        }
+      }
+    } catch (Exception e) {
+      org.bukkit.Bukkit.getLogger()
+          .warning("[CuriosPaper] Failed to get equippable asset: " + e.getMessage());
+    }
+    return null;
+  }
+
+  /**
+   * Sanitizes an asset key to be a safe part of a NamespacedKey value.
+   */
+  public static String sanitizeAssetKey(String namespace, String key) {
+    String combined = (namespace + "_" + key).toLowerCase(java.util.Locale.ROOT);
+    return combined.replaceAll("[^a-z0-9.-]", "_");
+  }
+
+
   public static void setItemModelSafe(org.bukkit.inventory.meta.ItemMeta meta, org.bukkit.NamespacedKey itemModel,
       Integer customModelData) {
     if (meta == null)
@@ -483,7 +524,6 @@ public class VersionUtil {
         java.lang.reflect.Method method = itemMetaClass.getMethod("setItemModel",
             org.bukkit.NamespacedKey.class);
         method.invoke(meta, itemModel);
-        return;
       } catch (Exception e) {
         // Log and fall through to CustomModelData
         org.bukkit.Bukkit.getLogger().warning(
@@ -917,5 +957,111 @@ public class VersionUtil {
     } catch (Throwable t) {
       // Ignore if server version doesn't support PDC
     }
+  }
+
+  // ========== ASYNC SCHEDULER & JAVA VERSION DETECTION ==========
+
+  /**
+   * Check if the server supports Paper's AsyncScheduler (Paper 1.20.6+).
+   * Uses reflection so it compiles on Java 8 / Spigot 1.14.
+   */
+  public static boolean supportsPaperAsyncScheduler() {
+    if (supportsPaperAsyncScheduler == null) {
+      try {
+        Class.forName("io.papermc.paper.threadedregions.scheduler.AsyncScheduler");
+        supportsPaperAsyncScheduler = true;
+      } catch (Exception e) {
+        supportsPaperAsyncScheduler = false;
+      }
+    }
+    return supportsPaperAsyncScheduler;
+  }
+
+  /**
+   * Gets the runtime Java version (e.g., 8, 11, 17, 21).
+   */
+  public static int getJavaVersion() {
+    if (javaVersion == -1) {
+      try {
+        String version = System.getProperty("java.version");
+        if (version.startsWith("1.")) {
+          // Java 8 and earlier: "1.8.0_xxx"
+          javaVersion = Integer.parseInt(version.substring(2, 3));
+        } else {
+          // Java 9+: "11.0.x", "17.0.x", "21"
+          int dot = version.indexOf('.');
+          javaVersion = Integer.parseInt(dot == -1 ? version : version.substring(0, dot));
+        }
+      } catch (Exception e) {
+        javaVersion = 8; // Safe fallback
+      }
+    }
+    return javaVersion;
+  }
+
+  /**
+   * Runs a task asynchronously using the best available scheduler.
+   * Paper 1.20.6+ → Paper's AsyncScheduler via reflection.
+   * Older servers → Bukkit.getScheduler().runTaskAsynchronously().
+   *
+   * @param plugin the plugin instance
+   * @param task   the task to run
+   */
+  public static void runAsync(org.bukkit.plugin.Plugin plugin, Runnable task) {
+    if (supportsPaperAsyncScheduler()) {
+      try {
+        // Paper's Bukkit.getServer().getAsyncScheduler().runNow(plugin, t -> task.run())
+        Object server = Bukkit.getServer();
+        java.lang.reflect.Method getAsyncScheduler = server.getClass().getMethod("getAsyncScheduler");
+        Object scheduler = getAsyncScheduler.invoke(server);
+
+        // Create a Consumer<ScheduledTask> that just calls task.run()
+        // Using java.util.function.Consumer via proxy since we compile on Java 8
+        Class<?> consumerClass = Class.forName("java.util.function.Consumer");
+        Object consumer = java.lang.reflect.Proxy.newProxyInstance(
+            plugin.getClass().getClassLoader(),
+            new Class<?>[]{ consumerClass },
+            (proxy, method, args) -> {
+              if (method.getName().equals("accept")) {
+                task.run();
+              }
+              return null;
+            }
+        );
+
+        java.lang.reflect.Method runNow = scheduler.getClass().getMethod("runNow",
+            org.bukkit.plugin.Plugin.class, consumerClass);
+        runNow.invoke(scheduler, plugin, consumer);
+        return;
+      } catch (Exception e) {
+        // Fallback to Bukkit scheduler
+      }
+    }
+    Bukkit.getScheduler().runTaskAsynchronously(plugin, task);
+  }
+
+  /**
+   * Get the maximum durability (max damage) of an item, taking custom max damage
+   * components into account (Minecraft 1.20.5+ / Paper).
+   * Falls back to material max durability on older versions or if not set.
+   */
+  public static int getMaxDurability(org.bukkit.inventory.ItemStack item) {
+    if (item == null || item.getType() == org.bukkit.Material.AIR) {
+      return 0;
+    }
+    org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+    if (meta instanceof org.bukkit.inventory.meta.Damageable) {
+      org.bukkit.inventory.meta.Damageable dmgMeta = (org.bukkit.inventory.meta.Damageable) meta;
+      try {
+        java.lang.reflect.Method hasMaxDmg = org.bukkit.inventory.meta.Damageable.class.getMethod("hasMaxDamage");
+        java.lang.reflect.Method getMaxDmg = org.bukkit.inventory.meta.Damageable.class.getMethod("getMaxDamage");
+        if ((boolean) hasMaxDmg.invoke(dmgMeta)) {
+          return (int) getMaxDmg.invoke(dmgMeta);
+        }
+      } catch (Exception ignored) {
+        // Fall back to default material max durability
+      }
+    }
+    return item.getType().getMaxDurability();
   }
 }

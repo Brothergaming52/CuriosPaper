@@ -52,23 +52,34 @@ public class PlayerDeathListener implements Listener {
                 for (int i = 0; i < items.size(); i++) {
                     ItemStack item = items.get(i);
                     if (item != null && item.getType() != Material.AIR) {
-                        event.getDrops().add(item);
-
-                        // Fire AccessoryEquipEvent for unequip
-                        AccessoryEquipEvent equipEvent = new AccessoryEquipEvent(
+                        // Fire PlayerDeathCurioDropEvent
+                        org.bg52.curiospaper.event.PlayerDeathCurioDropEvent dropEvent = new org.bg52.curiospaper.event.PlayerDeathCurioDropEvent(
                                 player,
                                 slotType,
                                 i,
-                                item,
-                                null,
-                                AccessoryEquipEvent.Action.UNEQUIP);
-                        Bukkit.getPluginManager().callEvent(equipEvent);
+                                item
+                        );
+                        Bukkit.getPluginManager().callEvent(dropEvent);
+
+                        if (!dropEvent.isCancelled()) {
+                            event.getDrops().add(item);
+
+                            // Fire AccessoryEquipEvent for unequip
+                            AccessoryEquipEvent equipEvent = new AccessoryEquipEvent(
+                                    player,
+                                    slotType,
+                                    i,
+                                    item,
+                                    null,
+                                    AccessoryEquipEvent.Action.UNEQUIP);
+                            Bukkit.getPluginManager().callEvent(equipEvent);
+
+                            // Clear item from slot
+                            plugin.getSlotManager().setAccessoryItem(player.getUniqueId(), slotType, i, null);
+                        }
                     }
                 }
             }
-
-            // Clear items from slots
-            plugin.getSlotManager().clearAllAccessories(player.getUniqueId());
         }
     }
 }

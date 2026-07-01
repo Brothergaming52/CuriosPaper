@@ -170,44 +170,50 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
 
   private void cmdRpRebuild(CommandSender sender) {
     sender.sendMessage(msg().get("commands.rp.rebuild-start"));
-    rpManager.generatePack();
-    sender.sendMessage(msg().get("commands.rp.rebuild-complete"));
+    Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+      rpManager.generatePack();
 
-    ResourcePackManager.HostingMode mode = rpManager.getHostingMode();
-    if (mode == ResourcePackManager.HostingMode.NONE) {
-      sender.sendMessage(msg().get("commands.rp.rebuild-disabled"));
-      return;
-    }
+      // Return to main thread to send to players
+      Bukkit.getScheduler().runTask(plugin, () -> {
+        sender.sendMessage(msg().get("commands.rp.rebuild-complete"));
 
-    String url = rpManager.getPackUrl();
-    if (url == null || url.isEmpty()) {
-      sender.sendMessage("\u00a7c[CuriosPaper] Rebuilt pack, but mode is set to LINK and url is empty. Cannot send to players.");
-      return;
-    }
-    String hash = rpManager.getPackHash();
+        ResourcePackManager.HostingMode mode = rpManager.getHostingMode();
+        if (mode == ResourcePackManager.HostingMode.NONE) {
+          sender.sendMessage(msg().get("commands.rp.rebuild-disabled"));
+          return;
+        }
 
-    // Append hash as query param to bust client cache on pack rebuild
-    if (hash != null && !hash.isEmpty()) {
-      if (url.contains("?")) {
-        url = url + "&v=" + hash;
-      } else {
-        url = url + "?v=" + hash;
-      }
-    }
+        String url = rpManager.getPackUrl();
+        if (url == null || url.isEmpty()) {
+          sender.sendMessage("\u00a7c[CuriosPaper] Rebuilt pack, but mode is set to LINK and url is empty. Cannot send to players.");
+          return;
+        }
+        String hash = rpManager.getPackHash();
 
-    int count = 0;
-    for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
-      try {
-        // Use single-arg setResourcePack(url) for maximum version compatibility (1.14+)
-        p.setResourcePack(url);
-        count++;
-      } catch (Exception e) {
-        plugin.getLogger().warning("[CuriosPaper] Failed to send resource pack to " + p.getName()
-            + ": " + e.getMessage());
-      }
-    }
+        // Append hash as query param to bust client cache on pack rebuild
+        if (hash != null && !hash.isEmpty()) {
+          if (url.contains("?")) {
+            url = url + "&v=" + hash;
+          } else {
+            url = url + "?v=" + hash;
+          }
+        }
 
-    sender.sendMessage(msg().get("commands.rp.rebuild-sent", "count", String.valueOf(count)));
+        int count = 0;
+        for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
+          try {
+            // Use single-arg setResourcePack(url) for maximum version compatibility (1.14+)
+            p.setResourcePack(url);
+            count++;
+          } catch (Exception e) {
+            plugin.getLogger().warning("[CuriosPaper] Failed to send resource pack to " + p.getName()
+                + ": " + e.getMessage());
+          }
+        }
+
+        sender.sendMessage(msg().get("commands.rp.rebuild-sent", "count", String.valueOf(count)));
+      });
+    });
   }
 
   private void cmdRpConflicts(CommandSender sender) {

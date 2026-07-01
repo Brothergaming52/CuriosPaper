@@ -2,6 +2,7 @@ package org.bg52.curiospaper.manager;
 
 import org.bg52.curiospaper.CuriosPaper;
 import org.bg52.curiospaper.config.SlotConfiguration;
+import org.bg52.curiospaper.storage.CuriosStorageAPI;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -38,6 +39,14 @@ public class SlotManager {
    * Works for both online and offline players.
    */
   public void loadPlayerData(UUID playerId) {
+    // Check if we're using a database backend
+    CuriosStorageAPI storageAPI = CuriosStorageAPI.getInstance();
+    if (storageAPI != null && storageAPI.isDatabaseMode()) {
+      loadPlayerDataFromDB(playerId, storageAPI);
+      return;
+    }
+
+    // YAML mode (legacy)
     File playerFile = new File(dataFolder, playerId.toString() + ".yml");
 
     if (!playerFile.exists()) {
@@ -65,6 +74,25 @@ public class SlotManager {
       plugin.getLogger().severe("Failed to load player data for " + playerId + ": " + e.getMessage());
       e.printStackTrace();
       // Initialize with empty data to prevent null pointer issues
+      playerAccessories.put(playerId, new HashMap<>());
+    }
+  }
+
+  /**
+   * Loads player data from the database backend (blocking).
+   * Called during PlayerJoinEvent, must complete before the player interacts.
+   */
+  private void loadPlayerDataFromDB(UUID playerId, CuriosStorageAPI storageAPI) {
+    try {
+      Map<String, List<ItemStack>> accessories = storageAPI.loadPlayerAccessories(playerId).join();
+      if (accessories == null) {
+        accessories = new HashMap<>();
+      }
+      playerAccessories.put(playerId, accessories);
+      plugin.getLogger().info("Loaded accessory data from database for player: " + playerId);
+    } catch (Exception e) {
+      plugin.getLogger().severe("Failed to load player data from database for " + playerId + ": " + e.getMessage());
+      e.printStackTrace();
       playerAccessories.put(playerId, new HashMap<>());
     }
   }
@@ -132,6 +160,14 @@ public class SlotManager {
       return;
     }
 
+    // Check if we're using a database backend
+    CuriosStorageAPI storageAPI = CuriosStorageAPI.getInstance();
+    if (storageAPI != null && storageAPI.isDatabaseMode()) {
+      savePlayerDataToDB(playerId, accessories, storageAPI);
+      return;
+    }
+
+    // YAML mode (legacy)
     File playerFile = new File(dataFolder, playerId.toString() + ".yml");
     YamlConfiguration config = new YamlConfiguration();
 
@@ -159,6 +195,21 @@ public class SlotManager {
       plugin.getLogger().fine("Saved " + totalSaved + " items for player: " + playerId);
     } catch (IOException e) {
       plugin.getLogger().severe("Failed to save accessory data for player: " + playerId);
+      e.printStackTrace();
+    }
+  }
+
+  /**
+   * Saves player data to the database backend.
+   * Fire-and-forget for periodic saves; the future is joined during shutdown.
+   */
+  private void savePlayerDataToDB(UUID playerId, Map<String, List<ItemStack>> accessories,
+                                  CuriosStorageAPI storageAPI) {
+    try {
+      storageAPI.savePlayerAccessories(playerId, accessories).join();
+      plugin.getLogger().fine("Saved accessory data to database for player: " + playerId);
+    } catch (Exception e) {
+      plugin.getLogger().severe("Failed to save player data to database for " + playerId + ": " + e.getMessage());
       e.printStackTrace();
     }
   }

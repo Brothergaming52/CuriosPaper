@@ -755,6 +755,11 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
   }
 
   @Override
+  public void registerItemModelOverride(String material, int customModelData, String modelPath) {
+    this.plugin.getResourcePackManager().registerItemModelOverride(material, customModelData, modelPath);
+  }
+
+  @Override
   public java.io.File registerResourcePackAssetsFromJar(org.bukkit.plugin.Plugin sourcePlugin) {
     // Target: <that plugin's data folder>/resources
     java.io.File targetFolder = new java.io.File(sourcePlugin.getDataFolder(), "resources");
@@ -884,5 +889,10 @@ public class CuriosPaperAPIImpl implements CuriosPaperAPI {
       plugin.getLogger().warning("Failed to create base64 skull: " + e.getMessage());
       return null;
     }
+  }
+
+  @Override
+  public org.bg52.curiospaper.storage.CuriosStorageAPI getStorageAPI() {
+    return org.bg52.curiospaper.storage.CuriosStorageAPI.getInstance();
   }
 }

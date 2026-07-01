@@ -32,7 +32,7 @@ public class MobDropListener implements Listener {
     this.plugin = plugin;
     this.itemDataManager = itemDataManager;
     this.random = new Random();
-    this.trackedModels = new java.util.WeakHashMap<>();
+    this.trackedModels = new java.util.HashMap<>();
 
     // Repeating task to sync the passenger armor stand rotation
     org.bukkit.Bukkit.getScheduler().runTaskTimer(plugin, () -> {
@@ -45,6 +45,9 @@ public class MobDropListener implements Listener {
 
         if (mob == null || stand == null || !mob.isValid() || !stand.isValid()
             || !mob.getPassengers().contains(stand)) {
+          if (stand != null && stand.isValid()) {
+            stand.remove();
+          }
           it.remove();
           continue;
         }
@@ -57,6 +60,18 @@ public class MobDropListener implements Listener {
         }
       }
     }, 20L, 5L); // Run every tick
+  }
+
+  /**
+   * Cleans up all tracked model armor stands.
+   */
+  public void cleanup() {
+    for (org.bukkit.entity.ArmorStand stand : trackedModels.values()) {
+      if (stand != null && stand.isValid()) {
+        stand.remove();
+      }
+    }
+    trackedModels.clear();
   }
 
   @EventHandler(priority = EventPriority.HIGH)

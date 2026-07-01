@@ -43,21 +43,22 @@ public class ResourcePackManager {
   }
 
   private final List<SourceEntry> registeredSources;
+  private final Map<String, Map<Integer, String>> customModelOverrides = new HashMap<>();
   private ResourcePackHost server;
-  private String packHash;
+  private volatile String packHash;
 
   private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
   // Dirty build flag
-  private boolean dirty = false;
+  private volatile boolean dirty = false;
 
   // Namespace rules
   private final Set<String> reservedNamespaces = new HashSet<>(Arrays.asList("curiospaper"));
   private final Map<String, Plugin> namespaceOwners = new HashMap<>();
 
   // Conflict tracking
-  private final List<String> conflictLog = new ArrayList<>();
-  private final List<String> namespaceConflictLog = new ArrayList<>();
+  private final List<String> conflictLog = java.util.Collections.synchronizedList(new ArrayList<>());
+  private final List<String> namespaceConflictLog = java.util.Collections.synchronizedList(new ArrayList<>());
 
   // Config options
   private boolean allowMinecraftNamespace;
@@ -96,6 +97,15 @@ public class ResourcePackManager {
 
   public boolean isDirty() {
     return dirty;
+  }
+
+  public void registerItemModelOverride(String material, int customModelData, String modelPath) {
+    if (material == null || modelPath == null)
+      return;
+    String matKey = material.toUpperCase().trim();
+    Map<Integer, String> overrides = customModelOverrides.computeIfAbsent(matKey, k -> new HashMap<>());
+    overrides.put(customModelData, modelPath);
+    dirty = true;
   }
 
   public void registerResource(Plugin plugin, File sourceFolder) {
@@ -244,7 +254,7 @@ public class ResourcePackManager {
     processExternalPacks();
 
     // delayed build — allow addons time to register
-    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+    plugin.getServer().getScheduler().runTaskLaterAsynchronously(plugin, () -> {
       if (dirty)
         generatePack();
     }, 200L); // 10 seconds
@@ -454,6 +464,12 @@ public class ResourcePackManager {
       createDefaultMcmeta(resourcePackDir);
     }
 
+    // Inject dynamic CustomModelData overrides
+    injectCustomModelOverrides();
+
+    // Generate combined custom Elytra assets
+    generateCombinedElytraAssets(new File(resourcePackDir, "assets"));
+
     try {
       zipDirectory(resourcePackDir, packFile);
       this.packHash = calculateSha1(packFile);
@@ -474,6 +490,112 @@ public class ResourcePackManager {
     }
   }
 
+  /**
+   * Scans for custom Elytras (assets with wings layer) and generates combined chestplate assets.
+   */
+  private void generateCombinedElytraAssets(File assetsDir) {
+    if (assetsDir == null || !assetsDir.exists() || !assetsDir.isDirectory()) {
+      return;
+    }
+
+    try {
+      Path assetsPath = assetsDir.toPath();
+      try (java.util.stream.Stream<Path> walkStream = Files.walk(assetsPath)) {
+        walkStream
+            .filter(path -> Files.isRegularFile(path) && path.toString().endsWith(".json"))
+            .forEach(path -> {
+              try {
+                Path relative = assetsPath.relativize(path);
+                if (relative.getNameCount() < 3) {
+                  return;
+                }
+                String namespace = relative.getName(0).toString().toLowerCase(Locale.ROOT);
+                if (namespace.equals("curiospaper")) {
+                  return;
+                }
+                String folder = relative.getName(1).toString().toLowerCase(Locale.ROOT);
+                if (!folder.equals("equipment")) {
+                  return;
+                }
+
+                StringBuilder keyBuilder = new StringBuilder();
+                for (int i = 2; i < relative.getNameCount(); i++) {
+                  if (i > 2) {
+                    keyBuilder.append("/");
+                  }
+                  keyBuilder.append(relative.getName(i).toString());
+                }
+                String keyWithExt = keyBuilder.toString().toLowerCase(Locale.ROOT);
+                if (!keyWithExt.endsWith(".json")) {
+                  return;
+                }
+                String key = keyWithExt.substring(0, keyWithExt.length() - 5);
+
+                JsonObject rootObj;
+                try (Reader reader = Files.newBufferedReader(path)) {
+                  rootObj = new com.google.gson.JsonParser().parse(reader).getAsJsonObject();
+                }
+
+                if (rootObj == null || !rootObj.has("layers")) {
+                  return;
+                }
+                JsonObject layers = rootObj.getAsJsonObject("layers");
+                if (layers == null || !layers.has("wings")) {
+                  return;
+                }
+                JsonArray wingsArray = layers.getAsJsonArray("wings");
+                if (wingsArray == null || wingsArray.size() == 0) {
+                  return;
+                }
+
+                String sanitizedAsset = org.bg52.curiospaper.util.VersionUtil.sanitizeAssetKey(namespace, key);
+                String[] materials = {"leather", "chainmail", "iron", "golden", "diamond", "netherite"};
+                for (String mat : materials) {
+                  File templateFile = new File(assetsDir, "curiospaper/equipment/elytra_" + mat + "_chestplate.json");
+                  if (!templateFile.exists()) {
+                    continue;
+                  }
+
+                  JsonObject templateObj;
+                  try (Reader tReader = new FileReader(templateFile)) {
+                    templateObj = new com.google.gson.JsonParser().parse(tReader).getAsJsonObject();
+                  }
+
+                  if (templateObj == null || !templateObj.has("layers")) {
+                    continue;
+                  }
+                  JsonObject tLayers = templateObj.getAsJsonObject("layers");
+                  if (tLayers == null || !tLayers.has("humanoid")) {
+                    continue;
+                  }
+                  JsonArray humanoidArray = tLayers.getAsJsonArray("humanoid");
+
+                  JsonObject combinedObj = new JsonObject();
+                  JsonObject combinedLayers = new JsonObject();
+                  combinedLayers.add("humanoid", humanoidArray);
+                  combinedLayers.add("wings", wingsArray);
+                  combinedObj.add("layers", combinedLayers);
+
+                  File outFile = new File(assetsDir, "curiospaper/equipment/elytra_" + mat + "_" + sanitizedAsset + ".json");
+                  if (!outFile.getParentFile().exists()) {
+                    outFile.getParentFile().mkdirs();
+                  }
+                  try (Writer writer = new FileWriter(outFile)) {
+                    gson.toJson(combinedObj, writer);
+                  }
+                }
+
+              } catch (Exception e) {
+                // Ignore invalid JSONs or errors for specific files
+              }
+            });
+      }
+    } catch (Exception e) {
+      plugin.getLogger().warning("[CuriosPaper-RP] Failed to generate combined elytra assets: " + e.getMessage());
+      e.printStackTrace();
+    }
+  }
+
   private void createDefaultMcmeta(File dir) {
     File mcmeta = new File(dir, "pack.mcmeta");
     try (FileWriter writer = new FileWriter(mcmeta)) {
@@ -485,6 +607,87 @@ public class ResourcePackManager {
           "}");
     } catch (IOException e) {
       e.printStackTrace();
+    }
+  }
+
+  private void injectCustomModelOverrides() {
+    if (customModelOverrides.isEmpty())
+      return;
+
+    for (Map.Entry<String, Map<Integer, String>> entry : customModelOverrides.entrySet()) {
+      String material = entry.getKey();
+      Map<Integer, String> overridesMap = entry.getValue();
+      if (overridesMap.isEmpty())
+        continue;
+
+      File modelFile = new File(resourcePackDir, "assets/minecraft/models/item/" + material.toLowerCase() + ".json");
+
+      try {
+        JsonObject rootObj;
+        if (modelFile.exists()) {
+          try (Reader reader = new FileReader(modelFile)) {
+            rootObj = new com.google.gson.JsonParser().parse(reader).getAsJsonObject();
+          }
+        } else {
+          rootObj = new JsonObject();
+          rootObj.addProperty("parent", "item/generated");
+          JsonObject textures = new JsonObject();
+          textures.addProperty("layer0", "item/" + material.toLowerCase());
+          rootObj.add("textures", textures);
+        }
+
+        JsonArray overrides = rootObj.getAsJsonArray("overrides");
+        if (overrides == null) {
+          overrides = new JsonArray();
+          rootObj.add("overrides", overrides);
+        }
+
+        for (Map.Entry<Integer, String> overrideEntry : overridesMap.entrySet()) {
+          int cmd = overrideEntry.getKey();
+          String modelPath = overrideEntry.getValue();
+
+          // Check if override already exists
+          JsonObject existingOverride = null;
+          for (int i = 0; i < overrides.size(); i++) {
+            JsonObject override = overrides.get(i).getAsJsonObject();
+            if (override.has("predicate")) {
+              JsonObject predicate = override.getAsJsonObject("predicate");
+              if (predicate.has("custom_model_data")) {
+                int existingCmd = predicate.get("custom_model_data").getAsInt();
+                if (existingCmd == cmd) {
+                  existingOverride = override;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (existingOverride != null) {
+            existingOverride.addProperty("model", modelPath);
+          } else {
+            JsonObject newOverride = new JsonObject();
+            JsonObject predicate = new JsonObject();
+            predicate.addProperty("custom_model_data", cmd);
+            newOverride.add("predicate", predicate);
+            newOverride.addProperty("model", modelPath);
+            overrides.add(newOverride);
+          }
+        }
+
+        // Ensure parent directories exist
+        if (!modelFile.getParentFile().exists()) {
+          modelFile.getParentFile().mkdirs();
+        }
+
+        try (Writer writer = new FileWriter(modelFile)) {
+          gson.toJson(rootObj, writer);
+        }
+
+      } catch (Exception e) {
+        plugin.getLogger().severe("[CuriosPaper-RP] Failed to inject custom model overrides for material " + material
+            + ": " + e.getMessage());
+        e.printStackTrace();
+      }
     }
   }
 

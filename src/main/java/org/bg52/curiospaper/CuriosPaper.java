@@ -18,6 +18,8 @@ import org.bg52.curiospaper.manager.MessagesManager;
 import org.bg52.curiospaper.manager.SlotManager;
 import org.bg52.curiospaper.model.ModelStandManager;
 import org.bg52.curiospaper.resourcepack.ResourcePackManager;
+import org.bg52.curiospaper.storage.CuriosStorageAPI;
+import org.bg52.curiospaper.storage.MigrationUtil;
 import org.bg52.curiospaper.util.AutoSaveTask;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.NamespacedKey;
@@ -52,6 +54,7 @@ public class CuriosPaper extends JavaPlugin {
   private ItemListGUI itemListGUI;
   private ItemRecipeListGUI itemRecipeListGUI;
   private RecipeViewGUI recipeViewGUI;
+  private org.bg52.curiospaper.listener.MobDropListener mobDropListener;
 
   @Override
   public void onEnable() {
@@ -65,6 +68,27 @@ public class CuriosPaper extends JavaPlugin {
     configManager = new ConfigManager(this);
 
     slotManager = new SlotManager(this);
+
+    // Initialize Storage API (must be before SlotManager loads any data)
+    CuriosStorageAPI.initialize(this);
+
+    // Auto-migrate YAML player data if configured and using a database backend
+    if (CuriosStorageAPI.getInstance() != null
+        && CuriosStorageAPI.getInstance().isDatabaseMode()
+        && getConfig().getBoolean("storage.auto-migrate", true)) {
+      java.io.File playerdataFolder = new java.io.File(getDataFolder(), "playerdata");
+      if (playerdataFolder.exists()) {
+        java.io.File[] ymlFiles = playerdataFolder.listFiles((dir, name) -> name.endsWith(".yml"));
+        if (ymlFiles != null && ymlFiles.length > 0) {
+          getLogger().info("Auto-migrating " + ymlFiles.length + " player data files to "
+              + CuriosStorageAPI.getInstance().getStorageType() + "...");
+          int migrated = MigrationUtil.migratePlayerData(
+              playerdataFolder, CuriosStorageAPI.getInstance().getProvider(), getLogger());
+          getLogger().info("Migration complete: " + migrated + " files migrated to "
+              + CuriosStorageAPI.getInstance().getStorageType());
+        }
+      }
+    }
 
     // Initialize Item Data Manager
     boolean itemEditorEnabled = getConfig().getBoolean("features.item-editor.enabled", true);
@@ -160,8 +184,9 @@ public class CuriosPaper extends JavaPlugin {
       // Register loot table and mob drop listeners
       getServer().getPluginManager()
           .registerEvents(new org.bg52.curiospaper.listener.LootTableListener(this, itemDataManager), this);
+      this.mobDropListener = new org.bg52.curiospaper.listener.MobDropListener(this, itemDataManager);
       getServer().getPluginManager()
-          .registerEvents(new org.bg52.curiospaper.listener.MobDropListener(this, itemDataManager), this);
+          .registerEvents(this.mobDropListener, this);
 
       // Register TradeEditor
       this.tradeEditor = new TradeEditor(this);
@@ -189,6 +214,19 @@ public class CuriosPaper extends JavaPlugin {
         elytraHandler = new ElytraBackSlotHandler(this);
         getServer().getPluginManager().registerEvents(elytraHandler, this);
         getLogger().info("Elytra back slot feature enabled!");
+
+        // Register default elytra curio item if missing
+        if (itemEditorEnabled && itemDataManager != null) {
+          if (!itemDataManager.hasItem("elytra")) {
+            org.bg52.curiospaper.data.ItemData elytraData = itemDataManager.createItem("elytra");
+            if (elytraData != null) {
+              elytraData.setDisplayName("Elytra");
+              elytraData.setMaterial("ELYTRA");
+              elytraData.setSlotType("back");
+              itemDataManager.saveItemData(elytraData);
+            }
+          }
+        }
       } else {
         getLogger().warning("Elytra back slot feature requires Minecraft 1.21.3+ with Paper. " +
             "Your server is running " + org.bg52.curiospaper.util.VersionUtil.getVersionString() +
@@ -288,12 +326,19 @@ public class CuriosPaper extends JavaPlugin {
       modelStandManager.shutdown();
     }
 
+    if (mobDropListener != null) {
+      mobDropListener.cleanup();
+    }
+
     // Clean up hotkey listener
     if (accessoryHotkeyListener != null) {
       accessoryHotkeyListener.cleanup();
     }
 
     slotManager.saveAllPlayerData();
+
+    // Shutdown storage API after all data is saved
+    CuriosStorageAPI.shutdown();
 
     getLogger().info("CuriosPaper has been disabled!");
   }
