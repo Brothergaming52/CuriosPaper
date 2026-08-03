@@ -1,5 +1,6 @@
 package org.bg52.curiospaper.data;
 
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.configuration.ConfigurationSection;
 
 /**
@@ -12,6 +13,7 @@ public class AbilityData {
   private String effectName; // Potion effect type or modifier type
   private int amplifier; // Effect amplifier (0-9)
   private int duration; // Duration in ticks (for potion effects)
+  private AttributeModifier.Operation operation; // Operation for player modifiers (ADD_NUMBER, ADD_SCALAR, MULTIPLY_SCALAR_1)
 
   /**
    * When the ability should trigger
@@ -31,11 +33,16 @@ public class AbilityData {
   }
 
   public AbilityData(TriggerType trigger, EffectType effectType, String effectName, int amplifier, int duration) {
+    this(trigger, effectType, effectName, amplifier, duration, AttributeModifier.Operation.ADD_NUMBER);
+  }
+
+  public AbilityData(TriggerType trigger, EffectType effectType, String effectName, int amplifier, int duration, AttributeModifier.Operation operation) {
     this.trigger = trigger;
     this.effectType = effectType;
     this.effectName = effectName;
     this.amplifier = amplifier;
     this.duration = Math.max(0, duration);
+    this.operation = operation != null ? operation : AttributeModifier.Operation.ADD_NUMBER;
   }
 
   // Getters
@@ -59,6 +66,10 @@ public class AbilityData {
     return duration;
   }
 
+  public AttributeModifier.Operation getOperation() {
+    return operation != null ? operation : AttributeModifier.Operation.ADD_NUMBER;
+  }
+
   // Setters
   public void setTrigger(TriggerType trigger) {
     this.trigger = trigger;
@@ -80,6 +91,10 @@ public class AbilityData {
     this.duration = Math.max(0, duration);
   }
 
+  public void setOperation(AttributeModifier.Operation operation) {
+    this.operation = operation != null ? operation : AttributeModifier.Operation.ADD_NUMBER;
+  }
+
   /**
    * Saves this ability to a configuration section
    */
@@ -89,6 +104,9 @@ public class AbilityData {
     config.set("effect-name", effectName);
     config.set("amplifier", amplifier);
     config.set("duration", duration);
+    if (effectType == EffectType.PLAYER_MODIFIER && operation != null) {
+      config.set("operation", operation.name());
+    }
   }
 
   /**
@@ -102,7 +120,16 @@ public class AbilityData {
       int amplifier = config.getInt("amplifier", 0);
       int duration = config.getInt("duration", 200);
 
-      return new AbilityData(trigger, effectType, effectName, amplifier, duration);
+      AttributeModifier.Operation operation = AttributeModifier.Operation.ADD_NUMBER;
+      String opStr = config.getString("operation", null);
+      if (opStr != null) {
+        try {
+          operation = AttributeModifier.Operation.valueOf(opStr.toUpperCase());
+        } catch (IllegalArgumentException ignored) {
+        }
+      }
+
+      return new AbilityData(trigger, effectType, effectName, amplifier, duration, operation);
     } catch (Exception e) {
       return null;
     }
@@ -123,6 +150,7 @@ public class AbilityData {
         ", effectName='" + effectName + '\'' +
         ", amplifier=" + amplifier +
         ", duration=" + duration +
+        ", operation=" + operation +
         '}';
   }
 }

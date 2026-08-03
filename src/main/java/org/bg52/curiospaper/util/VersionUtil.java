@@ -24,23 +24,20 @@ public class VersionUtil {
   }
 
   /**
-   * Parse the server version from Bukkit.getVersion()
-   * Examples: "1.14.4", "1.21.3", "1.20.1"
+   * Parse the server version from Bukkit.getBukkitVersion() or Bukkit.getVersion()
+   * Examples: "1.21.3-R0.1-SNAPSHOT", "26.2.build.48-alpha", "26.2-48-main..."
    */
   private static void parseVersion() {
     try {
       String versionString = Bukkit.getBukkitVersion();
-      // Format: "1.21.3-R0.1-SNAPSHOT" or "1.14.4-R0.1-SNAPSHOT"
-      String[] parts = versionString.split("-")[0].split("\\.");
-
-      if (parts.length >= 2) {
-        majorVersion = Integer.parseInt(parts[0]);
-        minorVersion = Integer.parseInt(parts[1]);
-      }
-      if (parts.length >= 3) {
-        patchVersion = Integer.parseInt(parts[2]);
-      } else {
-        patchVersion = 0;
+      if (!tryParse(versionString)) {
+        String fullVersion = Bukkit.getVersion();
+        if (!tryParse(fullVersion)) {
+          // Fallback to safe defaults if parsing fails
+          majorVersion = 1;
+          minorVersion = 14;
+          patchVersion = 0;
+        }
       }
     } catch (Exception e) {
       // Fallback to safe defaults if parsing fails
@@ -48,6 +45,30 @@ public class VersionUtil {
       minorVersion = 14;
       patchVersion = 0;
     }
+  }
+
+  private static boolean tryParse(String versionStr) {
+    if (versionStr == null || versionStr.trim().isEmpty()) {
+      return false;
+    }
+    java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\d+)\\.(\\d+)(?:\\.(\\d+))?");
+    java.util.regex.Matcher matcher = pattern.matcher(versionStr);
+
+    if (matcher.find()) {
+      try {
+        majorVersion = Integer.parseInt(matcher.group(1));
+        minorVersion = Integer.parseInt(matcher.group(2));
+        if (matcher.group(3) != null) {
+          patchVersion = Integer.parseInt(matcher.group(3));
+        } else {
+          patchVersion = 0;
+        }
+        return true;
+      } catch (NumberFormatException e) {
+        return false;
+      }
+    }
+    return false;
   }
 
   /**

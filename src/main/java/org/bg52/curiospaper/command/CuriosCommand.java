@@ -549,23 +549,45 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
    * Checks if a title belongs to an inspect overview GUI.
    */
   public static boolean isInspectOverviewGUI(String title) {
+    if (title == null) return false;
     String stripped = org.bukkit.ChatColor.stripColor(title);
     return stripped != null && stripped.startsWith("Inspect: ");
   }
 
-  /**
-   * Checks if a title belongs to an inspect slot GUI.
-   * Slot GUI title starts with section-8 and is NOT the overview.
-   */
-  public static boolean isInspectSlotGUI(String title) {
-    return title != null && title.startsWith("\u00a78") && !isInspectOverviewGUI(title);
+  public static boolean isInspectOverviewGUI(Player admin, String title) {
+    if (admin == null || !activeInspectSessions.containsKey(admin.getUniqueId())) return false;
+    return isInspectOverviewGUI(title);
   }
 
   /**
-   * Checks if a title belongs to any inspect GUI (overview or slot).
+   * Checks if a title belongs to an inspect slot GUI for a specific admin player.
    */
+  public static boolean isInspectSlotGUI(Player admin, String title) {
+    if (admin == null || !activeInspectSessions.containsKey(admin.getUniqueId())
+        || !activeInspectSlotTypes.containsKey(admin.getUniqueId())) {
+      return false;
+    }
+    return isInspectSlotGUI(title);
+  }
+
+  /**
+   * Checks if a title matches inspect slot GUI format.
+   */
+  public static boolean isInspectSlotGUI(String title) {
+    if (title == null || !title.startsWith("\u00a78")) return false;
+    String stripped = org.bukkit.ChatColor.stripColor(title);
+    return stripped != null && stripped.contains(" - ");
+  }
+
+  /**
+   * Checks if a title belongs to any inspect GUI for a specific admin.
+   */
+  public static boolean isInspectGUI(Player admin, String title) {
+    return isInspectOverviewGUI(admin, title) || isInspectSlotGUI(admin, title);
+  }
+
   public static boolean isInspectGUI(String title) {
-    return isInspectOverviewGUI(title) || isInspectSlotGUI(title);
+    return isInspectOverviewGUI(title);
   }
 
   // ---------------- ITEM EDIT SUBCOMMANDS ----------------
@@ -924,34 +946,32 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
   }
 
   private boolean handleGive(CommandSender sender, String[] args) {
-    if (!(sender instanceof Player)) {
-      sender.sendMessage(msg().get("common.only-players"));
-      return true;
-    }
-    Player senderPlayer = (Player) sender;
-    if (!senderPlayer.hasPermission("curiospaper.admin")) {
-      senderPlayer.sendMessage(msg().get("common.no-permission-exclaim"));
-      return true;
+    if (sender instanceof Player) {
+      Player senderPlayer = (Player) sender;
+      if (!senderPlayer.hasPermission("curiospaper.admin")) {
+        senderPlayer.sendMessage(msg().get("common.no-permission-exclaim"));
+        return true;
+      }
     }
 
     if (args.length < 2) {
-      senderPlayer.sendMessage(msg().get("commands.give.usage"));
+      sender.sendMessage(msg().get("commands.give.usage"));
       return true;
     }
 
     String itemId = args[1].toLowerCase();
 
     if (itemDataManager == null) {
-      senderPlayer.sendMessage(msg().get("commands.give.editor-disabled"));
+      sender.sendMessage(msg().get("commands.give.editor-disabled"));
       return true;
     }
 
     if (!itemDataManager.hasItem(itemId)) {
-      senderPlayer.sendMessage(msg().get("commands.give.not-found"));
+      sender.sendMessage(msg().get("commands.give.not-found"));
       return true;
     }
 
-    Player target = senderPlayer;
+    Player target = (sender instanceof Player) ? (Player) sender : null;
     int amount = 1;
 
     if (args.length >= 3) {
@@ -961,7 +981,7 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
           int parsed = Integer.parseInt(args[2]);
           amount = clampAmount(parsed);
         } catch (NumberFormatException ignored) {
-          senderPlayer.sendMessage(msg().get("common.player-not-found", "player", args[2]));
+          sender.sendMessage(msg().get("common.player-not-found", "player", args[2]));
           return true;
         }
       } else {
@@ -973,14 +993,19 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
       try {
         amount = clampAmount(Integer.parseInt(args[3]));
       } catch (NumberFormatException e) {
-        senderPlayer.sendMessage(msg().get("common.invalid-amount", "amount", args[3]));
+        sender.sendMessage(msg().get("common.invalid-amount", "amount", args[3]));
         return true;
       }
     }
 
+    if (target == null) {
+      sender.sendMessage("§cConsole must specify a player: /cp give <item> <player> [amount]");
+      return true;
+    }
+
     ItemData data = itemDataManager.getItemData(itemId);
     if (data == null) {
-      senderPlayer.sendMessage(msg().get("commands.give.load-failed", "item", itemId));
+      sender.sendMessage(msg().get("commands.give.load-failed", "item", itemId));
       return true;
     }
 
@@ -988,15 +1013,15 @@ public class CuriosCommand implements CommandExecutor, TabCompleter {
 
     if (target.getInventory().addItem(stack).isEmpty()) {
       target.sendMessage(msg().get("commands.give.received", "amount", String.valueOf(amount), "item", itemId));
-      if (!target.equals(senderPlayer)) {
-        senderPlayer.sendMessage(msg().get("commands.give.sent",
+      if (!target.equals(sender)) {
+        sender.sendMessage(msg().get("commands.give.sent",
             "amount", String.valueOf(amount), "item", itemId, "player", target.getName()));
       }
     } else {
       target.getWorld().dropItemNaturally(target.getLocation(), stack);
       target.sendMessage(msg().get("commands.give.dropped-self"));
-      if (!target.equals(senderPlayer)) {
-        senderPlayer.sendMessage(msg().get("commands.give.dropped-other", "player", target.getName()));
+      if (!target.equals(sender)) {
+        sender.sendMessage(msg().get("commands.give.dropped-other", "player", target.getName()));
       }
     }
 

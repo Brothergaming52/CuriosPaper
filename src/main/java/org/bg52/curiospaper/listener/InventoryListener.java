@@ -53,7 +53,7 @@ public class InventoryListener implements Listener {
       handleSlotsGUIClick(event, player, title);
     } else if (EditMenuGUI.isEditMenu(title)) {
       handleEditMenuClick(event, player);
-    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectGUI(title)) {
+    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectGUI(player, title)) {
       handleInspectGUIClick(event, player);
     }
   }
@@ -127,7 +127,7 @@ public class InventoryListener implements Listener {
     String title = event.getView().getTitle();
 
     // Overview GUI is always read-only (navigation only)
-    if (org.bg52.curiospaper.command.CuriosCommand.isInspectOverviewGUI(title)) {
+    if (org.bg52.curiospaper.command.CuriosCommand.isInspectOverviewGUI(player, title)) {
       event.setCancelled(true);
 
       ItemStack clicked = event.getCurrentItem();
@@ -149,7 +149,7 @@ public class InventoryListener implements Listener {
     }
 
     // Slot GUI is editable — only restrict non-accessory slots
-    if (org.bg52.curiospaper.command.CuriosCommand.isInspectSlotGUI(title)) {
+    if (org.bg52.curiospaper.command.CuriosCommand.isInspectSlotGUI(player, title)) {
       int rawSlot = event.getRawSlot();
       org.bukkit.inventory.Inventory topInv = event.getView().getTopInventory();
 
@@ -572,9 +572,9 @@ public class InventoryListener implements Listener {
       event.setCancelled(true);
     } else if (EditMenuGUI.isEditMenu(title)) {
       event.setCancelled(true);
-    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectOverviewGUI(title)) {
+    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectOverviewGUI(player, title)) {
       event.setCancelled(true);
-    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectSlotGUI(title)) {
+    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectSlotGUI(player, title)) {
       // Block drags to non-accessory slots in inspect slot GUI
       Inventory topInventory = event.getView().getTopInventory();
       int[] accessoryPositions = org.bg52.curiospaper.command.CuriosCommand.getActiveInspectSlotPositions()
@@ -674,10 +674,10 @@ public class InventoryListener implements Listener {
       previousInventoryState.remove(player);
     } else if (EditMenuGUI.isEditMenu(title)) {
       handleEditMenuClose(event);
-    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectSlotGUI(title)) {
+    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectSlotGUI(player, title)) {
       // Save changes when admin closes the inspect slot GUI
       saveInspectSlotGUI(player, event.getInventory());
-    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectOverviewGUI(title)) {
+    } else if (org.bg52.curiospaper.command.CuriosCommand.isInspectOverviewGUI(player, title)) {
       // Clean up session data when overview is closed directly
       org.bg52.curiospaper.command.CuriosCommand.getActiveInspectSessions().remove(player.getUniqueId());
     }

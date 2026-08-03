@@ -8,6 +8,7 @@ import org.bg52.curiospaper.handler.ElytraBackSlotHandler;
 import org.bg52.curiospaper.inventory.*;
 import org.bg52.curiospaper.listener.AbilityListener;
 import org.bg52.curiospaper.listener.AccessoryHotkeyListener;
+import org.bg52.curiospaper.listener.BedrockContainerListener;
 import org.bg52.curiospaper.listener.InventoryListener;
 import org.bg52.curiospaper.listener.PlayerListener;
 import org.bg52.curiospaper.listener.QuickEquipListener;
@@ -206,6 +207,15 @@ public class CuriosPaper extends JavaPlugin {
       this.abilityListener = new AbilityListener(this);
       getServer().getPluginManager().registerEvents(this.abilityListener, this);
     }
+
+    // Register Bedrock container GUIs and listener
+    BedrockAnvilGUI bedrockAnvilGUI = new BedrockAnvilGUI(this);
+    BedrockSmithingGUI bedrockSmithingGUI = new BedrockSmithingGUI(this);
+    BedrockContainerListener bedrockContainerListener = new BedrockContainerListener(this, bedrockAnvilGUI, bedrockSmithingGUI);
+
+    getServer().getPluginManager().registerEvents(bedrockAnvilGUI, this);
+    getServer().getPluginManager().registerEvents(bedrockSmithingGUI, this);
+    getServer().getPluginManager().registerEvents(bedrockContainerListener, this);
 
     // Register Elytra Back Slot Handler if enabled AND server supports
     // DataComponents (1.21.3+)

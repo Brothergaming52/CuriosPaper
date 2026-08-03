@@ -203,6 +203,11 @@ items:
   ability-potion-effect: "&9{effect} {level}"
   ability-attribute-positive: "&9+{value} {attribute}"
   ability-attribute-negative: "&c-{value} {attribute}"
+  ability-attribute-scalar-positive: "&9+{value}% {attribute}"
+  ability-attribute-scalar-negative: "&c-{value}% {attribute}"
+  ability-attribute-multiply-positive: "&9x{value} {attribute}"
+  ability-attribute-multiply-negative: "&cx{value} {attribute}"
+
 
 
 # ── Quick Equip Messages ────────────────────────────────────────────────────

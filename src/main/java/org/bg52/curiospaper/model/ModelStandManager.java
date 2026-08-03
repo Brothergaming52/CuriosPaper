@@ -240,11 +240,17 @@ public class ModelStandManager implements Listener {
     }
   }
 
-  // Prevent right-click interactions (e.g. villager trade GUI opening)
+  @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+  public void onPlayerToggleFlight(PlayerToggleFlightEvent event) {
+    updateStandsForPlayer(event.getPlayer(), true);
+  }
+
+  // Prevent right-click interactions (e.g. villager trade GUI opening) and dismount model stands
   @EventHandler(priority = EventPriority.LOWEST)
   public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
     if (modelEntityIds.contains(event.getRightClicked().getUniqueId())) {
       event.setCancelled(true);
+      tempDismount(event.getPlayer());
       return;
     }
     if (!rtpEnabled) return;
@@ -278,6 +284,7 @@ public class ModelStandManager implements Listener {
   public void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent event) {
     if (modelEntityIds.contains(event.getRightClicked().getUniqueId())) {
       event.setCancelled(true);
+      tempDismount(event.getPlayer());
       return;
     }
     if (!rtpEnabled) return;
@@ -304,6 +311,28 @@ public class ModelStandManager implements Listener {
         rtpEntities.contains(typeName.toLowerCase()) || 
         rtpEntities.contains(uuidStr)) {
       tempDismount(player);
+    }
+  }
+
+  @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+  public void onInventoryOpen(org.bukkit.event.inventory.InventoryOpenEvent event) {
+    if (event.getPlayer() instanceof Player) {
+      tempDismount((Player) event.getPlayer());
+    }
+  }
+
+  @EventHandler(priority = EventPriority.MONITOR)
+  public void onInventoryClose(org.bukkit.event.inventory.InventoryCloseEvent event) {
+    if (event.getPlayer() instanceof Player) {
+      Player player = (Player) event.getPlayer();
+      if (dismountedPlayers.contains(player.getUniqueId())) {
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+          if (player.isOnline()) {
+            dismountedPlayers.remove(player.getUniqueId());
+            remountStandsIfDismounted(player);
+          }
+        }, 2L);
+      }
     }
   }
 
@@ -334,7 +363,26 @@ public class ModelStandManager implements Listener {
         Math.abs(from.getPitch() - to.getPitch()) >= ROTATION_THRESHOLD;
 
     // Force update if player is in a state that usually requires model hiding
-    boolean forceUpdate = player.isGliding() || player.isSwimming();
+    boolean forceUpdate = player.isGliding() || player.isSwimming() || player.isFlying();
+    if (!forceUpdate) {
+      try {
+        if (player.getGameMode() == org.bukkit.GameMode.SPECTATOR) {
+          forceUpdate = true;
+        }
+      } catch (Throwable ignored) {
+      }
+    }
+    if (!forceUpdate) {
+      try {
+        org.bukkit.entity.Pose pose = player.getPose();
+        if (pose == org.bukkit.entity.Pose.SWIMMING ||
+            pose == org.bukkit.entity.Pose.FALL_FLYING ||
+            pose == org.bukkit.entity.Pose.SPIN_ATTACK) {
+          forceUpdate = true;
+        }
+      } catch (Throwable ignored) {
+      }
+    }
 
     if (!rotationChanged && !forceUpdate) {
       return;
@@ -963,7 +1011,16 @@ public class ModelStandManager implements Listener {
     boolean shouldHide = false;
 
     // Global hide checks
-    boolean stateHide = player.isDead() || player.isGliding() || player.isSwimming();
+    boolean stateHide = player.isDead() || player.isGliding() || player.isSwimming() || player.isFlying();
+
+    if (!stateHide) {
+      try {
+        if (player.getGameMode() == org.bukkit.GameMode.SPECTATOR) {
+          stateHide = true;
+        }
+      } catch (Throwable ignored) {
+      }
+    }
 
     if (!stateHide) {
       try {

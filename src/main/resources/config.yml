@@ -1,7 +1,7 @@
 # Configuration for CuriosPaper Custom Accessory Slots
 
 # DO NOT EDIT THIS
-version: "2.0.0"
+version: "2.0.1"
 
 # Update Checker
 updates:
@@ -137,6 +137,12 @@ features:
 
   # Allow elytra equipping in back slots
   allow-elytra-on-back-slot: true
+
+  # Whether to use the custom Smithing Table GUI for Bedrock players
+  use-custom-smithing-gui: true
+
+  # Whether to use the custom Anvil GUI for Bedrock players
+  use-custom-anvil-gui: true
 
   # Allow players to see empty accessory slots in GUI
   show-empty-slots: true

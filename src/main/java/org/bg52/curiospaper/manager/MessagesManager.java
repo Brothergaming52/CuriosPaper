@@ -116,6 +116,35 @@ public class MessagesManager {
   }
 
   /**
+   * Gets a translated message with a fallback key if the primary key is missing,
+   * and replaces placeholders.
+   *
+   * @param key          the primary YAML path
+   * @param fallbackKey  the fallback YAML path if primary key is missing
+   * @param replacements pairs of placeholder-name, replacement-value
+   * @return the colorized, placeholder-replaced message
+   */
+  public String getWithFallback(String key, String fallbackKey, String... replacements) {
+    String raw = messagesConfig.getString(key);
+    if (raw == null) {
+      raw = messagesConfig.getString(fallbackKey);
+    }
+    if (raw == null) {
+      plugin.getLogger().warning("Missing message key: " + key + " and fallback: " + fallbackKey);
+      return key;
+    }
+    String message = ColorUtil.translate(raw);
+    if (replacements.length % 2 != 0) {
+      plugin.getLogger().warning("Odd number of replacement args for key: " + key);
+    }
+    for (int i = 0; i < replacements.length - 1; i += 2) {
+      message = message.replace("{" + replacements[i] + "}", replacements[i + 1]);
+    }
+    return message;
+  }
+
+
+  /**
    * Gets a translated message with a map of placeholders.
    *
    * @param key          the YAML path

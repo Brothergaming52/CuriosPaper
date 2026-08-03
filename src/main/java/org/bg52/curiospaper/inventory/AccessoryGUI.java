@@ -568,21 +568,22 @@ public class AccessoryGUI {
   // =========================================================================
 
   public static boolean isMainGUI(String title) {
-    return MAIN_GUI_TITLE.equals(title);
+    if (title == null) return false;
+    return MAIN_GUI_TITLE.equals(title) || org.bukkit.ChatColor.stripColor(title).equalsIgnoreCase(org.bukkit.ChatColor.stripColor(MAIN_GUI_TITLE));
   }
 
   public static boolean isSlotsGUI(String title) {
-    return title != null && title.startsWith(SLOTS_GUI_PREFIX);
+    return extractSlotTypeFromTitle(title) != null;
   }
 
   public static String extractSlotTypeFromTitle(String title) {
-    if (!isSlotsGUI(title))
+    if (title == null || !title.startsWith(SLOTS_GUI_PREFIX))
       return null;
     String name = title.substring(SLOTS_GUI_PREFIX.length());
     name = org.bukkit.ChatColor.stripColor(name);
     for (Map.Entry<String, SlotConfiguration> entry : CuriosPaper.getInstance()
         .getConfigManager().getSlotConfigurations().entrySet()) {
-      if (org.bukkit.ChatColor.stripColor(entry.getValue().getName()).equals(name)) {
+      if (org.bukkit.ChatColor.stripColor(entry.getValue().getName()).equalsIgnoreCase(name)) {
         return entry.getKey();
       }
     }

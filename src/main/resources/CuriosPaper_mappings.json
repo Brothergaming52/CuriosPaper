@@ -55,6 +55,42 @@
         "allow_offhand": true,
         "icon": "curiospaper_charm_slot",
         "custom_model_data": 10009
+      },
+      {
+        "name": "curiospaper_smithing_template_slot",
+        "allow_offhand": true,
+        "icon": "curiospaper_smithing_template_slot",
+        "custom_model_data": 10030
+      },
+      {
+        "name": "curiospaper_chestplate_slot",
+        "allow_offhand": true,
+        "icon": "curiospaper_chestplate_slot",
+        "custom_model_data": 10031
+      },
+      {
+        "name": "curiospaper_ingot_slot",
+        "allow_offhand": true,
+        "icon": "curiospaper_ingot_slot",
+        "custom_model_data": 10032
+      },
+      {
+        "name": "curiospaper_arrow_icon",
+        "allow_offhand": true,
+        "icon": "curiospaper_arrow_icon",
+        "custom_model_data": 10033
+      },
+      {
+        "name": "curiospaper_error_icon",
+        "allow_offhand": true,
+        "icon": "curiospaper_error_icon",
+        "custom_model_data": 10034
+      },
+      {
+        "name": "curiospaper_plus_icon",
+        "allow_offhand": true,
+        "icon": "curiospaper_plus_icon",
+        "custom_model_data": 10035
       }
     ]
   }

@@ -150,12 +150,10 @@ public class AbilityListener implements Listener {
     String modifierId = MODIFIER_PREFIX + itemId + "_" + ability.getEffectName();
     UUID modifierUUID = UUID.nameUUIDFromBytes(modifierId.getBytes());
 
-    // Remove existing modifier if present
-    // AttributeModifier existing = instance.getModifier(modifierUUID); // Missing
-    // in 1.14
+    // Remove existing modifier if present (check UUID or name match)
     AttributeModifier existing = null;
     for (AttributeModifier mod : instance.getModifiers()) {
-      if (mod.getUniqueId().equals(modifierUUID)) {
+      if (mod.getUniqueId().equals(modifierUUID) || modifierId.equalsIgnoreCase(mod.getName())) {
         existing = mod;
         break;
       }
@@ -167,12 +165,12 @@ public class AbilityListener implements Listener {
     // Calculate modifier value based on amplifier
     double value = calculateModifierValue(attribute, ability.getAmplifier());
 
-    // Add new modifier
+    // Add new modifier with configured operation
     AttributeModifier modifier = new AttributeModifier(
         modifierUUID,
         modifierId,
         value,
-        AttributeModifier.Operation.ADD_NUMBER);
+        ability.getOperation());
 
     instance.addModifier(modifier);
 
@@ -181,7 +179,7 @@ public class AbilityListener implements Listener {
 
     if (plugin.getConfig().getBoolean("debug.log-inventory-events", false)) {
       plugin.getLogger().info("Applied modifier " + ability.getEffectName() +
-          " (" + value + ") to " + player.getName());
+          " (" + value + ", " + ability.getOperation() + ") to " + player.getName());
     }
   }
 
@@ -197,11 +195,9 @@ public class AbilityListener implements Listener {
     String modifierId = MODIFIER_PREFIX + itemId + "_" + ability.getEffectName();
     UUID modifierUUID = UUID.nameUUIDFromBytes(modifierId.getBytes());
 
-    // AttributeModifier existing = instance.getModifier(modifierUUID); // Missing
-    // in 1.14
     AttributeModifier existing = null;
     for (AttributeModifier mod : instance.getModifiers()) {
-      if (mod.getUniqueId().equals(modifierUUID)) {
+      if (mod.getUniqueId().equals(modifierUUID) || modifierId.equalsIgnoreCase(mod.getName())) {
         existing = mod;
         break;
       }

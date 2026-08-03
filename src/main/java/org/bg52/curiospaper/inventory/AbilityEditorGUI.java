@@ -137,6 +137,14 @@ public class AbilityEditorGUI implements Listener {
         ability.getEffectType() == AbilityData.EffectType.POTION_EFFECT));
     gui.setItem(29, createEffectTypeIcon(AbilityData.EffectType.PLAYER_MODIFIER,
         ability.getEffectType() == AbilityData.EffectType.PLAYER_MODIFIER));
+    if (ability.getEffectType() == AbilityData.EffectType.PLAYER_MODIFIER) {
+      gui.setItem(30, createGuiItem(Material.REPEATER, "§e§lOperation: §f" + ability.getOperation().name(),
+          "§7ADD_NUMBER: Flat value (+5)",
+          "§7ADD_SCALAR: Percentage (+0.20 = +20%)",
+          "§7MULTIPLY_SCALAR_1: Multiplier (x1.20)",
+          "",
+          "§eClick to cycle operation"));
+    }
 
     // Section 3: Effect Selection
     gui.setItem(36, createGuiItem(Material.NETHER_STAR, "§e§lWhich", "§7Pick specific effect"));
@@ -148,7 +156,7 @@ public class AbilityEditorGUI implements Listener {
       String valueDisplay = ability.getEffectType() == AbilityData.EffectType.POTION_EFFECT
           ? "§7Level: §f" + (ability.getAmplifier() + 1) + " §8| §7Duration: §f"
               + (ability.getDuration() / 20) + "s"
-          : "§7Value: §f" + (ability.getAmplifier() / 100.0);
+          : "§7Value: §f" + (ability.getAmplifier() / 100.0) + " §8| §7Op: §f" + ability.getOperation().name();
 
       gui.setItem(37, createGuiItem(icon, "§a§l " + ability.getEffectName(),
           "§7Trigger: §f" + ability.getTrigger().name(),
@@ -328,6 +336,13 @@ public class AbilityEditorGUI implements Listener {
     else if (slot == 29)
       ability.setEffectType(AbilityData.EffectType.PLAYER_MODIFIER);
 
+    // Operation selection (slot 30)
+    else if (slot == 30 && ability.getEffectType() == AbilityData.EffectType.PLAYER_MODIFIER) {
+      org.bukkit.attribute.AttributeModifier.Operation[] ops = org.bukkit.attribute.AttributeModifier.Operation.values();
+      int nextIndex = (ability.getOperation().ordinal() + 1) % ops.length;
+      ability.setOperation(ops[nextIndex]);
+    }
+
     // Select effect (slot 37)
     else if (slot == 37 && ability.getEffectType() != null) {
       openEffectSelector(player, ability.getEffectType());
@@ -506,16 +521,42 @@ public class AbilityEditorGUI implements Listener {
         } else {
           double val = ability.getAmplifier() / 100.0;
           String formattedAttr = formatAttributeName(ability.getEffectName());
-          if (val >= 0) {
-            String valStr = (val == (long) val) ? String.format("%d", (long) val) : String.format("%.2f", val);
-            lore.add(plugin.getMessagesManager().get("items.ability-attribute-positive", "value", valStr, "attribute",
-                formattedAttr));
+          org.bukkit.attribute.AttributeModifier.Operation op = ability.getOperation();
+
+          if (op == org.bukkit.attribute.AttributeModifier.Operation.ADD_SCALAR) {
+            double pct = Math.abs(val * 100.0);
+            String valStr = (pct == (long) pct) ? String.format(Locale.US, "%d", (long) pct) : String.format(Locale.US, "%.2f", pct);
+            if (val >= 0) {
+              lore.add(plugin.getMessagesManager().getWithFallback("items.ability-attribute-scalar-positive",
+                  "items.ability-attribute-positive", "value", valStr, "attribute", formattedAttr));
+            } else {
+              lore.add(plugin.getMessagesManager().getWithFallback("items.ability-attribute-scalar-negative",
+                  "items.ability-attribute-negative", "value", valStr, "attribute", formattedAttr));
+            }
+          } else if (op == org.bukkit.attribute.AttributeModifier.Operation.MULTIPLY_SCALAR_1) {
+            double absVal = Math.abs(val);
+            String valStr = (absVal == (long) absVal) ? String.format(Locale.US, "%d", (long) absVal) : String.format(Locale.US, "%.2f", absVal);
+            if (val >= 0) {
+              lore.add(plugin.getMessagesManager().getWithFallback("items.ability-attribute-multiply-positive",
+                  "items.ability-attribute-positive", "value", valStr, "attribute", formattedAttr));
+            } else {
+              lore.add(plugin.getMessagesManager().getWithFallback("items.ability-attribute-multiply-negative",
+                  "items.ability-attribute-negative", "value", valStr, "attribute", formattedAttr));
+            }
           } else {
-            String valStr = (val == (long) val) ? String.format("%d", (long) -val) : String.format("%.2f", -val);
-            lore.add(plugin.getMessagesManager().get("items.ability-attribute-negative", "value", valStr, "attribute",
-                formattedAttr));
+            // ADD_NUMBER
+            double absVal = Math.abs(val);
+            String valStr = (absVal == (long) absVal) ? String.format(Locale.US, "%d", (long) absVal) : String.format(Locale.US, "%.2f", absVal);
+            if (val >= 0) {
+              lore.add(plugin.getMessagesManager().get("items.ability-attribute-positive", "value", valStr, "attribute",
+                  formattedAttr));
+            } else {
+              lore.add(plugin.getMessagesManager().get("items.ability-attribute-negative", "value", valStr, "attribute",
+                  formattedAttr));
+            }
           }
         }
+
       }
     }
 
@@ -572,15 +613,28 @@ public class AbilityEditorGUI implements Listener {
         ? Material.SPLASH_POTION
         : Material.ENCHANTED_BOOK;
 
-    return createGuiItem(icon, "§e§l#" + (index + 1) + " " + ability.getEffectName(),
-        "§7Trigger: §f" + ability.getTrigger().name(),
-        "§7Type: §f" + ability.getEffectType().name(),
-        "§7Amplifier: §f" + ability.getAmplifier(),
-        "§7Duration: §f" + ability.getDuration() + " ticks",
-        "",
-        "§eClick to edit",
-        "§cShift-click to delete");
+    if (ability.getEffectType() == AbilityData.EffectType.POTION_EFFECT) {
+      return createGuiItem(icon, "§e§l#" + (index + 1) + " " + ability.getEffectName(),
+          "§7Trigger: §f" + ability.getTrigger().name(),
+          "§7Type: §f" + ability.getEffectType().name(),
+          "§7Level: §f" + (ability.getAmplifier() + 1),
+          "§7Duration: §f" + (ability.getDuration() / 20) + "s",
+          "",
+          "§eClick to edit",
+          "§cShift-click to delete");
+    } else {
+      double val = ability.getAmplifier() / 100.0;
+      return createGuiItem(icon, "§e§l#" + (index + 1) + " " + ability.getEffectName(),
+          "§7Trigger: §f" + ability.getTrigger().name(),
+          "§7Type: §f" + ability.getEffectType().name(),
+          "§7Value: §f" + val,
+          "§7Operation: §f" + ability.getOperation().name(),
+          "",
+          "§eClick to edit",
+          "§cShift-click to delete");
+    }
   }
+
 
   private ItemStack createTriggerIcon(AbilityData.TriggerType trigger, boolean selected) {
     Material mat = selected ? Material.LIME_STAINED_GLASS_PANE : Material.PAPER;
