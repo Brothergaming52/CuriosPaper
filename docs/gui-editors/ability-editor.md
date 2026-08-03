@@ -12,10 +12,12 @@ The Ability Editor allows you to visually add, modify, and remove abilities from
 
 The Ability Editor displays each configured ability as an item in the GUI. Each ability shows:
 
-- **Trigger type** (EQUIP, DE_EQUIP, WHILE_EQUIPPED)
-- **Effect type** (POTION_EFFECT or PLAYER_MODIFIER)
-- **Effect name** (e.g., SPEED, GENERIC_MAX_HEALTH)
-- **Amplifier** and **duration**
+- **Trigger type** (`EQUIP`, `DE_EQUIP`, `WHILE_EQUIPPED`)
+- **Effect type** (`POTION_EFFECT` or `PLAYER_MODIFIER`)
+- **Operation** for attribute modifiers (`ADD_NUMBER`, `ADD_SCALAR`, `MULTIPLY_SCALAR_1` — click slot 30 to cycle)
+- **Effect name** (e.g., `SPEED`, `GENERIC_MAX_HEALTH`)
+- **Amplifier** / **Value** and **duration**
+
 
 <!-- TODO: Add image - In-game screenshot of the Ability Editor GUI showing a list of configured abilities as items, with their trigger/effect info visible in the lore -->
 ![Ability Editor showing configured abilities](../images/ability-editor-speed.png)

@@ -9,8 +9,9 @@ Abilities are effects attached to custom items that trigger when an accessory is
 | `trigger` | Enum | `EQUIP`, `DE_EQUIP`, `WHILE_EQUIPPED` | When the ability activates |
 | `effect-type` | Enum | `POTION_EFFECT`, `PLAYER_MODIFIER` | Type of effect to apply |
 | `effect-name` | String | See tables below | Name of the effect or attribute |
-| `amplifier` | Integer | `0` – `9` | Effect level (0 = Level I, 1 = Level II, etc.) |
+| `amplifier` | Integer | `0` – `9` (or `value * 100` for attributes) | Effect level or stored attribute value |
 | `duration` | Integer | `0+` (ticks) | Duration in ticks (20 ticks = 1 second) |
+| `operation` | Enum | `ADD_NUMBER`, `ADD_SCALAR`, `MULTIPLY_SCALAR_1` | Calculation method for `PLAYER_MODIFIER` |
 
 ## Triggers
 
@@ -43,9 +44,17 @@ Use `effect-type: POTION_EFFECT` with `effect-name` set to any valid Bukkit `Pot
 | `JUMP` | Jump boost |
 | `ABSORPTION` | Absorption hearts |
 
-### Player Modifiers
+### Player Modifiers & Operations
 
-Use `effect-type: PLAYER_MODIFIER` with `effect-name` set to a Bukkit `Attribute`:
+Use `effect-type: PLAYER_MODIFIER` with `effect-name` set to a Bukkit `Attribute`. You can choose an `operation` to control how the modifier affects the attribute:
+
+| Operation | Description | Lore Formatting Example |
+|---|---|---|
+| `ADD_NUMBER` | Adds a flat value to the attribute base | `+5 Max Health` / `-5 Max Health` |
+| `ADD_SCALAR` | Adds a percentage scalar relative to the base | `+20% Movement Speed` / `-15% Speed` |
+| `MULTIPLY_SCALAR_1` | Multiplies the attribute by a size multiplier | `x1.20 Attack Damage` |
+
+#### Available Attributes
 
 | Attribute | Description |
 |---|---|
@@ -57,6 +66,7 @@ Use `effect-type: PLAYER_MODIFIER` with `effect-name` set to a Bukkit `Attribute
 | `GENERIC_MOVEMENT_SPEED` | Movement speed |
 | `GENERIC_KNOCKBACK_RESISTANCE` | Knockback resistance |
 | `GENERIC_LUCK` | Luck |
+
 
 ## Example Configurations
 

@@ -2,7 +2,19 @@
 
 See the full changelogs in the [CHANGELOGS.md](https://github.com/Brothergaming52/CuriosPaper/blob/main/CHANGELOGS.md) file.
 
-## Latest: v2.0.0
+## Latest: v2.0.1
+
+### Highlights
+
+- **Bedrock Anvil & Smithing GUIs** — Dedicated 3-row chest interfaces for Bedrock Edition players to access Anvil (repair, rename, combine with XP cost) and Smithing Tables (1.20+ templates & legacy smithing).
+- **Automatic Geyser & Floodgate Setup** — Detects Bedrock players via Floodgate/Geyser API or offline UUID prefix; auto-deploys `CuriosPaper_Geyser.zip` and `CuriosPaper_mappings.json` on startup.
+- **Attribute Modifier Operations** — Configure player modifier abilities with specific operations: `ADD_NUMBER` (flat value), `ADD_SCALAR` (percentage `%`), and `MULTIPLY_SCALAR_1` (multiplier `x`).
+- **Flight & Spectator Model Auto-Hiding** — ArmorStand 3D models automatically hide when players toggle flight (`isFlying`), enter spectator mode, or enter special poses (`SWIMMING`, `FALL_FLYING`, `SPIN_ATTACK`).
+- **Inventory Dismount Safety** — 3D models temporarily dismount when opening inventories and auto-remount 2 ticks after close to eliminate visual GUI overlaps.
+- **Flexible Server Version Parsing** — Improved version parsing regex in `VersionUtil` for non-standard Paper dev builds (e.g. `26.2.build.48-alpha`).
+- **Command & GUI Fixes** — Fixed `give` command messaging targeting and case-insensitive color-stripped GUI title matching.
+
+## v2.0.0
 
 ### Highlights
 

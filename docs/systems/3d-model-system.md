@@ -57,13 +57,15 @@ The `ModelStandManager` handles complex player states:
 |---|---|
 | **Walking/Running** | Models follow player position and rotation |
 | **Sneaking** | Models update position to match sneaking offset |
-| **Swimming** | Models are repositioned for swimming pose |
-| **Gliding (Elytra)** | Models are repositioned for gliding pose |
+| **Flying** | Models are automatically hidden via flight toggle listener (`isFlying()`) |
+| **Spectator Mode** | Models are automatically hidden while in `GameMode.SPECTATOR` |
+| **Swimming / Elytra / Riptide** | Models are automatically hidden for special poses (`Pose.SWIMMING`, `Pose.FALL_FLYING`, `Pose.SPIN_ATTACK`) |
+| **Opening Inventories** | Models temporarily dismount on `InventoryOpenEvent` and remount 2 ticks after `InventoryCloseEvent` to prevent GUI overlaps |
 | **Teleporting** | Models are force-updated to new position |
 | **World Change** | Models are removed and re-scanned in the new world |
 | **Death** | All models removed; re-scanned on respawn |
 | **Disconnect** | All models cleaned up |
-| **Game Mode Change** | Models updated (hidden in spectator, etc.) |
+
 
 ## Trident Compatibility
 

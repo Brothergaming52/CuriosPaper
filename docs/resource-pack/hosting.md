@@ -121,4 +121,23 @@ After adding new textures or modifying assets:
 /curios rp rebuild
 ```
 
-This regenerates the ZIP, recalculates the hash, and pushes the new pack to all online players.
+This regenerates the ZIP asynchronously, recalculates the hash, and pushes the new pack to all online players.
+
+## Geyser Bedrock Resource Pack Setup
+
+For servers running **GeyserMC** to allow Bedrock Edition players to join, CuriosPaper extracts Bedrock assets into `plugins/CuriosPaper/geyser/` on startup:
+
+- **`CuriosPaper_Geyser.zip`**: The Bedrock-compatible resource pack.
+- **`CuriosPaper_mappings.json`**: Geyser custom item mappings.
+
+### Automatic Copy
+If Geyser is running on the same server instance, CuriosPaper automatically copies these files into Geyser's `packs/` and `custom_mappings/` folders.
+
+### Manual Setup (Velocity / BungeeCord Proxy Setup)
+If Geyser is hosted on a proxy:
+1. Copy `CuriosPaper_Geyser.zip` to your proxy's Geyser `packs/` directory.
+2. Copy `CuriosPaper_mappings.json` to your proxy's Geyser `custom_mappings/` directory.
+3. Ensure `enable-custom-content: true` is set in Geyser's `config.yml` and restart Geyser.
+
+See [Bedrock Support](../systems/bedrock-support.md) for full documentation.
+

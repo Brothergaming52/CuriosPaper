@@ -1,5 +1,40 @@
 # Changelogs
 
+## v2.0.1
+
+**Release Date:** 2026-08-03
+
+### 📱 Bedrock Edition & Geyser Integration
+
+CuriosPaper now includes native container support and automatic detection for Bedrock Edition players connecting via GeyserMC and Floodgate:
+
+- **Automatic Geyser Detection & Setup (`BedrockUtil`):** Detects Bedrock players via Floodgate API, Geyser API, or offline Floodgate UUID prefixes (`00000000-0000-0000-...`). On startup, CuriosPaper automatically extracts and copies `CuriosPaper_Geyser.zip` and `CuriosPaper_mappings.json` into Geyser's `packs/` and `custom_mappings/` folders.
+- **Custom Bedrock Anvil GUI (`BedrockAnvilGUI`):** Bedrock players opening an Anvil receive a dedicated 3-row Chest GUI allowing combination, repair, and renaming with accurate XP cost and level calculation.
+- **Custom Bedrock Smithing GUI (`BedrockSmithingGUI`):** Bedrock players opening a Smithing Table receive a dedicated 3-row Chest GUI supporting 1.20+ Template Smithing (Template + Base + Addition) and pre-1.20 legacy Smithing (Base + Addition).
+- **New Feature Config Toggles:** Added `features.use-custom-anvil-gui` (default: `true`) and `features.use-custom-smithing-gui` (default: `true`) in `config.yml`.
+
+### 📊 Attribute Modifier Operations & Lore Formatting
+
+- **Attribute Operations Support:** `AbilityData` and `AbilityEditorGUI` now support three distinct attribute modifier operations:
+  - `ADD_NUMBER` — Flat value addition/subtraction (e.g. `+5` or `-5`).
+  - `ADD_SCALAR` — Percentage scalar based on base attribute (e.g. `+0.20` formats as `+20%`, `-0.15` formats as `-15%`).
+  - `MULTIPLY_SCALAR_1` — Multiplier size (e.g. `1.20` formats as `x1.20`).
+- **Lore Formatting & Message Customization:** Updated `updateAbilityLore` to format positive and negative values according to the operation type, adding `%` for scalar operations and `x` multiplier prefixes for multiply operations.
+- **New Message Keys in `messages.yml`:** Added `items.ability-attribute-scalar-positive`, `items.ability-attribute-scalar-negative`, `items.ability-attribute-multiply-positive`, and `items.ability-attribute-multiply-negative`.
+
+### ✈️ 3D Model Display (ArmorStand) Improvements & Dismount Safety
+
+- **Flight & Spectator Model Auto-Hiding:** ArmorStand models automatically hide when players toggle flight (`isFlying()`, `PlayerToggleFlightEvent`), enter Spectator mode (`GameMode.SPECTATOR`), or perform special poses (`Pose.SWIMMING`, `Pose.FALL_FLYING`, `Pose.SPIN_ATTACK`).
+- **Inventory Dismount Safety:** 3D models temporarily dismount when players open any inventory (`InventoryOpenEvent`) and automatically remount 2 ticks after inventory closure (`InventoryCloseEvent`), preventing visual model overlaps in GUIs.
+
+### 🛠️ Compatibility, Performance & Bug Fixes
+
+- **Flexible Version Parsing (`VersionUtil`):** Upgraded version parsing regex (`(\\d+)\\.(\\d+)(?:\\.(\\d+))?`) to gracefully handle non-standard Paper build strings (e.g. Paper dev builds like `26.2.build.48-alpha` or custom server forks).
+- **Case-Insensitive GUI Title Matching (`AccessoryGUI`):** Fixed title comparison logic to use color-stripped case-insensitive matching (`equalsIgnoreCase`), preventing GUI title bugs caused by legacy color codes.
+- **Give Command Target Message Fix (`CuriosCommand`):** Fixed output message target calculation when giving items to other players.
+
+---
+
 ## v2.0.0
 
 **Release Date:** 2026-07-01

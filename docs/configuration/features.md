@@ -10,6 +10,8 @@ features:
   item-editor:
     enabled: true
   allow-elytra-on-back-slot: true
+  use-custom-smithing-gui: true
+  use-custom-anvil-gui: true
   show-empty-slots: true
 ```
 
@@ -18,7 +20,10 @@ features:
 | `add-slot-lore-to-items` | `true` | Adds "Required Slot: ..." lore to tagged items |
 | `item-editor.enabled` | `true` | Enables `/edit` command and custom item system |
 | `allow-elytra-on-back-slot` | `true` | Allows elytra in back slots (requires 1.21.3+) |
+| `use-custom-smithing-gui` | `true` | Enables custom 3-row Chest GUI for Smithing Tables on Bedrock Edition |
+| `use-custom-anvil-gui` | `true` | Enables custom 3-row Chest GUI for Anvils on Bedrock Edition |
 | `show-empty-slots` | `true` | Show placeholder icons for empty slots in GUI |
+
 
 ## Sound Effects
 

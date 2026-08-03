@@ -22,8 +22,9 @@ CuriosPaper adds a fully configurable accessory slot system to your Minecraft se
 |---|---|
 | **9 Default Slot Types** | Head, Necklace, Back, Body, Belt, Hands, Bracelet, Ring, Charm |
 | **In-Game Item Editor** | Create and configure custom items without editing YAML files |
-| **Ability System** | Attach potion effects and attribute modifiers to accessories |
+| **Ability System** | Attach potion effects and attribute modifiers (`ADD_NUMBER`, `ADD_SCALAR`, `MULTIPLY_SCALAR_1`) |
 | **Recipe System** | Shaped, shapeless, furnace, blast furnace, smoker, anvil, and smithing table recipes |
+| **Bedrock Support** | Native Geyser & Floodgate support with custom Anvil and Smithing GUIs |
 | **Mob Drops** | Configure custom items to drop from any mob with configurable chances |
 | **Villager Trades** | Add custom accessories to villager trade pools |
 | **Resource Pack Hosting** | Built-in HTTP server auto-generates and serves resource packs |
@@ -62,7 +63,7 @@ CuriosPaper adds a fully configurable accessory slot system to your Minecraft se
   Slots, abilities, performance tuning
 
 - **[Systems](systems/accessory-system.md)**  
-  Deep dives into each plugin system
+  Deep dives into each plugin system (including Bedrock Support)
 
 - **[Resource Pack](resource-pack/index.md)**  
   Hosting, custom models, and troubleshooting
@@ -88,8 +89,9 @@ CuriosPaper adds a fully configurable accessory slot system to your Minecraft se
 
 | | |
 |---|---|
-| **Version** | 2.0.0 |
+| **Version** | 2.0.1 |
 | **Author** | Brothergaming52 |
 | **API Version** | 1.14-1.21.11 |
 | **Source** | [GitHub](https://github.com/Brothergaming52/CuriosPaper) |
 | **bStats** | [Plugin Statistics](https://bstats.org/plugin/bukkit/CuriosPaper/29508) |
+

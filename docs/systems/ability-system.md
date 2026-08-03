@@ -38,8 +38,13 @@ For `WHILE_EQUIPPED`, the effect is re-applied periodically to maintain the buff
 Modifies a player's attribute (e.g., max health, attack damage) using Bukkit's `AttributeModifier` system.
 
 - Applied on equip, removed on de-equip
-- The amplifier value is used as the modifier amount
-- Uses `AttributeModifier.Operation.ADD_NUMBER` by default
+- The amplifier value is stored as `value * 100` to preserve decimals
+- Supports three `AttributeModifier.Operation` types:
+  - `ADD_NUMBER` — Flat addition/subtraction (e.g., `+5 Max Health` / `-5 Max Health`)
+  - `ADD_SCALAR` — Percentage scalar relative to base (e.g., `+20% Speed` / `-15% Speed`)
+  - `MULTIPLY_SCALAR_1` — Multiplier size (e.g., `x1.20 Attack Damage`)
+- Automatically updates item lore based on configured operation format in `messages.yml`
+
 
 ## Ability Listener
 

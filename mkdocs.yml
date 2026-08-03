@@ -83,10 +83,12 @@ nav:
       - Mob Drop System: systems/mob-drop-system.md
       - Villager Trade System: systems/villager-trade-system.md
       - 3D Model System: systems/3d-model-system.md
+      - Bedrock Support: systems/bedrock-support.md
       - Quick Equip System: systems/quick-equip-system.md
       - Hotkey System: systems/hotkey-system.md
       - Death Behavior: systems/death-behavior.md
       - Elytra Back Slot: systems/elytra-back-slot.md
+
 
   - Resource Pack:
       - Overview: resource-pack/index.md
