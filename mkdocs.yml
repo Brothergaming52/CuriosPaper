@@ -133,3 +133,8 @@ nav:
       - Common Issues: troubleshooting/common-issues.md
 
   - Changelogs: changelogs.md
+
+extra:
+  analytics:
+    provider: google
+    property: G-C97C3F4GQJ
