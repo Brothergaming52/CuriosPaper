@@ -6,6 +6,8 @@ repo_name: Brothergaming52/CuriosPaper
 
 theme:
   name: material
+  favicon: images/logo.png
+  logo: images/logo.png
   palette:
     - scheme: slate
       primary: deep purple
