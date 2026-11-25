@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://cdn.modrinth.com/data/JLMPHrRw/images/907375d54ee434019af260f5a126f361d4add7b3.png" alt="CuriosPaper Banner Logo" width="100%">
+<img src="https://cdn.modrinth.com/data/JLMPHrRw/images/6e9610b30cbb5063c0dcba1b1d1ee6998ad3dea2.png" alt="CuriosPaper Banner Logo" width="100%">
 
 # ✦ CuriosPaper ✦
 
