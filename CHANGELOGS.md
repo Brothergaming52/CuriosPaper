@@ -1,5 +1,38 @@
 # Changelogs
 
+## v3.0
+
+**Release Date:** 2026-11-22
+
+### 🧩 Item Engine Delegation & Architecture Update
+
+CuriosPaper 3.0 transitions into a focused accessory inventory engine, delegating custom item creation, recipes, and abilities to dedicated item plugins:
+
+- **External Item Engine Support:** Native integration with **Synthetix**, **Nexo**, **ItemsAdder**, **Oraxen**, and **CraftEngine**. Items can also be tagged directly in-game using `/curios tag <slot>`.
+- **Resource Pack Injection:** Plugin GUI textures and equipment assets are automatically extracted and registered with the server's active pack host plugin (`Synthetix`, `Nexo`, `ItemsAdder`, `Oraxen`, `CraftEngine`, or `RSPM`), removing the embedded HTTP server.
+
+### 🎭 Packet-Based 3D Model Rendering
+
+- **Clientbound Packet Rendering:** Body-mounted accessory models can now be rendered via clientbound packets (`PacketModelManager`), avoiding persistent server-side armor stands.
+- **Configurable Modes:** Added `models.mode` with support for `auto` (packet mode with fallback), `packet`, and `entity` (standard armor stand mode).
+
+### ⚙️ Dedicated `slots.yml` & Localization
+
+- **Slot Configuration (`slots.yml`):** Slot definitions moved from `config.yml` to `slots.yml`, covering all 9 slot types (Head, Necklace, Back, Body, Belt, Hands, Bracelet, Ring, Charm) with per-slot permission nodes (`curiospaper.slot.<id>`).
+- **Language System (`languages/en_US.yml`):** Added Adventure MiniMessage formatting support and external language file handling.
+
+### 🔌 Integrations & Fixes
+
+- **Keybind Hook:** Integration with the Synthetix Universal Keybind API for configurable sneak-based GUI opening.
+- **Citizens NPCs:** Manage NPC accessories via `/curios npc <id>`.
+- **PlaceholderAPI:** Added placeholders for equipped accessories and slot states.
+- **Smithing Table Compatibility:** Removed container listeners that previously interfered with custom smithing recipes (such as ValhallaMMO netherite upgrading).
+- **Elytra Back Slot Fix:** Fixed an issue where enabling `allow-elytra-on-back-slot` interfered with custom chestplates that granted elytra flight.
+- **Documentation Notice:** The documentation site (`curiospaper.run.place`) is currently unavailable while undergoing restructuring. Refer to the GitHub repository and Discord server for guides and support in the interim.
+- **Platform Requirements:** Requires Paper / Purpur / Folia 1.20.6+ and Java 21 LTS.
+
+---
+
 ## v2.0.1
 
 **Release Date:** 2026-08-03

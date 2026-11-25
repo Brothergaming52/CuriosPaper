@@ -6,21 +6,26 @@ import org.bukkit.entity.Player;
 import java.util.UUID;
 
 /**
- * Utility class to check if a player is connected from Bedrock Edition
- * via Floodgate or Geyser API. Uses reflection to avoid compile-time dependencies.
+ * Resilient reflection utility to detect if a player is connected from Bedrock Edition
+ * via Floodgate or Geyser API, or via standard Floodgate offline UUID prefix.
  */
-public class BedrockUtil {
+public final class BedrockUtil {
 
     private static Boolean floodgateAvailable = null;
     private static Boolean geyserAvailable = null;
+
+    private BedrockUtil() {}
 
     /**
      * Checks whether the given player is playing from Bedrock Edition.
      */
     public static boolean isBedrockPlayer(Player player) {
         if (player == null) return false;
+        return isBedrockPlayer(player.getUniqueId(), player.getName());
+    }
 
-        UUID uuid = player.getUniqueId();
+    public static boolean isBedrockPlayer(UUID uuid, String name) {
+        if (uuid == null) return false;
 
         // 1. Check Floodgate API
         if (isFloodgateAvailable()) {
@@ -31,8 +36,7 @@ public class BedrockUtil {
                 if (Boolean.TRUE.equals(isFloodgate)) {
                     return true;
                 }
-            } catch (Throwable ignored) {
-            }
+            } catch (Throwable ignored) {}
         }
 
         // 2. Check Geyser API
@@ -44,21 +48,28 @@ public class BedrockUtil {
                 if (Boolean.TRUE.equals(isBedrock)) {
                     return true;
                 }
-            } catch (Throwable ignored) {
-            }
+            } catch (Throwable ignored) {}
         }
 
         // 3. Fallback UUID check for Floodgate offline mode prefix (00000000-0000-0000-....)
-        // Floodgate UUIDs start with 00000000-0000-0000 in default Floodgate setup
         if (uuid.getMostSignificantBits() == 0L) {
+            return true;
+        }
+
+        // 4. Fallback name prefix check (Floodgate default prefix is '.' or '*')
+        if (name != null && (name.startsWith(".") || name.startsWith("*"))) {
             return true;
         }
 
         return false;
     }
 
+    public static boolean isBedrockPresent() {
+        return isFloodgateAvailable() || isGeyserAvailable();
+    }
+
     private static boolean isFloodgateAvailable() {
-        if (floodgateAvailable == null) {
+        if (floodgateAvailable == null || !floodgateAvailable) {
             try {
                 Class.forName("org.geysermc.floodgate.api.FloodgateApi");
                 floodgateAvailable = Bukkit.getPluginManager().isPluginEnabled("floodgate");
@@ -66,19 +77,19 @@ public class BedrockUtil {
                 floodgateAvailable = false;
             }
         }
-        return floodgateAvailable;
+        return floodgateAvailable != null && floodgateAvailable;
     }
 
     private static boolean isGeyserAvailable() {
-        if (geyserAvailable == null) {
+        if (geyserAvailable == null || !geyserAvailable) {
             try {
                 Class.forName("org.geysermc.geyser.api.GeyserApi");
-                geyserAvailable = Bukkit.getPluginManager().isPluginEnabled("Geyser-Spigot") 
+                geyserAvailable = Bukkit.getPluginManager().isPluginEnabled("Geyser-Spigot")
                         || Bukkit.getPluginManager().isPluginEnabled("Geyser");
             } catch (ClassNotFoundException e) {
                 geyserAvailable = false;
             }
         }
-        return geyserAvailable;
+        return geyserAvailable != null && geyserAvailable;
     }
 }

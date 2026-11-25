@@ -57,6 +57,12 @@
         "custom_model_data": 10009
       },
       "model": "curiospaper:item/charm_slot"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 10010
+      },
+      "model": "curiospaper:item/feet_slot"
     }
   ]
 }

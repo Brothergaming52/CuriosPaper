@@ -2,483 +2,273 @@ package org.bg52.curiospaper;
 
 import org.bg52.curiospaper.api.CuriosPaperAPI;
 import org.bg52.curiospaper.api.CuriosPaperAPIImpl;
-import org.bg52.curiospaper.command.BaublesCommand;
-import org.bg52.curiospaper.config.ConfigManager;
+import org.bg52.curiospaper.command.CuriosCommand;
+import org.bg52.curiospaper.engine.ItemEngineManager;
 import org.bg52.curiospaper.handler.ElytraBackSlotHandler;
-import org.bg52.curiospaper.inventory.*;
+import org.bg52.curiospaper.inventory.CuriosGUI;
+import org.bg52.curiospaper.inventory.InspectGUI;
+import org.bg52.curiospaper.inventory.QuickEquipListener;
+import org.bg52.curiospaper.keybind.CuriosKeybindHook;
+import org.bg52.curiospaper.lang.LanguageManager;
 import org.bg52.curiospaper.listener.AbilityListener;
-import org.bg52.curiospaper.listener.AccessoryHotkeyListener;
-import org.bg52.curiospaper.listener.BedrockContainerListener;
-import org.bg52.curiospaper.listener.InventoryListener;
-import org.bg52.curiospaper.listener.PlayerListener;
-import org.bg52.curiospaper.listener.QuickEquipListener;
-import org.bg52.curiospaper.listener.RecipeListener;
-import org.bg52.curiospaper.manager.ChatInputManager;
-import org.bg52.curiospaper.manager.ItemDataManager;
-import org.bg52.curiospaper.manager.MessagesManager;
-import org.bg52.curiospaper.manager.SlotManager;
-import org.bg52.curiospaper.model.ModelStandManager;
-import org.bg52.curiospaper.resourcepack.ResourcePackManager;
-import org.bg52.curiospaper.storage.CuriosStorageAPI;
-import org.bg52.curiospaper.storage.MigrationUtil;
-import org.bg52.curiospaper.util.AutoSaveTask;
+import org.bg52.curiospaper.listener.PlayerJoinQuitListener;
+import org.bg52.curiospaper.model.PacketModelManager;
+import org.bg52.curiospaper.resourcepack.PackRegistrationManager;
+import org.bg52.curiospaper.slot.SlotRegistry;
+import org.bg52.curiospaper.storage.CuriosStorageManager;
+import org.bukkit.command.PluginCommand;
+import org.bukkit.plugin.ServicePriority;
 import org.bstats.bukkit.Metrics;
-import org.bukkit.NamespacedKey;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class CuriosPaper extends JavaPlugin {
-  private static CuriosPaper instance;
-  private ConfigManager configManager;
-  private MessagesManager messagesManager;
-  private SlotManager slotManager;
-  private ItemDataManager itemDataManager;
-  private ChatInputManager chatInputManager;
-  private CuriosPaperAPI api;
-  private AccessoryGUI gui;
-  private EditMenuGUI editMenuGUI;
-  private AutoSaveTask autoSaveTask;
-  private ResourcePackManager resourcePackManager;
-  private ElytraBackSlotHandler elytraHandler;
-  private RecipeListener recipeListener;
-  private EditGUI editGUI;
-  private RecipeEditorGUI recipeEditor;
-  private LootTableBrowser lootTableBrowser;
-  private MobDropEditor mobDropEditor;
-  private TradeEditor tradeEditor;
-  private AbilityEditorGUI abilityEditor;
-  private org.bg52.curiospaper.inventory.NbtEditorGUI nbtEditor;
-  private AbilityListener abilityListener;
-  private ModelConfigGUI modelConfigGUI;
-  private org.bg52.curiospaper.inventory.MobDropModelConfigGUI mobDropModelConfigGUI;
-  private ModelStandManager modelStandManager;
-  private AccessoryHotkeyListener accessoryHotkeyListener;
-  private ItemListGUI itemListGUI;
-  private ItemRecipeListGUI itemRecipeListGUI;
-  private RecipeViewGUI recipeViewGUI;
-  private org.bg52.curiospaper.listener.MobDropListener mobDropListener;
+/**
+ * CuriosPaper 3.0 - High-Performance Modular Accessory System for Paper 1.20.6 to 1.21+.
+ */
+public final class CuriosPaper extends JavaPlugin {
 
-  @Override
-  public void onEnable() {
-    instance = this;
+    private static CuriosPaper instance;
 
-    saveDefaultConfig();
+    private LanguageManager languageManager;
+    private SlotRegistry slotRegistry;
+    private ItemEngineManager itemEngineManager;
+    private CuriosStorageManager storageManager;
+    private CuriosGUI curiosGUI;
+    private InspectGUI inspectGUI;
+    private ElytraBackSlotHandler elytraBackSlotHandler;
+    private PacketModelManager packetModelManager;
+    private CuriosKeybindHook keybindHook;
+    private PackRegistrationManager packRegistrationManager;
+    private AbilityListener abilityListener;
+    private org.bg52.curiospaper.citizens.CitizensManager citizensManager;
+    private CuriosPaperAPI api;
 
-    // Initialize messages first so all components can use it
-    messagesManager = new MessagesManager(this);
+    @Override
+    public void onEnable() {
+        instance = this;
 
-    configManager = new ConfigManager(this);
+        // Initialize unified Folia/Paper cross-platform scheduler
+        new org.bg52.curiospaper.scheduler.PlatformScheduler(this);
 
-    slotManager = new SlotManager(this);
+        // 1. Save default config and resources
+        saveDefaultConfig();
 
-    // Initialize Storage API (must be before SlotManager loads any data)
-    CuriosStorageAPI.initialize(this);
+        // 2. Initialize Language Manager
+        this.languageManager = new LanguageManager(this);
 
-    // Auto-migrate YAML player data if configured and using a database backend
-    if (CuriosStorageAPI.getInstance() != null
-        && CuriosStorageAPI.getInstance().isDatabaseMode()
-        && getConfig().getBoolean("storage.auto-migrate", true)) {
-      java.io.File playerdataFolder = new java.io.File(getDataFolder(), "playerdata");
-      if (playerdataFolder.exists()) {
-        java.io.File[] ymlFiles = playerdataFolder.listFiles((dir, name) -> name.endsWith(".yml"));
-        if (ymlFiles != null && ymlFiles.length > 0) {
-          getLogger().info("Auto-migrating " + ymlFiles.length + " player data files to "
-              + CuriosStorageAPI.getInstance().getStorageType() + "...");
-          int migrated = MigrationUtil.migratePlayerData(
-              playerdataFolder, CuriosStorageAPI.getInstance().getProvider(), getLogger());
-          getLogger().info("Migration complete: " + migrated + " files migrated to "
-              + CuriosStorageAPI.getInstance().getStorageType());
-        }
-      }
-    }
+        getLogger().info("==================================================================");
+        getLogger().info("  CuriosPaper 3.0 (Paper 1.20.6 - 1.21.x+)");
+        getLogger().info("  Clean Architecture | Synthetix Engine Soft-Dependency");
+        getLogger().info("==================================================================");
 
-    // Initialize Item Data Manager
-    boolean itemEditorEnabled = getConfig().getBoolean("features.item-editor.enabled", true);
-    if (itemEditorEnabled) {
-      itemDataManager = new ItemDataManager(this);
+        // 3. Initialize Slot Registry (slots.yml)
+        this.slotRegistry = new SlotRegistry(this);
 
-      // Populate the slot activity registry from already-loaded item files.
-      // External plugins that register items via tagAccessoryItem() will mark their
-      // slots active on their own via the API hook.
-      configManager.initSlotActivityFromItems();
+        // 4. Initialize Item Engine Manager (Synthetix, Nexo, ItemsAdder, Oraxen, CraftEngine)
+        this.itemEngineManager = new ItemEngineManager(this);
+        this.itemEngineManager.initialize();
 
-      // Initialize Chat Input Manager
-      chatInputManager = new ChatInputManager(this);
-      getServer().getPluginManager().registerEvents(chatInputManager, this);
+        // 5. Initialize Storage Manager (Unified Synthetix AddonDataStore or fallback YAML)
+        this.storageManager = new CuriosStorageManager(this);
+        this.storageManager.initialize();
 
-      editGUI = new EditGUI(this);
+        // 6. Initialize Packet-Level 3D Model Manager
+        this.packetModelManager = new PacketModelManager(this);
+        this.packetModelManager.initialize();
+        getServer().getPluginManager().registerEvents(this.packetModelManager, this);
 
-      modelConfigGUI = new ModelConfigGUI(this);
-      mobDropModelConfigGUI = new org.bg52.curiospaper.inventory.MobDropModelConfigGUI(this);
+        // 7. Initialize GUI Controllers
+        this.curiosGUI = new CuriosGUI(this);
+        getServer().getPluginManager().registerEvents(this.curiosGUI, this);
 
-      itemListGUI = new ItemListGUI(this);
-      itemRecipeListGUI = new ItemRecipeListGUI(this);
-      recipeViewGUI = new RecipeViewGUI(this);
-    }
+        this.inspectGUI = new InspectGUI(this);
+        getServer().getPluginManager().registerEvents(this.inspectGUI, this);
 
-    // Initialize Resource Pack Manager
-    resourcePackManager = new ResourcePackManager(this);
-    resourcePackManager.initialize();
+        // 8. Initialize Gameplay Handlers
+        this.elytraBackSlotHandler = new ElytraBackSlotHandler(this);
+        getServer().getPluginManager().registerEvents(this.elytraBackSlotHandler, this);
 
-    api = new CuriosPaperAPIImpl(this);
+        QuickEquipListener quickEquipListener = new QuickEquipListener(this);
+        getServer().getPluginManager().registerEvents(quickEquipListener, this);
 
-    gui = new AccessoryGUI(this);
-    gui.loadCustomLayout();
-    editMenuGUI = new EditMenuGUI(this);
+        PlayerJoinQuitListener sessionListener = new PlayerJoinQuitListener(this);
+        getServer().getPluginManager().registerEvents(sessionListener, this);
 
-    if (itemEditorEnabled) {
-      // Register RecipeListener and register all recipes
-      recipeListener = new RecipeListener(this, itemDataManager);
-      getServer().getPluginManager().registerEvents(recipeListener, this);
+        // Attribute modifier and ability applicator
+        this.abilityListener = new AbilityListener(this);
+        getServer().getPluginManager().registerEvents(this.abilityListener, this);
 
-      // Schedule recipe registration to run after all plugins have loaded,
-      // so that items and recipes registered by external plugins are counted.
-      getServer().getScheduler().runTask(this, () -> {
-        if (recipeListener != null) {
-          recipeListener.registerAllRecipes();
-        }
-      });
+        // Optional Citizens NPC Integration
+        this.citizensManager = new org.bg52.curiospaper.citizens.CitizensManager(this);
+        this.citizensManager.initialize();
 
-      recipeEditor = new RecipeEditorGUI(this);
-      getServer().getPluginManager().registerEvents(recipeEditor, this);
+        // 9. Initialize Keybind Integration (Synthetix Keybind Engine or Standalone)
+        this.keybindHook = new CuriosKeybindHook(this);
+        this.keybindHook.initialize();
 
-      this.lootTableBrowser = new LootTableBrowser(this);
-      getServer().getPluginManager().registerEvents(this.lootTableBrowser, this);
+        // 10. Initialize Resource Pack Extraction & Registration (Synthetix Priority 1)
+        this.packRegistrationManager = new PackRegistrationManager(this);
+        this.packRegistrationManager.initialize();
 
-      this.mobDropEditor = new MobDropEditor(this);
-      getServer().getPluginManager().registerEvents(mobDropEditor, this);
-    }
-
-    BaublesCommand baublesCommand = new BaublesCommand(this, gui);
-    getCommand("baubles").setExecutor(baublesCommand);
-
-    if (itemEditorEnabled) {
-      // Register EditGUI listener
-      getServer().getPluginManager().registerEvents(editGUI, this);
-
-      // Register ModelConfigGUI listener
-      getServer().getPluginManager().registerEvents(modelConfigGUI, this);
-
-      // Register MobDropModelConfigGUI listener
-      getServer().getPluginManager().registerEvents(mobDropModelConfigGUI, this);
-
-      // Register new List and Recipe GUI listeners
-      getServer().getPluginManager().registerEvents(itemListGUI, this);
-      getServer().getPluginManager().registerEvents(itemRecipeListGUI, this);
-      getServer().getPluginManager().registerEvents(recipeViewGUI, this);
-    }
-
-    getCommand("curios").setExecutor(
-        new org.bg52.curiospaper.command.CuriosCommand(this, this.api()));
-    getCommand("curios").setTabCompleter(
-        new org.bg52.curiospaper.command.CuriosCommand(this, this.api()));
-
-    getServer().getPluginManager().registerEvents(new InventoryListener(this, gui), this);
-    getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
-    getServer().getPluginManager().registerEvents(new QuickEquipListener(this), this);
-    getServer().getPluginManager().registerEvents(new org.bg52.curiospaper.listener.PlayerDeathListener(this), this);
-
-    // Register hotkey listener
-    accessoryHotkeyListener = new AccessoryHotkeyListener(this, gui);
-    getServer().getPluginManager().registerEvents(accessoryHotkeyListener, this);
-
-    if (itemEditorEnabled) {
-      // Register loot table and mob drop listeners
-      getServer().getPluginManager()
-          .registerEvents(new org.bg52.curiospaper.listener.LootTableListener(this, itemDataManager), this);
-      this.mobDropListener = new org.bg52.curiospaper.listener.MobDropListener(this, itemDataManager);
-      getServer().getPluginManager()
-          .registerEvents(this.mobDropListener, this);
-
-      // Register TradeEditor
-      this.tradeEditor = new TradeEditor(this);
-      getServer().getPluginManager().registerEvents(tradeEditor, this);
-
-      // Register VillagerTradeListener
-      getServer().getPluginManager()
-          .registerEvents(new org.bg52.curiospaper.listener.VillagerTradeListener(this, itemDataManager),
-              this);
-
-      this.abilityEditor = new AbilityEditorGUI(this);
-      getServer().getPluginManager().registerEvents(this.abilityEditor, this);
-
-      this.nbtEditor = new org.bg52.curiospaper.inventory.NbtEditorGUI(this);
-      getServer().getPluginManager().registerEvents(this.nbtEditor, this);
-
-      this.abilityListener = new AbilityListener(this);
-      getServer().getPluginManager().registerEvents(this.abilityListener, this);
-    }
-
-    // Register Bedrock container GUIs and listener
-    BedrockAnvilGUI bedrockAnvilGUI = new BedrockAnvilGUI(this);
-    BedrockSmithingGUI bedrockSmithingGUI = new BedrockSmithingGUI(this);
-    BedrockContainerListener bedrockContainerListener = new BedrockContainerListener(this, bedrockAnvilGUI, bedrockSmithingGUI);
-
-    getServer().getPluginManager().registerEvents(bedrockAnvilGUI, this);
-    getServer().getPluginManager().registerEvents(bedrockSmithingGUI, this);
-    getServer().getPluginManager().registerEvents(bedrockContainerListener, this);
-
-    // Register Elytra Back Slot Handler if enabled AND server supports
-    // DataComponents (1.21.3+)
-    if (getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
-      if (org.bg52.curiospaper.util.VersionUtil.supportsDataComponents()) {
-        elytraHandler = new ElytraBackSlotHandler(this);
-        getServer().getPluginManager().registerEvents(elytraHandler, this);
-        getLogger().info("Elytra back slot feature enabled!");
-
-        // Register default elytra curio item if missing
-        if (itemEditorEnabled && itemDataManager != null) {
-          if (!itemDataManager.hasItem("elytra")) {
-            org.bg52.curiospaper.data.ItemData elytraData = itemDataManager.createItem("elytra");
-            if (elytraData != null) {
-              elytraData.setDisplayName("Elytra");
-              elytraData.setMaterial("ELYTRA");
-              elytraData.setSlotType("back");
-              itemDataManager.saveItemData(elytraData);
+        // 11. Hook into Synthetix Item Editor Extension SPI
+        try {
+            if (getServer().getPluginManager().isPluginEnabled("Synthetix") && org.bg52.synthetix.api.SynthetixAPI.getOptional().isPresent()) {
+                org.bg52.synthetix.api.SynthetixAPI.get().getEditorRegistry().registerCategory(
+                        new org.bg52.curiospaper.engine.synthetix.CuriosItemEditorCategory(this)
+                );
+                getLogger().info("[Synthetix] Hooked Curios accessory settings into Synthetix Item Editor!");
             }
-          }
-        }
-      } else {
-        getLogger().warning("Elytra back slot feature requires Minecraft 1.21.3+ with Paper. " +
-            "Your server is running " + org.bg52.curiospaper.util.VersionUtil.getVersionString() +
-            ". This feature has been disabled.");
-      }
-    }
+        } catch (Throwable ignored) {}
 
-    int saveInterval = getConfig().getInt("storage.save-interval", 300) * 20;
-    autoSaveTask = new AutoSaveTask(this);
-    autoSaveTask.runTaskTimer(this, saveInterval, saveInterval);
+        // 12. Register Public API Service
+        this.api = new CuriosPaperAPIImpl(this);
+        getServer().getServicesManager().register(CuriosPaperAPI.class, this.api, this, ServicePriority.Normal);
 
-    int pluginId = 29508;
-    new Metrics(this, pluginId);
-
-    // Initialize 3D Model Stand Manager
-    modelStandManager = new org.bg52.curiospaper.model.ModelStandManager(this);
-    modelStandManager.initialize();
-
-    // Setup Geyser integration if Geyser is present
-    checkAndSetupGeyserIntegration();
-
-    getLogger().info("CuriosPaper has been enabled!");
-    getLogger().info("Loaded " + configManager.getSlotConfigurations().size() + " slot types.");
-  }
-
-  private CuriosPaperAPI api() {
-    return api;
-  }
-
-  public EditGUI getEditGUI() {
-    return editGUI;
-  }
-
-  public RecipeEditorGUI getRecipeEditor() {
-    return recipeEditor;
-  }
-
-  public RecipeListener getRecipeListener() {
-    return recipeListener;
-  }
-
-  public LootTableBrowser getLootTableBrowser() {
-    return this.lootTableBrowser;
-  }
-
-  public MobDropEditor getMobDropEditor() {
-    return mobDropEditor;
-  }
-
-  public TradeEditor getTradeEditor() {
-    return tradeEditor;
-  }
-
-  public AbilityEditorGUI getAbilityEditor() {
-    return abilityEditor;
-  }
-
-  public org.bg52.curiospaper.inventory.NbtEditorGUI getNbtEditor() {
-    return nbtEditor;
-  }
-
-  public ModelConfigGUI getModelConfigGUI() {
-    return modelConfigGUI;
-  }
-
-  public org.bg52.curiospaper.inventory.MobDropModelConfigGUI getMobDropModelConfigGUI() {
-    return mobDropModelConfigGUI;
-  }
-
-  public org.bg52.curiospaper.model.ModelStandManager getModelStandManager() {
-    return modelStandManager;
-  }
-
-  @Override
-  public void onDisable() {
-    if (autoSaveTask != null) {
-      autoSaveTask.cancel();
-    }
-
-    // Unregister recipes before cleaning up items
-    if (recipeListener != null) {
-      recipeListener.unregisterAllRecipes();
-    }
-
-    // Clean up external items to prevent stale data on restart
-    if (itemDataManager != null) {
-      itemDataManager.cleanupExternalItems();
-    }
-
-    if (resourcePackManager != null) {
-      resourcePackManager.shutdown();
-    }
-
-    if (abilityListener != null) {
-      abilityListener.shutdown();
-    }
-
-    // Clean up all 3D model armor stands
-    if (modelStandManager != null) {
-      modelStandManager.shutdown();
-    }
-
-    if (mobDropListener != null) {
-      mobDropListener.cleanup();
-    }
-
-    // Clean up hotkey listener
-    if (accessoryHotkeyListener != null) {
-      accessoryHotkeyListener.cleanup();
-    }
-
-    slotManager.saveAllPlayerData();
-
-    // Shutdown storage API after all data is saved
-    CuriosStorageAPI.shutdown();
-
-    getLogger().info("CuriosPaper has been disabled!");
-  }
-
-  public static CuriosPaper getInstance() {
-    return instance;
-  }
-
-  public ConfigManager getConfigManager() {
-    return configManager;
-  }
-
-  public SlotManager getSlotManager() {
-    return slotManager;
-  }
-
-  public CuriosPaperAPI getCuriosPaperAPI() {
-    return api;
-  }
-
-  public ResourcePackManager getResourcePackManager() {
-    return resourcePackManager;
-  }
-
-  public NamespacedKey getSlotTypeKey() {
-    return api.getSlotTypeKey();
-  }
-
-  public AccessoryGUI getGUI() {
-    return gui;
-  }
-
-  public EditMenuGUI getEditMenuGUI() {
-    return editMenuGUI;
-  }
-
-  public ItemDataManager getItemDataManager() {
-    return itemDataManager;
-  }
-
-  public MessagesManager getMessagesManager() {
-    return messagesManager;
-  }
-
-  public ChatInputManager getChatInputManager() {
-    return chatInputManager;
-  }
-
-  public ItemListGUI getItemListGUI() {
-    return itemListGUI;
-  }
-
-  public ItemRecipeListGUI getItemRecipeListGUI() {
-    return itemRecipeListGUI;
-  }
-
-  public RecipeViewGUI getRecipeViewGUI() {
-    return recipeViewGUI;
-  }
-
-  private void checkAndSetupGeyserIntegration() {
-    // 1. Always extract to plugins/CuriosPaper/geyser/
-    java.io.File localGeyserFolder = new java.io.File(getDataFolder(), "geyser");
-    if (!localGeyserFolder.exists()) {
-      localGeyserFolder.mkdirs();
-    }
-    
-    java.io.File localMappings = new java.io.File(localGeyserFolder, "CuriosPaper_mappings.json");
-    java.io.File localPack = new java.io.File(localGeyserFolder, "CuriosPaper_Geyser.zip");
-
-    try (java.io.InputStream in = getResource("CuriosPaper_mappings.json")) {
-      if (in != null) {
-        java.nio.file.Files.copy(in, localMappings.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-      }
-    } catch (Exception e) {
-      getLogger().warning("Failed to extract CuriosPaper_mappings.json to local geyser folder: " + e.getMessage());
-    }
-
-    try (java.io.InputStream in = getResource("CuriosPaper_Geyser.zip")) {
-      if (in != null) {
-        java.nio.file.Files.copy(in, localPack.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-      }
-    } catch (Exception e) {
-      getLogger().warning("Failed to extract CuriosPaper_Geyser.zip to local geyser folder: " + e.getMessage());
-    }
-
-    // 2. Detect GeyserMC plugins folder on the server
-    java.io.File pluginsFolder = getDataFolder().getParentFile();
-    java.io.File geyserFolder = new java.io.File(pluginsFolder, "Geyser-Spigot");
-    if (!geyserFolder.exists()) {
-      geyserFolder = new java.io.File(pluginsFolder, "Geyser");
-    }
-
-    if (geyserFolder.exists() && geyserFolder.isDirectory()) {
-      getLogger().info("GeyserMC directory detected at '" + geyserFolder.getName() + "'! Copying Bedrock compatibility pack & mappings...");
-      try {
-        // Copy Mappings to Geyser's custom_mappings folder
-        java.io.File mappingsDestFolder = new java.io.File(geyserFolder, "custom_mappings");
-        if (!mappingsDestFolder.exists()) {
-          mappingsDestFolder.mkdirs();
-        }
-        java.io.File mappingsDest = new java.io.File(mappingsDestFolder, "CuriosPaper_mappings.json");
-        try (java.io.InputStream in = getResource("CuriosPaper_mappings.json")) {
-          if (in != null) {
-            java.nio.file.Files.copy(in, mappingsDest.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            getLogger().info("Successfully copied CuriosPaper_mappings.json to Geyser custom_mappings.");
-          }
+        // 13. Register PlaceholderAPI Expansion
+        if (getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            new org.bg52.curiospaper.placeholder.CuriosExpansion(this).register();
+            getLogger().info("Successfully hooked into PlaceholderAPI!");
         }
 
-        // Copy Resource Pack to Geyser's packs folder
-        java.io.File packsDestFolder = new java.io.File(geyserFolder, "packs");
-        if (!packsDestFolder.exists()) {
-          packsDestFolder.mkdirs();
+        // 14. Register Commands
+        PluginCommand curiosCmd = getCommand("curios");
+        if (curiosCmd != null) {
+            CuriosCommand executor = new CuriosCommand(this);
+            curiosCmd.setExecutor(executor);
+            curiosCmd.setTabCompleter(executor);
+
+            PluginCommand baublesCmd = getCommand("baubles");
+            if (baublesCmd != null) {
+                baublesCmd.setExecutor(executor);
+                baublesCmd.setTabCompleter(executor);
+            }
         }
-        java.io.File packDest = new java.io.File(packsDestFolder, "CuriosPaper_Geyser.zip");
-        try (java.io.InputStream in = getResource("CuriosPaper_Geyser.zip")) {
-          if (in != null) {
-            java.nio.file.Files.copy(in, packDest.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            getLogger().info("Successfully copied CuriosPaper_Geyser.zip to Geyser packs.");
-          }
-        }
-      } catch (Exception e) {
-        getLogger().severe("Failed to copy compatibility files to Geyser MC directory: " + e.getMessage());
-        e.printStackTrace();
-      }
-    } else {
-      getLogger().info("GeyserMC folder not detected in plugins directory. Setup skipped.");
+
+        // 15. Schedule a 1-tick delayed post-boot scan so all external plugins (PaperArtifacts, Nexo, Oraxen, etc.)
+        // have fully registered their custom items before we finalize active GUI slots.
+        org.bg52.curiospaper.scheduler.PlatformScheduler.get().runGlobalLater(() -> {
+            if (this.slotRegistry != null) {
+                this.slotRegistry.refreshActiveSlots();
+                getLogger().info("[SlotRegistry] Post-boot scan completed. Active accessory slots with registered items: " + this.slotRegistry.getActiveSlotIds());
+            }
+        }, 1L);
+
+        int pluginId = 29508;
+        new Metrics(this, pluginId);
+
+        getLogger().info("CuriosPaper 3.0 successfully enabled!");
     }
-  }
+
+    @Override
+    public void onDisable() {
+        // Unregister service
+        getServer().getServicesManager().unregisterAll(this);
+        org.bg52.curiospaper.scheduler.PlatformScheduler.get().cancelTasks();
+
+        // Shutdown components in reverse order
+        try {
+            if (getServer().getPluginManager().isPluginEnabled("Synthetix") && org.bg52.synthetix.api.SynthetixAPI.getOptional().isPresent()) {
+                org.bg52.synthetix.api.SynthetixAPI.get().getEditorRegistry().unregisterCategory("curios_accessory");
+            }
+        } catch (Throwable ignored) {}
+
+        if (citizensManager != null) {
+            citizensManager.shutdown();
+        }
+
+        if (abilityListener != null) {
+            abilityListener.shutdown();
+        }
+
+        if (packRegistrationManager != null) {
+            packRegistrationManager.shutdown();
+        }
+
+        if (keybindHook != null) {
+            keybindHook.shutdown();
+        }
+
+        if (packetModelManager != null) {
+            packetModelManager.shutdown();
+        }
+
+        if (itemEngineManager != null) {
+            itemEngineManager.shutdown();
+        }
+
+        if (storageManager != null) {
+            storageManager.shutdown();
+        }
+
+        getLogger().info("CuriosPaper 3.0 disabled cleanly.");
+    }
+
+    public void reloadPluginConfig() {
+        reloadConfig();
+        if (languageManager != null) {
+            languageManager.load();
+        }
+        if (slotRegistry != null) {
+            slotRegistry.load();
+        }
+        if (keybindHook != null) {
+            keybindHook.shutdown();
+            keybindHook.initialize();
+        }
+        if (packetModelManager != null) {
+            packetModelManager.shutdown();
+            packetModelManager.initialize();
+        }
+    }
+
+    public static CuriosPaper getInstance() {
+        return instance;
+    }
+
+    public LanguageManager getLanguageManager() {
+        return languageManager;
+    }
+
+    public SlotRegistry getSlotRegistry() {
+        return slotRegistry;
+    }
+
+    public ItemEngineManager getItemEngineManager() {
+        return itemEngineManager;
+    }
+
+    public CuriosStorageManager getStorageManager() {
+        return storageManager;
+    }
+
+    public CuriosGUI getCuriosGUI() {
+        return curiosGUI;
+    }
+
+    public InspectGUI getInspectGUI() {
+        return inspectGUI;
+    }
+
+    public ElytraBackSlotHandler getElytraBackSlotHandler() {
+        return elytraBackSlotHandler;
+    }
+
+    public PacketModelManager getPacketModelManager() {
+        return packetModelManager;
+    }
+
+    public PackRegistrationManager getPackRegistrationManager() {
+        return packRegistrationManager;
+    }
+
+    public CuriosPaperAPI getCuriosPaperAPI() {
+        return api;
+    }
+
+    public AbilityListener getAbilityListener() {
+        return abilityListener;
+    }
+
+    public org.bg52.curiospaper.citizens.CitizensManager getCitizensManager() {
+        return citizensManager;
+    }
 }

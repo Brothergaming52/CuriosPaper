@@ -1,11 +1,10 @@
-//import org.bukkit.event.world.LootGenerateEvent cannot be resolvedpackage org.bg52.curiospaper.listener;
 package org.bg52.curiospaper.listener;
 
+import com.google.common.collect.Multimap;
 import org.bg52.curiospaper.CuriosPaper;
-import org.bg52.curiospaper.data.AbilityData;
-import org.bg52.curiospaper.data.ItemData;
-import org.bg52.curiospaper.event.AccessoryEquipEvent;
-import org.bg52.curiospaper.manager.ItemDataManager;
+import org.bg52.curiospaper.api.event.AccessoryEquipEvent;
+import org.bg52.curiospaper.slot.SlotDefinition;
+import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -14,431 +13,326 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
-import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.scheduler.BukkitTask;
+import org.bg52.curiospaper.scheduler.PlatformScheduler;
 
+import java.lang.reflect.Constructor;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Listens for AccessoryEquipEvent and applies/removes abilities based on
- * equipped items
+ * Enterprise listener that applies and removes attribute modifiers and abilities
+ * when accessories are equipped or unequipped in Curios slots.
  */
 public class AbilityListener implements Listener {
-  private final CuriosPaper plugin;
-  private final ItemDataManager itemDataManager;
-  private final Map<UUID, Set<String>> activeModifiers; // player UUID -> set of modifier IDs
-  private BukkitRunnable whileEquippedTask;
 
-  private static final String MODIFIER_PREFIX = "curiospaper_ability_";
+    private final CuriosPaper plugin;
+    private final Map<UUID, Set<String>> activeModifiers = new ConcurrentHashMap<>();
+    private PlatformScheduler.TaskHandle reconciliationTask;
 
-  public AbilityListener(CuriosPaper plugin) {
-    this.plugin = plugin;
-    this.itemDataManager = plugin.getItemDataManager();
-    this.activeModifiers = new HashMap<>();
-    startWhileEquippedTask();
-    startModifierReconciliationTask();
-  }
+    private static final String MODIFIER_PREFIX = "curios_meta_";
+    private static Constructor<AttributeModifier> modernConstructor = null;
+    private static Constructor<AttributeModifier> legacyConstructor = null;
 
-  @EventHandler(priority = EventPriority.NORMAL)
-  public void onAccessoryEquip(AccessoryEquipEvent event) {
-    Player player = event.getPlayer();
-    ItemStack previousItem = event.getPreviousItem();
-    ItemStack newItem = event.getNewItem();
-
-    // Remove abilities from previous item (if any)
-    if (previousItem != null && previousItem.getType() != org.bukkit.Material.AIR) {
-      String prevItemId = getItemId(previousItem);
-      if (prevItemId != null) {
-        ItemData prevData = itemDataManager.getItemData(prevItemId);
-        if (prevData != null) {
-          removeAbilities(player, prevData, AbilityData.TriggerType.EQUIP);
-          removeAbilities(player, prevData, AbilityData.TriggerType.WHILE_EQUIPPED);
-          // Apply DE_EQUIP trigger
-          applyAbilities(player, prevData, AbilityData.TriggerType.DE_EQUIP);
+    static {
+        try {
+            modernConstructor = AttributeModifier.class.getConstructor(
+                    NamespacedKey.class, double.class, AttributeModifier.Operation.class, EquipmentSlotGroup.class
+            );
+        } catch (Throwable t) {
+            try {
+                legacyConstructor = AttributeModifier.class.getConstructor(
+                        UUID.class, String.class, double.class, AttributeModifier.Operation.class
+                );
+            } catch (Throwable ignored) {}
         }
-      }
     }
 
-    // Apply abilities from new item (if any)
-    if (newItem != null && newItem.getType() != org.bukkit.Material.AIR) {
-      String newItemId = getItemId(newItem);
-      if (newItemId != null) {
-        ItemData newData = itemDataManager.getItemData(newItemId);
-        if (newData != null) {
-          // Apply EQUIP trigger
-          applyAbilities(player, newData, AbilityData.TriggerType.EQUIP);
-        }
-      }
-    }
-  }
-
-  /**
-   * Applies abilities with the specified trigger type
-   */
-  private void applyAbilities(Player player, ItemData itemData, AbilityData.TriggerType trigger) {
-    for (AbilityData ability : itemData.getAbilities()) {
-      if (ability.getTrigger() == trigger) {
-        applyAbility(player, ability, itemData.getItemId());
-      }
-    }
-  }
-
-  /**
-   * Removes abilities with the specified trigger type
-   */
-  private void removeAbilities(Player player, ItemData itemData, AbilityData.TriggerType trigger) {
-    for (AbilityData ability : itemData.getAbilities()) {
-      if (ability.getTrigger() == trigger) {
-        removeAbility(player, ability, itemData.getItemId());
-      }
-    }
-  }
-
-  /**
-   * Applies a single ability to a player
-   */
-  private void applyAbility(Player player, AbilityData ability, String itemId) {
-    if (ability.getEffectType() == AbilityData.EffectType.POTION_EFFECT) {
-      applyPotionEffect(player, ability);
-    } else if (ability.getEffectType() == AbilityData.EffectType.PLAYER_MODIFIER) {
-      applyPlayerModifier(player, ability, itemId);
-    }
-  }
-
-  /**
-   * Removes a single ability from a player
-   */
-  private void removeAbility(Player player, AbilityData ability, String itemId) {
-    if (ability.getEffectType() == AbilityData.EffectType.PLAYER_MODIFIER) {
-      removePlayerModifier(player, ability, itemId);
-    }
-    // Potion effects expire naturally
-  }
-
-  private void applyPotionEffect(Player player, AbilityData ability) {
-    try {
-      PotionEffectType type = PotionEffectType.getByName(ability.getEffectName());
-      if (type != null) {
-        PotionEffect effect = new PotionEffect(type, ability.getDuration(),
-            ability.getAmplifier(), false, true, true);
-        player.addPotionEffect(effect);
-
-        if (plugin.getConfig().getBoolean("debug.log-inventory-events", false)) {
-          plugin.getLogger().info("Applied potion effect " + ability.getEffectName() +
-              " to " + player.getName());
-        }
-      }
-    } catch (Exception e) {
-      plugin.getLogger().warning("Failed to apply potion effect: " + ability.getEffectName());
-    }
-  }
-
-  private void applyPlayerModifier(Player player, AbilityData ability, String itemId) {
-    Attribute attribute = getAttributeFromName(ability.getEffectName());
-    if (attribute == null)
-      return;
-
-    AttributeInstance instance = player.getAttribute(attribute);
-    if (instance == null)
-      return;
-
-    // Create unique modifier ID
-    String modifierId = MODIFIER_PREFIX + itemId + "_" + ability.getEffectName();
-    UUID modifierUUID = UUID.nameUUIDFromBytes(modifierId.getBytes());
-
-    // Remove existing modifier if present (check UUID or name match)
-    AttributeModifier existing = null;
-    for (AttributeModifier mod : instance.getModifiers()) {
-      if (mod.getUniqueId().equals(modifierUUID) || modifierId.equalsIgnoreCase(mod.getName())) {
-        existing = mod;
-        break;
-      }
-    }
-    if (existing != null) {
-      instance.removeModifier(existing);
+    public AbilityListener(CuriosPaper plugin) {
+        this.plugin = plugin;
+        startReconciliationTask();
     }
 
-    // Calculate modifier value based on amplifier
-    double value = calculateModifierValue(attribute, ability.getAmplifier());
-
-    // Add new modifier with configured operation
-    AttributeModifier modifier = new AttributeModifier(
-        modifierUUID,
-        modifierId,
-        value,
-        ability.getOperation());
-
-    instance.addModifier(modifier);
-
-    // Track active modifier
-    activeModifiers.computeIfAbsent(player.getUniqueId(), k -> new HashSet<>()).add(modifierId);
-
-    if (plugin.getConfig().getBoolean("debug.log-inventory-events", false)) {
-      plugin.getLogger().info("Applied modifier " + ability.getEffectName() +
-          " (" + value + ", " + ability.getOperation() + ") to " + player.getName());
-    }
-  }
-
-  private void removePlayerModifier(Player player, AbilityData ability, String itemId) {
-    Attribute attribute = getAttributeFromName(ability.getEffectName());
-    if (attribute == null)
-      return;
-
-    AttributeInstance instance = player.getAttribute(attribute);
-    if (instance == null)
-      return;
-
-    String modifierId = MODIFIER_PREFIX + itemId + "_" + ability.getEffectName();
-    UUID modifierUUID = UUID.nameUUIDFromBytes(modifierId.getBytes());
-
-    AttributeModifier existing = null;
-    for (AttributeModifier mod : instance.getModifiers()) {
-      if (mod.getUniqueId().equals(modifierUUID) || modifierId.equalsIgnoreCase(mod.getName())) {
-        existing = mod;
-        break;
-      }
-    }
-    if (existing != null) {
-      instance.removeModifier(existing);
-
-      Set<String> playerModifiers = activeModifiers.get(player.getUniqueId());
-      if (playerModifiers != null) {
-        playerModifiers.remove(modifierId);
-      }
-
-      if (plugin.getConfig().getBoolean("debug.log-inventory-events", false)) {
-        plugin.getLogger().info("Removed modifier " + ability.getEffectName() +
-            " from " + player.getName());
-      }
-    }
-  }
-
-  /**
-   * Periodic task to apply WHILE_EQUIPPED abilities
-   */
-  private void startWhileEquippedTask() {
-    whileEquippedTask = new BukkitRunnable() {
-      @Override
-      public void run() {
-        for (Player player : plugin.getServer().getOnlinePlayers()) {
-          processWhileEquippedAbilities(player);
-        }
-      }
-    };
-    whileEquippedTask.runTaskTimer(plugin, 20L, 20L); // Run every second
-  }
-
-  /**
-   * Periodic reconciliation task that removes stale modifiers.
-   * This catches edge cases where modifiers persist after unequip
-   * (e.g. item moved to regular inventory, server crash, etc.)
-   */
-  private BukkitRunnable reconciliationTask;
-
-  private void startModifierReconciliationTask() {
-    reconciliationTask = new BukkitRunnable() {
-      @Override
-      public void run() {
-        for (Player player : plugin.getServer().getOnlinePlayers()) {
-          reconcileModifiers(player);
-        }
-      }
-    };
-    reconciliationTask.runTaskTimer(plugin, 100L, 100L); // Run every 5 seconds
-  }
-
-  /**
-   * Checks that all tracked modifiers still correspond to items in curios slots.
-   * Removes any orphaned modifiers.
-   */
-  private void reconcileModifiers(Player player) {
-    Set<String> playerModifiers = activeModifiers.get(player.getUniqueId());
-    if (playerModifiers == null || playerModifiers.isEmpty()) return;
-
-    // Collect all item IDs currently equipped in curios slots
-    Set<String> equippedItemIds = new HashSet<>();
-    for (String slotType : plugin.getCuriosPaperAPI().getAllSlotTypes()) {
-      List<ItemStack> items = plugin.getCuriosPaperAPI().getEquippedItems(player, slotType);
-      for (ItemStack item : items) {
-        if (item == null || item.getType() == org.bukkit.Material.AIR) continue;
-        String itemId = getItemId(item);
-        if (itemId != null) equippedItemIds.add(itemId);
-      }
-    }
-
-    // Check each tracked modifier to see if its item is still equipped
-    for (String modifierId : new HashSet<>(playerModifiers)) {
-      // modifier format: "curiospaper_ability_<itemId>_<effectName>"
-      String withoutPrefix = modifierId.substring(MODIFIER_PREFIX.length());
-      // Split on first underscore to get the item ID (item IDs may not contain underscores,
-      // but effect names do, so we split carefully)
-      // The modifierId is: MODIFIER_PREFIX + itemId + "_" + effectName
-      // We need to find the itemId by checking which known items match
-      String matchedItemId = null;
-      for (String equipped : equippedItemIds) {
-        if (withoutPrefix.startsWith(equipped + "_")) {
-          matchedItemId = equipped;
-          break;
-        }
-      }
-
-      if (matchedItemId == null) {
-        // Also check against all known item IDs to find the right one to remove
-        for (String knownId : itemDataManager.getAllItemIds()) {
-          if (withoutPrefix.startsWith(knownId + "_")) {
-            // This modifier belongs to a known item that is NOT equipped — remove it
-            String effectName = withoutPrefix.substring(knownId.length() + 1);
-            Attribute attribute = getAttributeFromName(effectName);
-            if (attribute != null) {
-              AttributeInstance instance = player.getAttribute(attribute);
-              if (instance != null) {
-                UUID modUUID = UUID.nameUUIDFromBytes(modifierId.getBytes());
-                AttributeModifier existing = null;
-                for (AttributeModifier mod : instance.getModifiers()) {
-                  if (mod.getUniqueId().equals(modUUID)) {
-                    existing = mod;
-                    break;
-                  }
-                }
-                if (existing != null) {
-                  instance.removeModifier(existing);
-                  if (plugin.getConfig().getBoolean("debug.log-inventory-events", false)) {
-                    plugin.getLogger().info("Reconciled stale modifier " + effectName + " from " + player.getName());
-                  }
-                }
-              }
+    public void startReconciliationTask() {
+        // Runs every 5 seconds (100 ticks) to clean up orphaned modifiers
+        this.reconciliationTask = PlatformScheduler.get().runGlobalTimer(() -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                PlatformScheduler.get().runEntity(player, () -> {
+                    if (player.isOnline()) {
+                        reconcileModifiers(player);
+                    }
+                });
             }
-            playerModifiers.remove(modifierId);
-            break;
-          }
+        }, 100L, 100L);
+    }
+
+    public void shutdown() {
+        if (reconciliationTask != null) {
+            reconciliationTask.cancel();
         }
-      }
-    }
-  }
-
-  private void processWhileEquippedAbilities(Player player) {
-    // Get all equipped items
-    for (String slotType : plugin.getCuriosPaperAPI().getAllSlotTypes()) {
-      List<ItemStack> items = plugin.getCuriosPaperAPI().getEquippedItems(player, slotType);
-      for (ItemStack item : items) {
-        if (item == null || item.getType() == org.bukkit.Material.AIR)
-          continue;
-
-        String itemId = getItemId(item);
-        if (itemId == null)
-          continue;
-
-        ItemData itemData = itemDataManager.getItemData(itemId);
-        if (itemData == null)
-          continue;
-
-        // Apply WHILE_EQUIPPED abilities
-        for (AbilityData ability : itemData.getAbilities()) {
-          if (ability.getTrigger() == AbilityData.TriggerType.WHILE_EQUIPPED) {
-            applyAbility(player, ability, itemId);
-          }
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            removeAllCuriosModifiers(player);
         }
-      }
-    }
-  }
-
-  public void shutdown() {
-    if (whileEquippedTask != null) {
-      whileEquippedTask.cancel();
-    }
-    if (reconciliationTask != null) {
-      reconciliationTask.cancel();
+        activeModifiers.clear();
     }
 
-    // Remove all modifiers — both tracked and any orphaned CuriosPaper modifiers
-    for (Player player : plugin.getServer().getOnlinePlayers()) {
-      removeAllCuriosModifiers(player);
-    }
-    activeModifiers.clear();
-  }
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onAccessoryEquip(AccessoryEquipEvent event) {
+        if (!plugin.getConfig().getBoolean("item-engines.apply-item-meta-attributes", true)) {
+            return;
+        }
 
-  /**
-   * Removes ALL CuriosPaper attribute modifiers from a player.
-   * This catches both tracked and orphaned modifiers.
-   */
-  private void removeAllCuriosModifiers(Player player) {
-    for (Attribute attr : Attribute.values()) {
-      try {
-        AttributeInstance instance = player.getAttribute(attr);
-        if (instance == null) continue;
-        
+        Player player = event.getPlayer();
+        ItemStack prev = event.getPreviousItem();
+        ItemStack cur = event.getNewItem();
+        String slotType = event.getSlotType();
+        int subIndex = event.getSubIndex();
+
+        // 1. Remove modifiers from previous item
+        if (prev != null && !prev.getType().isAir()) {
+            removeItemMetaAttributes(player, slotType, subIndex, prev);
+        }
+
+        // 2. Apply modifiers from new item
+        if (cur != null && !cur.getType().isAir()) {
+            applyItemMetaAttributes(player, slotType, subIndex, cur);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        // Load attributes after inventory loads
+        PlatformScheduler.get().runEntityLater(player, () -> {
+            if (player.isOnline()) {
+                reapplyAllCuriosAttributes(player);
+            }
+        }, 20L);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        removeAllCuriosModifiers(player);
+        activeModifiers.remove(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        Player player = event.getPlayer();
+        PlatformScheduler.get().runEntityLater(player, () -> {
+            if (player.isOnline()) {
+                reapplyAllCuriosAttributes(player);
+            }
+        }, 2L);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+        Player player = event.getPlayer();
+        PlatformScheduler.get().runEntityLater(player, () -> {
+            if (player.isOnline()) {
+                reapplyAllCuriosAttributes(player);
+            }
+        }, 2L);
+    }
+
+    public void reapplyAllCuriosAttributes(Player player) {
+        removeAllCuriosModifiers(player);
+        if (!plugin.getConfig().getBoolean("item-engines.apply-item-meta-attributes", true)) {
+            return;
+        }
+
+        for (SlotDefinition def : plugin.getSlotRegistry().getAllSlots()) {
+            List<ItemStack> items = plugin.getCuriosPaperAPI().getEquippedItems(player, def.getId());
+            for (int sub = 0; sub < items.size(); sub++) {
+                ItemStack item = items.get(sub);
+                if (item != null && !item.getType().isAir()) {
+                    applyItemMetaAttributes(player, def.getId(), sub, item);
+                }
+            }
+        }
+    }
+
+    private void applyItemMetaAttributes(Player player, String slotType, int subIndex, ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null || !meta.hasAttributeModifiers()) return;
+
+        Multimap<Attribute, AttributeModifier> modifiers = meta.getAttributeModifiers();
+        if (modifiers == null || modifiers.isEmpty()) return;
+
+        for (Map.Entry<Attribute, AttributeModifier> entry : modifiers.entries()) {
+            Attribute attr = entry.getKey();
+            AttributeModifier mod = entry.getValue();
+            AttributeInstance instance = player.getAttribute(attr);
+            if (instance == null || mod == null) continue;
+
+            String modifierKey = MODIFIER_PREFIX + slotType + "_" + subIndex + "_" + attr.name().toLowerCase(Locale.ROOT);
+            AttributeModifier customMod = buildModifier(modifierKey, mod.getAmount(), mod.getOperation());
+            if (customMod == null) continue;
+
+            // Remove existing if present
+            removeMatchingModifier(instance, modifierKey);
+
+            instance.addModifier(customMod);
+            activeModifiers.computeIfAbsent(player.getUniqueId(), k -> ConcurrentHashMap.newKeySet()).add(modifierKey);
+        }
+    }
+
+    private void removeItemMetaAttributes(Player player, String slotType, int subIndex, ItemStack item) {
+        String prefix = MODIFIER_PREFIX + slotType + "_" + subIndex + "_";
+        for (Attribute attr : Attribute.values()) {
+            try {
+                AttributeInstance instance = player.getAttribute(attr);
+                if (instance != null) {
+                    removePrefixModifier(instance, prefix);
+                }
+            } catch (Throwable ignored) {}
+        }
+        Set<String> mods = activeModifiers.get(player.getUniqueId());
+        if (mods != null) {
+            mods.removeIf(k -> k.startsWith(prefix));
+        }
+    }
+
+    private void removeMatchingModifier(AttributeInstance instance, String keyName) {
         List<AttributeModifier> toRemove = new ArrayList<>();
         for (AttributeModifier mod : instance.getModifiers()) {
-          if (mod.getName() != null && mod.getName().startsWith(MODIFIER_PREFIX)) {
-            toRemove.add(mod);
-          }
+            if (matchesKey(mod, keyName)) {
+                toRemove.add(mod);
+            }
         }
         for (AttributeModifier mod : toRemove) {
-          instance.removeModifier(mod);
+            instance.removeModifier(mod);
         }
-      } catch (Throwable ignored) {
-        // Some attributes may not exist on older versions
-      }
-    }
-  }
-
-  private Attribute getAttributeFromName(String name) {
-    // Try direct match first
-    for (Attribute attr : Attribute.values()) {
-      if (attr.name().equalsIgnoreCase(name)) { // 1.14 compatible
-        return attr;
-      }
     }
 
-    // Try formatted name match
-    for (Attribute attr : Attribute.values()) {
-      String formattedName = attr.name()
-          .replace("GENERIC_", "")
-          .replace("PLAYER_", "")
-          .replace("_", " ");
-      if (formattedName.equalsIgnoreCase(name.replace("_", " "))) {
-        return attr;
-      }
-    }
-
-    return null;
-  }
-
-  private double calculateModifierValue(Attribute attribute, int amplifier) {
-    // For attributes: amplifier is stored as value * 100 to preserve decimals
-    // So we divide by 100 to get the actual value
-    return amplifier / 100.0;
-  }
-
-  /**
-   * Gets the item ID from an ItemStack using PDC (reliable) with display name fallback.
-   */
-  private String getItemId(ItemStack itemStack) {
-    if (itemStack == null || !itemStack.hasItemMeta())
-      return null;
-
-    // Primary: Use PDC-based curios_custom_id key (set by createItemStack)
-    NamespacedKey itemIdKey = plugin.getCuriosPaperAPI().getItemIdKey();
-    PersistentDataContainer pdc = itemStack.getItemMeta().getPersistentDataContainer();
-    String pdcId = pdc.get(itemIdKey, PersistentDataType.STRING);
-    if (pdcId != null && !pdcId.isEmpty()) {
-      return pdcId;
-    }
-
-    // Fallback: Try to find matching item by display name (legacy items)
-    String displayName = itemStack.getItemMeta().getDisplayName();
-    if (displayName != null && !displayName.isEmpty()) {
-      for (ItemData data : itemDataManager.getAllItems().values()) {
-        if (displayName.equals(data.getDisplayName())) {
-          return data.getItemId();
+    private void removePrefixModifier(AttributeInstance instance, String prefix) {
+        List<AttributeModifier> toRemove = new ArrayList<>();
+        for (AttributeModifier mod : instance.getModifiers()) {
+            if (matchesPrefix(mod, prefix)) {
+                toRemove.add(mod);
+            }
         }
-      }
+        for (AttributeModifier mod : toRemove) {
+            instance.removeModifier(mod);
+        }
     }
 
-    return null;
-  }
+    private boolean matchesKey(AttributeModifier mod, String keyName) {
+        try {
+            java.lang.reflect.Method m = mod.getClass().getMethod("getKey");
+            Object keyObj = m.invoke(mod);
+            if (keyObj instanceof NamespacedKey) {
+                NamespacedKey nk = (NamespacedKey) keyObj;
+                if (nk.getKey().equalsIgnoreCase(keyName)) return true;
+            }
+        } catch (Throwable ignored) {}
+
+        return keyName.equalsIgnoreCase(mod.getName());
+    }
+
+    private boolean matchesPrefix(AttributeModifier mod, String prefix) {
+        try {
+            java.lang.reflect.Method m = mod.getClass().getMethod("getKey");
+            Object keyObj = m.invoke(mod);
+            if (keyObj instanceof NamespacedKey) {
+                NamespacedKey nk = (NamespacedKey) keyObj;
+                if (nk.getKey().startsWith(prefix)) return true;
+            }
+        } catch (Throwable ignored) {}
+
+        return mod.getName() != null && mod.getName().startsWith(prefix);
+    }
+
+    private AttributeModifier buildModifier(String keyName, double amount, AttributeModifier.Operation operation) {
+        try {
+            if (modernConstructor != null) {
+                NamespacedKey key = new NamespacedKey(plugin, keyName);
+                return modernConstructor.newInstance(key, amount, operation, EquipmentSlotGroup.ANY);
+            }
+        } catch (Throwable ignored) {}
+
+        try {
+            if (legacyConstructor != null) {
+                UUID uuid = UUID.nameUUIDFromBytes(keyName.getBytes());
+                return legacyConstructor.newInstance(uuid, keyName, amount, operation);
+            }
+        } catch (Throwable ignored) {}
+
+        return null;
+    }
+
+    private void reconcileModifiers(Player player) {
+        Set<String> tracked = activeModifiers.get(player.getUniqueId());
+        if (tracked == null || tracked.isEmpty()) return;
+
+        // Build valid prefixes currently worn
+        Set<String> validPrefixes = new HashSet<>();
+        for (SlotDefinition def : plugin.getSlotRegistry().getAllSlots()) {
+            List<ItemStack> items = plugin.getCuriosPaperAPI().getEquippedItems(player, def.getId());
+            for (int sub = 0; sub < items.size(); sub++) {
+                ItemStack item = items.get(sub);
+                if (item != null && !item.getType().isAir() && item.hasItemMeta() && item.getItemMeta().hasAttributeModifiers()) {
+                    validPrefixes.add(MODIFIER_PREFIX + def.getId() + "_" + sub + "_");
+                }
+            }
+        }
+
+        // Remove any modifier that doesn't match an actively worn item
+        for (Attribute attr : Attribute.values()) {
+            try {
+                AttributeInstance instance = player.getAttribute(attr);
+                if (instance == null) continue;
+
+                List<AttributeModifier> toRemove = new ArrayList<>();
+                for (AttributeModifier mod : instance.getModifiers()) {
+                    String name = mod.getName();
+                    if (name != null && name.startsWith(MODIFIER_PREFIX)) {
+                        boolean valid = false;
+                        for (String validPfx : validPrefixes) {
+                            if (name.startsWith(validPfx)) {
+                                valid = true;
+                                break;
+                            }
+                        }
+                        if (!valid) {
+                            toRemove.add(mod);
+                        }
+                    }
+                }
+                for (AttributeModifier mod : toRemove) {
+                    instance.removeModifier(mod);
+                }
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    private void removeAllCuriosModifiers(Player player) {
+        for (Attribute attr : Attribute.values()) {
+            try {
+                AttributeInstance instance = player.getAttribute(attr);
+                if (instance == null) continue;
+
+                List<AttributeModifier> toRemove = new ArrayList<>();
+                for (AttributeModifier mod : instance.getModifiers()) {
+                    String name = mod.getName();
+                    if (name != null && name.startsWith(MODIFIER_PREFIX)) {
+                        toRemove.add(mod);
+                    }
+                }
+                for (AttributeModifier mod : toRemove) {
+                    instance.removeModifier(mod);
+                }
+            } catch (Throwable ignored) {}
+        }
+    }
 }

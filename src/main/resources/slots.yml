@@ -1,0 +1,106 @@
+# ==============================================================================
+#                      CuriosPaper 3.0 Slot Configuration
+#  Define custom accessory slot types, icons, item models, CMDs, amounts, and lore.
+# ==============================================================================
+
+slots:
+  head:
+    name: "Head"
+    icon: "GOLDEN_HELMET"
+    item-model: "curiospaper:head_slot"
+    custom-model-data: 10001
+    amount: 1
+    gui-slot: 10
+    permission: "curiospaper.slot.head"
+    lore:
+      - "&7Equip crowns, circlets, or magical headpieces."
+
+  necklace:
+    name: "Necklace"
+    icon: "NAUTILUS_SHELL"
+    item-model: "curiospaper:necklace_slot"
+    custom-model-data: 10002
+    amount: 1
+    gui-slot: 11
+    permission: "curiospaper.slot.necklace"
+    lore:
+      - "&7Wear powerful amulets and pendants."
+
+  back:
+    name: "Back"
+    icon: "ELYTRA"
+    item-model: "curiospaper:back_slot"
+    custom-model-data: 10003
+    amount: 1
+    gui-slot: 12
+    permission: "curiospaper.slot.back"
+    pitch-up-limit: 45.0
+    pitch-down-limit: 30.0
+    lore:
+      - "&7Equip magical capes and cloaks."
+
+  body:
+    name: "Body"
+    icon: "DIAMOND_CHESTPLATE"
+    item-model: "curiospaper:body_slot"
+    custom-model-data: 10004
+    amount: 1
+    gui-slot: 13
+    permission: "curiospaper.slot.body"
+    lore:
+      - "&7Wear chest talismans and armor attachments."
+
+  belt:
+    name: "Belt"
+    icon: "LEATHER"
+    item-model: "curiospaper:belt_slot"
+    custom-model-data: 10005
+    amount: 1
+    gui-slot: 14
+    permission: "curiospaper.slot.belt"
+    lore:
+      - "&7Equip utility belts and sashes."
+
+  hands:
+    name: "Hands"
+    icon: "LEATHER_CHESTPLATE"
+    item-model: "curiospaper:hands_slot"
+    custom-model-data: 10006
+    amount: 2
+    gui-slot: 15
+    permission: "curiospaper.slot.hands"
+    lore:
+      - "&7Magical gloves for both hands."
+
+  bracelet:
+    name: "Bracelet"
+    icon: "CHAIN"
+    item-model: "curiospaper:bracelet_slot"
+    custom-model-data: 10007
+    amount: 2
+    gui-slot: 16
+    permission: "curiospaper.slot.bracelet"
+    lore:
+      - "&7Wear enchanted bracelets and bangles."
+
+  ring:
+    name: "Ring"
+    icon: "GOLD_NUGGET"
+    item-model: "curiospaper:ring_slot"
+    custom-model-data: 10008
+    amount: 2
+    gui-slot: 19
+    permission: "curiospaper.slot.ring"
+    lore:
+      - "&7Holds powerful magical rings."
+
+  charm:
+    name: "Charm"
+    icon: "EMERALD"
+    item-model: "curiospaper:charm_slot"
+    custom-model-data: 10009
+    amount: 4
+    gui-slot: 20
+    permission: "curiospaper.slot.charm"
+    lore:
+      - "&7Holds small, potent charms and trinkets."

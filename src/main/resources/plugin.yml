@@ -1,21 +1,45 @@
 name: CuriosPaper
-version: '${project.version}'
+version: 3.0
 main: org.bg52.curiospaper.CuriosPaper
-api-version: '1.14'
-author: Brothergaming52
-description: Custom accessory inventory system API for Paper
+api-version: '1.20'
+folia-supported: true
+author: bg52
+description: Modern, high-performance accessory inventory engine for Paper 1.20.6 to 1.21+
+softdepend:
+  - Synthetix
+  - Nexo
+  - ItemsAdder
+  - Oraxen
+  - CraftEngine
+  - Citizens
+  - PlaceholderAPI
 
 commands:
   curios:
-    description: CuriosPaper admin and debug commands
-    usage: /curios <rp|debug>
-    aliases: [cp, curiospaper]
+    description: Open or manage curios accessories
+    aliases:
+      - curio
+      - accessories
+      - accessory
+      - baubles
+      - bauble
+    permission: curiospaper.use
+    usage: /curios [open|inspect|tag|untag|give|clear|reload|npc]
   baubles:
-    description: Open the accessory inventory
-    aliases: [b, bbag]
-    usage: /<command>
+    description: Open accessory inventory
+    aliases:
+      - bauble
+    permission: curiospaper.use
+    usage: /baubles
 
 permissions:
+  curiospaper.use:
+    description: Allows players to open and use the curios accessory inventory
+    default: true
   curiospaper.admin:
-    description: Access to admin commands
+    description: Gives access to administrative commands (inspect, tag, reload)
     default: op
+  curiospaper.slot.*:
+    description: Access to all curios accessory slots
+    default: true
+

@@ -1,881 +1,782 @@
 package org.bg52.curiospaper.handler;
 
 import org.bg52.curiospaper.CuriosPaper;
-import org.bg52.curiospaper.config.SlotConfiguration;
-import org.bg52.curiospaper.event.AccessoryEquipEvent;
-import org.bukkit.ChatColor;
+import org.bg52.curiospaper.api.event.AccessoryEquipEvent;
+import org.bg52.curiospaper.util.VersionUtil;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.Bukkit;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.event.player.PlayerItemDamageEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
-import java.io.File;
-
-// import javax.annotation.Nullable;
-// import javax.annotation.Nullable;
+import org.bg52.curiospaper.scheduler.PlatformScheduler;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Handles elytra equipping in back slots with automatic gliding attribute
- * management.
- * When an elytra is equipped in a back slot:
- * - If player has a chestplate: adds glider component to chestplate
- * - If player has no chestplate: secretly equips elytra with invisible item
- * model
+ * Bulletproof elytra back-slot flight management system.
+ * <p>
+ * Key guarantees:
+ * 1. Synchronously intercepts chestplate right-click and inventory interactions to prevent fake elytra leaks.
+ * 2. Only adds/removes glider components on chestplates tagged with {@code curiospaper:glider_granted}.
+ * 3. Never touches chestplates that already possess flight naturally or via other plugins.
+ * 4. Transparently routes flight durability damage to the back-slot elytra while gliding.
  */
 public class ElytraBackSlotHandler implements Listener {
-  private final CuriosPaper plugin;
-  private final NamespacedKey secretElytraKey;
-  private final Set<UUID> playersWithSecretElytra;
 
-  public ElytraBackSlotHandler(CuriosPaper plugin) {
-    this.plugin = plugin;
-    this.secretElytraKey = new NamespacedKey(plugin, "secret_elytra");
-    this.playersWithSecretElytra = new HashSet<>();
-  }
+    public record BackElytraSlot(int index, ItemStack item) {}
 
-  /**
-   * Ensure an Elytra has the "Required Slot: <Back Name>" lore and back-slot tag.
-   * Returns the same instance if no change is needed, or a new tagged ItemStack
-   * otherwise.
-   */
-  private ItemStack ensureBackTaggedElytra(ItemStack stack) {
-    if (stack == null || stack.getType() != Material.ELYTRA) {
-      return stack;
+    private final CuriosPaper plugin;
+    private final NamespacedKey gliderGrantedKey;
+    private final NamespacedKey secretElytraKey;
+    private final Set<UUID> playersWithSecretElytra = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, Long> lastFlightDamageTime = new ConcurrentHashMap<>();
+
+    public ElytraBackSlotHandler(CuriosPaper plugin) {
+        this.plugin = plugin;
+        this.gliderGrantedKey = new NamespacedKey(plugin, "glider_granted");
+        this.secretElytraKey = new NamespacedKey(plugin, "secret_elytra");
+        startFlightDurabilityTask();
     }
 
-    // Get back slot config (for the display name used in lore)
-    SlotConfiguration backConfig = plugin.getConfigManager().getSlotConfiguration("back");
-    if (backConfig == null) {
-      return stack; // no back slot defined, bail out
+    public boolean isFeatureEnabled() {
+        return plugin.getConfig().getBoolean("features.allow-elytra-on-back-slot", true);
     }
 
-    String pName = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', backConfig.getName()));
-    String requiredLine = ChatColor.GOLD + "Slot: " + ChatColor.YELLOW + pName;
+    public boolean isChestplate(Material mat) {
+        return mat != null && mat.name().endsWith("_CHESTPLATE");
+    }
 
-    ItemMeta meta = stack.getItemMeta();
-    if (meta != null) {
-      // Check NBT first - definitive source
-      PersistentDataContainer container = meta.getPersistentDataContainer();
-      String existingSlot = container.get(plugin.getCuriosPaperAPI().getSlotTypeKey(), PersistentDataType.STRING);
-      if ("back".equalsIgnoreCase(existingSlot)) {
-        return stack; // Already tagged via NBT
-      }
+    public String resolveChestplateWingsAsset(Material type) {
+        if (!isChestplate(type)) return null;
+        String base = type.name().toLowerCase(Locale.ROOT).replace("_chestplate", "");
+        return "elytra_" + base + "_chestplate";
+    }
 
-      if (meta.hasLore()) {
-        List<String> lore = meta.getLore();
-        if (lore != null) {
-          for (String line : lore) {
-            if (requiredLine.equals(line)) {
-              // Already has correct lore; assume already tagged
-              return stack;
+    public boolean isEligibleElytra(ItemStack item) {
+        if (item == null || item.getType().isAir()) return false;
+        if (item.getType() == Material.ELYTRA) return true;
+        return VersionUtil.hasGlider(item);
+    }
+
+    public BackElytraSlot findBackSlotElytra(Player player) {
+        if (player == null) return null;
+        List<ItemStack> items = plugin.getCuriosPaperAPI().getEquippedItems(player, "back");
+        for (int i = 0; i < items.size(); i++) {
+            ItemStack item = items.get(i);
+            if (isEligibleElytra(item)) {
+                return new BackElytraSlot(i, item);
             }
-          }
         }
-      }
+        return null;
     }
 
-    // Not tagged yet -> use your API to tag it for the back slot.
-    // This MUST clone internally and preserve durability & other data.
-    ItemStack tagged = plugin.getCuriosPaperAPI().tagAccessoryItem(stack, "back", true);
-
-    // Make sure durability and data are preserved: tagAccessoryItem clones and only
-    // adds PDC + lore, so no reset. If it didn't, you'd fix it there, not here.
-    return tagged;
-  }
-
-  /**
-   * Scan the player's inventory + armor/offhand and ensure all Elytras are tagged
-   * for the back slot.
-   * Idempotent: safe to call often.
-   */
-  private void retagAllPlayerElytras(Player player) {
-    // Main inventory, hotbar, armor, etc. in one go
-    ItemStack[] contents = player.getInventory().getContents();
-    boolean changed = false;
-
-    for (int i = 0; i < contents.length; i++) {
-      ItemStack original = contents[i];
-      ItemStack updated = ensureBackTaggedElytra(original);
-      if (updated != original) {
-        contents[i] = updated;
-        changed = true;
-      }
+    public ItemStack getBackSlotElytra(Player player) {
+        BackElytraSlot slot = findBackSlotElytra(player);
+        return slot != null ? slot.item() : null;
     }
 
-    if (changed) {
-      player.getInventory().setContents(contents);
+    public void setBackSlotElytra(Player player, int index, ItemStack item) {
+        plugin.getCuriosPaperAPI().setEquippedItem(player, "back", index, item);
     }
 
-    // Offhand
-    ItemStack off = player.getInventory().getItemInOffHand();
-    ItemStack updatedOff = ensureBackTaggedElytra(off);
-    if (updatedOff != off) {
-      player.getInventory().setItemInOffHand(updatedOff);
+    public void setBackSlotElytra(Player player, ItemStack item) {
+        BackElytraSlot slot = findBackSlotElytra(player);
+        int index = slot != null ? slot.index() : 0;
+        setBackSlotElytra(player, index, item);
     }
 
-    // Chest slot (in case Elytra is there)
-    ItemStack chest = player.getInventory().getChestplate();
-    ItemStack updatedChest = ensureBackTaggedElytra(chest);
-    if (updatedChest != chest) {
-      player.getInventory().setChestplate(updatedChest);
-    }
-  }
-
-  @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-  public void onElytraPickup(EntityPickupItemEvent event) {
-    if (!(event.getEntity() instanceof Player)) {
-      return;
-    }
-    Player player = (Player) event.getEntity();
-
-    ItemStack stack = event.getItem().getItemStack();
-    if (stack == null || stack.getType() != Material.ELYTRA) {
-      return;
+    public boolean isSecretElytra(ItemStack item) {
+        if (item == null || item.getType() != Material.ELYTRA || !item.hasItemMeta()) return false;
+        return item.getItemMeta().getPersistentDataContainer().has(secretElytraKey, PersistentDataType.BYTE);
     }
 
-    // After pickup is processed, retag all Elytras in their inventory
-    plugin.getServer().getScheduler().runTask(plugin, () -> retagAllPlayerElytras(player));
-  }
-
-  @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-  public void onAccessoryEquip(AccessoryEquipEvent event) {
-    // Only process back slot events
-    if (!"back".equalsIgnoreCase(event.getSlotType())) {
-      return;
+    public boolean hasGliderGranted(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return false;
+        return item.getItemMeta().getPersistentDataContainer().has(gliderGrantedKey, PersistentDataType.BYTE);
     }
 
-    // Check if feature is enabled
-    if (!plugin.getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
-      return;
-    }
-
-    Player player = event.getPlayer();
-    ItemStack newItem = event.getNewItem();
-    ItemStack previousItem = event.getPreviousItem();
-
-    // Handle elytra being equipped
-    if (newItem != null && newItem.getType() == Material.ELYTRA) {
-      handleElytraEquipped(player);
-    }
-    // Handle elytra being unequipped
-    else if (previousItem != null && previousItem.getType() == Material.ELYTRA) {
-      handleElytraUnequipped(player);
-    }
-  }
-
-  // @Nullable
-  private ItemStack getBackSlotElytra(Player player) {
-    ItemStack backItem = plugin.getCuriosPaperAPI().getEquippedItem(player, "back", 0);
-    if (backItem != null && backItem.getType() == Material.ELYTRA) {
-      return backItem;
-    }
-    return null;
-  }
-
-  private void setBackSlotElytra(Player player, /* @Nullable */ ItemStack item) {
-    // Adjust this to your real API
-    plugin.getCuriosPaperAPI().setEquippedItem(player, "back", 0, item);
-  }
-
-  /**
-   * Called when an elytra is equipped in the back slot
-   */
-  private void handleElytraEquipped(Player player) {
-    // Check the durability of the back-slot elytra: if it's at 1, treat as broken
-    ItemStack back = getBackSlotElytra(player);
-    if (back != null) {
-      ItemMeta meta = back.getItemMeta();
-      if (meta instanceof Damageable) {
-        Damageable dmgMeta = (Damageable) meta;
-        int max = org.bg52.curiospaper.util.VersionUtil.getMaxDurability(back);
-        int maxUsableDamage = max - 1;
-        if (dmgMeta.getDamage() >= maxUsableDamage) {
-          // Elytra is effectively broken; don't enable any gliding
-          // plugin.getLogger().info("Back-slot elytra for " + player.getName()
-          // + " is already at 1 durability; not enabling glider/secret elytra.");
-          return;
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onAccessoryEquip(AccessoryEquipEvent event) {
+        if (!isFeatureEnabled() || !"back".equalsIgnoreCase(event.getSlotType())) {
+            return;
         }
-      }
-    }
 
-    ItemStack chestplate = player.getInventory().getChestplate();
+        Player player = event.getPlayer();
+        ItemStack newItem = event.getNewItem();
+        ItemStack prevItem = event.getPreviousItem();
 
-    if (chestplate != null && chestplate.getType() != Material.AIR && isChestplate(chestplate.getType())) {
-      // Player has a chestplate - add glider component to it
-      addGliderToChestplate(player, chestplate);
-    } else {
-      // No chestplate - equip secret elytra with invisible item model
-      equipSecretElytra(player);
-    }
-  }
-
-  /**
-   * Handles right-click equipping of chestplates so the secret elytra
-   * never ends up as a normal survival item.
-   *
-   * Flow:
-   * - Player has secret elytra in chest slot (our fake wings)
-   * - Player right-clicks with a real chestplate in hand
-   * - Vanilla swaps: chestplate -> chest slot, secret elytra -> inventory
-   * - We run 1 tick later, wipe all secret elytras from inventory,
-   * and reapply GLIDER to the new chestplate.
-   */
-  @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-  public void onChestplateRightClick(PlayerInteractEvent event) {
-    if (!plugin.getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
-      return;
-    }
-
-    Action action = event.getAction();
-    if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
-      return;
-    }
-
-    Player player = event.getPlayer();
-    ItemStack item = event.getItem();
-    if (item == null || item.getType() == Material.AIR) {
-      return;
-    }
-
-    // Only care about right-clicking with chestplates
-    if (!isChestplate(item.getType())) {
-      return;
-    }
-
-    // Only relevant if this player currently has our secret elytra equipped
-    if (!playersWithSecretElytra.contains(player.getUniqueId())) {
-      return;
-    }
-
-    // And only if the system is actually active (elytra in back slot)
-    if (!hasElytraInBackSlot(player)) {
-      return;
-    }
-
-    // Let vanilla do the swap first, then clean up 1 tick later
-    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-      ItemStack chestplate = player.getInventory().getChestplate();
-      if (chestplate != null && isChestplate(chestplate.getType())) {
-        // Remove all traces of secret elytra (including the one that got dumped into
-        // inventory)
-        playersWithSecretElytra.remove(player.getUniqueId());
-        wipeSecretElytra(player);
-
-        // Re-read chestplate in case anything changed
-        ItemStack currentChest = player.getInventory().getChestplate();
-        if (currentChest != null && isChestplate(currentChest.getType())) {
-          addGliderToChestplate(player, currentChest);
+        if (newItem != null && isEligibleElytra(newItem)) {
+            handleElytraEquipped(player, newItem);
+        } else if (prevItem != null && isEligibleElytra(prevItem)) {
+            handleElytraUnequipped(player);
         }
-      }
-    }, 1L);
-  }
-
-  /**
-   * Called when an elytra is unequipped from the back slot
-   */
-  private void handleElytraUnequipped(Player player) {
-    // Remove glider from chestplate if present
-    ItemStack chestplate = player.getInventory().getChestplate();
-    if (chestplate != null && chestplate.getType() != Material.AIR && isChestplate(chestplate.getType())) {
-      removeGliderFromChestplate(player, chestplate);
     }
 
-    // Remove secret elytra if equipped
-    removeSecretElytra(player);
-
-    // Wipe any secret elytras and glider/custom equippable components from inventory
-    wipeSecretElytra(player);
-  }
-
-  private boolean isSecretElytra(ItemStack stack) {
-    if (stack == null || stack.getType() != Material.ELYTRA)
-      return false;
-    ItemMeta meta = stack.getItemMeta();
-    if (meta == null)
-      return false;
-    return meta.getPersistentDataContainer().has(secretElytraKey, PersistentDataType.BYTE);
-  }
-
-  private void wipeSecretElytra(Player player) {
-    // 1. Chest slot (explicit check/removal) - only if they do not have a back slot elytra
-    if (!hasElytraInBackSlot(player)) {
-      ItemStack chest = player.getInventory().getChestplate();
-      if (isSecretElytra(chest)) {
-        player.getInventory().setChestplate(null);
-      } else if (chest != null && isChestplate(chest.getType()) && org.bg52.curiospaper.util.VersionUtil.hasGlider(chest)) {
-        org.bg52.curiospaper.util.VersionUtil.removeGlider(chest);
-        player.getInventory().setChestplate(chest);
-      }
+    public void handleElytraEquipped(Player player) {
+        handleElytraEquipped(player, null);
     }
 
-    // 2. Main inventory contents (storage contents only, size 36)
-    ItemStack[] contents = player.getInventory().getStorageContents();
-    boolean contentsChanged = false;
-    for (int i = 0; i < contents.length; i++) {
-      ItemStack item = contents[i];
-      if (item == null || item.getType() == Material.AIR) {
-        continue;
-      }
-      if (isSecretElytra(item)) {
-        contents[i] = null;
-        contentsChanged = true;
-      } else if (isChestplate(item.getType()) && org.bg52.curiospaper.util.VersionUtil.hasGlider(item)) {
-        org.bg52.curiospaper.util.VersionUtil.removeGlider(item);
-        contentsChanged = true;
-      }
-    }
-    if (contentsChanged) {
-      player.getInventory().setStorageContents(contents);
-    }
+    public void handleElytraEquipped(Player player, ItemStack backStack) {
+        if (!isFeatureEnabled() || !player.isOnline()) return;
 
-    // 3. Other armor slots (helmet, leggings, boots)
-    ItemStack[] armor = player.getInventory().getArmorContents();
-    boolean armorChanged = false;
-    for (int i = 0; i < armor.length; i++) {
-      if (i == 2) {
-        continue; // Skip chestplate slot (handled explicitly in step 1)
-      }
-      ItemStack item = armor[i];
-      if (item == null || item.getType() == Material.AIR) {
-        continue;
-      }
-      if (isSecretElytra(item)) {
-        armor[i] = null;
-        armorChanged = true;
-      } else if (isChestplate(item.getType()) && org.bg52.curiospaper.util.VersionUtil.hasGlider(item)) {
-        org.bg52.curiospaper.util.VersionUtil.removeGlider(item);
-        armorChanged = true;
-      }
-    }
-    if (armorChanged) {
-      player.getInventory().setArmorContents(armor);
+        ItemStack back = backStack != null ? backStack : getBackSlotElytra(player);
+        if (back == null) return;
+
+        // Check if back-slot elytra is broken (durability >= max - 1)
+        ItemMeta backMeta = back.getItemMeta();
+        if (backMeta instanceof Damageable dmg) {
+            int max = VersionUtil.getMaxDurability(back);
+            if (dmg.getDamage() >= (max - 1)) {
+                return;
+            }
+        }
+
+        ItemStack chestplate = player.getInventory().getChestplate();
+
+        if (chestplate != null && chestplate.getType() != Material.AIR && isChestplate(chestplate.getType())) {
+            // Player already has a chestplate:
+            // Check if chestplate ALREADY has flight naturally or from another plugin and is not managed by us
+            if (VersionUtil.hasGlider(chestplate) && !hasGliderGranted(chestplate)) {
+                return;
+            }
+
+            applyGliderToChestplate(player, chestplate, back);
+        } else if (chestplate == null || chestplate.getType() == Material.AIR) {
+            equipSecretElytra(player, back);
+        }
     }
 
-    // 4. Offhand slot
-    ItemStack offhand = player.getInventory().getItemInOffHand();
-    if (offhand != null && offhand.getType() != Material.AIR) {
-      if (isSecretElytra(offhand)) {
-        player.getInventory().setItemInOffHand(null);
-      } else if (isChestplate(offhand.getType()) && org.bg52.curiospaper.util.VersionUtil.hasGlider(offhand)) {
-        org.bg52.curiospaper.util.VersionUtil.removeGlider(offhand);
-        player.getInventory().setItemInOffHand(offhand);
-      }
-    }
+    public void applyGliderToChestplate(Player player, ItemStack chestplate, ItemStack backElytra) {
+        if (chestplate == null || chestplate.getType().isAir() || !isChestplate(chestplate.getType())) return;
 
-    // 5. Cursor item
-    ItemStack cursor = player.getItemOnCursor();
-    if (cursor != null && cursor.getType() != Material.AIR) {
-      if (isSecretElytra(cursor)) {
-        player.setItemOnCursor(null);
-      } else if (isChestplate(cursor.getType()) && org.bg52.curiospaper.util.VersionUtil.hasGlider(cursor)) {
-        org.bg52.curiospaper.util.VersionUtil.removeGlider(cursor);
-        player.setItemOnCursor(cursor);
-      }
-    }
+        // Tag that CuriosPaper granted glider
+        ItemMeta meta = chestplate.getItemMeta();
+        if (meta != null) {
+            meta.getPersistentDataContainer().set(gliderGrantedKey, PersistentDataType.BYTE, (byte) 1);
+            chestplate.setItemMeta(meta);
+        }
 
-    player.updateInventory();
-  }
-
-  /**
-   * Prevent picking up the secret elytra with empty hands.
-   * Still allow swapping it with a chestplate item.
-   */
-  @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-  public void onArmorSlotProtectSecretElytra(InventoryClickEvent event) {
-    if (!(event.getWhoClicked() instanceof Player)) {
-      return;
-    }
-    Player player = (Player) event.getWhoClicked();
-
-    if (!plugin.getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
-      return;
-    }
-
-    if (event.getClickedInventory() != player.getInventory()) {
-      return;
-    }
-
-    // Chest armor slot
-    if (event.getSlot() != 38) {
-      return;
-    }
-
-    ItemStack chest = player.getInventory().getChestplate();
-    if (!isSecretElytra(chest)) {
-      return;
-    }
-
-    ItemStack cursor = event.getCursor();
-    boolean cursorIsAir = (cursor == null || cursor.getType() == Material.AIR);
-
-    // If cursor is empty, player is trying to pick up the secret elytra -> block it
-    if (cursorIsAir) {
-      event.setCancelled(true);
-      return;
-    }
-
-    // Only allow swapping with a valid chestplate
-    if (!isChestplate(cursor.getType())) {
-      event.setCancelled(true);
-      return;
-    }
-
-    // Now cursor is a valid chestplate.
-    // We handle the swap manually to prevent the secret elytra from ever entering the cursor or inventory.
-    ItemStack chestplateToEquip = cursor.clone();
-    try {
-      applyGliderToItem(player, chestplateToEquip);
-      
-      // If successful, cancel event to override vanilla behavior and apply slot contents instantly
-      event.setCancelled(true);
-      
-      // Remove player from secret elytra tracking
-      playersWithSecretElytra.remove(player.getUniqueId());
-      
-      // Set the chestplate in slot 38 and clear the cursor
-      player.getInventory().setChestplate(chestplateToEquip);
-      player.setItemOnCursor(null);
-      
-      // Sync client inventory
-      player.updateInventory();
-    } catch (Exception e) {
-      plugin.getLogger().warning("Failed to add glider to chestplate during click swap for " + player.getName() + ": " + e.getMessage());
-      e.printStackTrace();
-      
-      // Cancel event and do nothing, keeping secret elytra in slot and chestplate on cursor safely
-      event.setCancelled(true);
-      player.updateInventory();
-    }
-  }
-
-  /**
-   * Prevent dragging items into the chestplate slot when secret elytra is active.
-   */
-  @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-  public void onArmorSlotDragProtectSecretElytra(InventoryDragEvent event) {
-    if (!(event.getWhoClicked() instanceof Player)) {
-      return;
-    }
-    Player player = (Player) event.getWhoClicked();
-
-    if (!plugin.getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
-      return;
-    }
-
-    if (event.getRawSlots().contains(38)) {
-      ItemStack chest = player.getInventory().getChestplate();
-      if (isSecretElytra(chest)) {
-        event.setCancelled(true);
-      }
-    }
-  }
-
-  /**
-   * Wipe any secret elytra from cursor or inventory upon closing inventory to prevent ghost items/dupes.
-   */
-  @EventHandler(priority = EventPriority.MONITOR)
-  public void onInventoryClose(InventoryCloseEvent event) {
-    if (!(event.getPlayer() instanceof Player)) {
-      return;
-    }
-    Player player = (Player) event.getPlayer();
-
-    if (!plugin.getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
-      return;
-    }
-
-    wipeSecretElytra(player);
-  }
-
-  /**
-   * Applies the glider and equippable modifications to a chestplate item.
-   * Can throw an exception if applying the custom/vanilla flight components fails.
-   */
-  private void applyGliderToItem(Player player, ItemStack chestplate) throws Exception {
-    if (chestplate == null || chestplate.getType() == Material.AIR) {
-      return;
-    }
-
-    // Check if back slot Elytra has a custom equippable asset ID
-    ItemStack backSlotElytra = getBackSlotElytra(player);
-    org.bukkit.NamespacedKey customAsset = org.bg52.curiospaper.util.VersionUtil.getEquippableAsset(backSlotElytra);
-
-    if (customAsset != null && !(customAsset.getNamespace().equalsIgnoreCase("minecraft") && customAsset.getKey().equalsIgnoreCase("elytra"))) {
-      // It's a custom Elytra! Use the combined asset ID: curiospaper:elytra_<mat>_<sanitized_asset_key>
-      String base = chestplate.getType().name()
-          .toLowerCase(Locale.ROOT)
-          .replace("_chestplate", "");
-      String sanitized = org.bg52.curiospaper.util.VersionUtil.sanitizeAssetKey(customAsset.getNamespace(), customAsset.getKey());
-      
-      // Check if the generated combined asset file exists in the resource pack build directory
-      File buildDir = new File(plugin.getDataFolder(), "resource-pack-build");
-      File assetFile = new File(buildDir, "assets/curiospaper/equipment/elytra_" + base + "_" + sanitized + ".json");
-
-      if (assetFile.exists()) {
-        String combinedAsset = "elytra_" + base + "_" + sanitized;
-        org.bg52.curiospaper.util.VersionUtil.applyElytraFlight(chestplate, "curiospaper", combinedAsset);
-      } else {
-        // Fall back to the vanilla wings asset for this chestplate (which is always present in the core pack)
-        String assetId = resolveChestplateWingsAsset(chestplate.getType());
-        if (assetId != null) {
-          org.bg52.curiospaper.util.VersionUtil.applyElytraFlight(chestplate, "curiospaper", assetId);
+        // Check if back slot Elytra has a custom equippable asset ID
+        NamespacedKey customAsset = VersionUtil.getEquippableAsset(backElytra);
+        if (customAsset != null && !(customAsset.getNamespace().equalsIgnoreCase("minecraft") && customAsset.getKey().equalsIgnoreCase("elytra"))) {
+            String base = chestplate.getType().name().toLowerCase(Locale.ROOT).replace("_chestplate", "");
+            String sanitized = VersionUtil.sanitizeAssetKey(customAsset.getNamespace(), customAsset.getKey());
+            String combinedAsset = "elytra_" + base + "_" + sanitized;
+            VersionUtil.applyElytraFlight(chestplate, "curiospaper", combinedAsset);
         } else {
-          plugin.getLogger().warning("No wings assetId mapping for chestplate material "
-              + chestplate.getType() + " for " + player.getName());
+            // Resolve custom wings asset ID by chestplate material (e.g. elytra_diamond_chestplate)
+            String assetId = resolveChestplateWingsAsset(chestplate.getType());
+            if (assetId != null) {
+                VersionUtil.applyElytraFlight(chestplate, "curiospaper", assetId);
+            } else {
+                VersionUtil.applyElytraFlight(chestplate, "minecraft", "elytra");
+            }
         }
-      }
-    } else {
-      // Fall back to vanilla: resolve wings asset ID by chestplate material
-      String assetId = resolveChestplateWingsAsset(chestplate.getType());
-      if (assetId != null) {
-        org.bg52.curiospaper.util.VersionUtil.applyElytraFlight(chestplate, "curiospaper", assetId);
-      } else {
-        plugin.getLogger().warning("No wings assetId mapping for chestplate material "
-            + chestplate.getType() + " for " + player.getName());
-      }
-    }
-  }
 
-  /**
-   * Adds the glider component to a chestplate
-   */
-  private void addGliderToChestplate(Player player, ItemStack chestplate) {
-    try {
-      if (chestplate == null || chestplate.getType() == Material.AIR) {
-        plugin.getLogger().warning("Tried to add glider to null/air chestplate for " + player.getName());
-        return;
-      }
-
-      applyGliderToItem(player, chestplate);
-      player.getInventory().setChestplate(chestplate);
-    } catch (Exception e) {
-      plugin.getLogger()
-          .warning("Failed to add glider to chestplate for " + player.getName() + ": " + e.getMessage());
-      e.printStackTrace();
-      equipSecretElytra(player);
-    }
-  }
-
-  private /* @Nullable */ String resolveChestplateWingsAsset(Material type) {
-    if (!type.name().endsWith("_CHESTPLATE")) {
-      return null;
+        player.getInventory().setChestplate(chestplate);
+        player.updateInventory();
     }
 
-    // Turn "NETHERITE_CHESTPLATE" -> "netherite"
-    String base = type.name()
-        .toLowerCase(Locale.ROOT)
-        .replace("_chestplate", "");
+    public void handleElytraUnequipped(Player player) {
+        if (!player.isOnline()) return;
 
-    // Final key suffix: elytra_<material>_chestplate
-    return "elytra_" + base + "_chestplate";
-  }
-
-  /**
-   * Redirect durability damage from chestplate/secret-elytra to the back-slot
-   * elytra.
-   * Caps at 1 durability (vanilla Elytra behavior).
-   */
-  @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
-  public void onItemDamage(PlayerItemDamageEvent event) {
-    Player player = event.getPlayer();
-
-    if (!plugin.getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
-      return;
-    }
-
-    // ✅ Only redirect damage while the player is actually gliding
-    // If they're just wearing the chestplate and taking hits on the ground,
-    // that damage should NOT be mirrored to the back-slot elytra.
-    if (!player.isGliding()) {
-      return;
-    }
-
-    ItemStack damagedItem = event.getItem();
-    if (damagedItem == null) {
-      return;
-    }
-
-    // We only want to redirect if:
-    // - This item is our GLIDER chestplate, OR
-    // - This item is our secret elytra
-    boolean isGliderChestplate = isChestplate(damagedItem.getType()) &&
-        org.bg52.curiospaper.util.VersionUtil.hasGlider(damagedItem);
-    boolean isOurSecretElytra = isSecretElytra(damagedItem);
-
-    if (!isGliderChestplate && !isOurSecretElytra) {
-      return;
-    }
-
-    // And only if we actually have a back-slot elytra
-    ItemStack backElytra = getBackSlotElytra(player);
-    if (backElytra == null) {
-      return;
-    }
-
-    int damage = event.getDamage();
-    event.setCancelled(true); // don't damage the chest/secret item
-
-    ItemMeta meta = backElytra.getItemMeta();
-    if (!(meta instanceof Damageable)) {
-      return; // shouldn't happen for Elytra
-    }
-    Damageable dmgMeta = (Damageable) meta;
-
-    int currentDamage = dmgMeta.getDamage();
-    int max = org.bg52.curiospaper.util.VersionUtil.getMaxDurability(backElytra);
-
-    // Max usable damage is maxDurability - 1 (item disabled but not broken)
-    int maxUsableDamage = max - 1;
-
-    int newDamage = currentDamage + damage;
-    if (newDamage > maxUsableDamage) {
-      newDamage = maxUsableDamage;
-    }
-
-    // Apply capped damage
-    dmgMeta.setDamage(newDamage);
-    backElytra.setItemMeta(meta);
-    setBackSlotElytra(player, backElytra);
-
-    // If we've hit "broken but not destroyed" state -> disable gliding
-    if (newDamage >= maxUsableDamage) {
-      // Disable GLIDER chestplate OR secret-elytra chest behavior
-      if (isGliderChestplate) {
-        ItemStack chestplateNow = player.getInventory().getChestplate();
-        if (chestplateNow != null && isChestplate(chestplateNow.getType())) {
-          removeGliderFromChestplate(player, chestplateNow);
-        }
-      } else if (isOurSecretElytra) {
+        // 1. Remove secret elytra if worn
         removeSecretElytra(player);
-      }
 
-      plugin.getLogger().info("Back-slot elytra for " + player.getName()
-          + " reached 1 durability; gliding disabled but item kept.");
-    }
-  }
-
-  /**
-   * Removes the glider component from a chestplate
-   */
-  private void removeGliderFromChestplate(Player player, ItemStack chestplate) {
-    try {
-      org.bg52.curiospaper.util.VersionUtil.removeGlider(chestplate);
-      player.getInventory().setChestplate(chestplate);
-      // plugin.getLogger().info("Removed glider + reset asset for " +
-      // player.getName() + "'s chestplate");
-    } catch (Exception e) {
-      plugin.getLogger()
-          .warning("Failed to remove glider from chestplate for " + player.getName() + ": " + e.getMessage());
-      e.printStackTrace();
-    }
-  }
-
-  /*
-   * Removed clearGliderComponents as it's handled by VersionUtil.removeGlider
-   */
-
-  @EventHandler(priority = EventPriority.HIGHEST)
-  public void onPlayerDeath(PlayerDeathEvent event) {
-    Player player = event.getEntity();
-
-    // Stop tracking this player
-    playersWithSecretElytra.remove(player.getUniqueId());
-
-    // Clean up drops:
-    // - Remove secret (invisible) elytra entirely
-    // - Convert any GLIDER chestplates back to normal items
-    Iterator<ItemStack> it = event.getDrops().iterator();
-    while (it.hasNext()) {
-      ItemStack drop = it.next();
-      if (drop == null || drop.getType() == Material.AIR)
-        continue;
-
-      if (isSecretElytra(drop)) {
-        // Don't drop our internal "fake" elytra
-        it.remove();
-        continue;
-      }
-
-      if (isChestplate(drop.getType()) && org.bg52.curiospaper.util.VersionUtil.hasGlider(drop)) {
-        org.bg52.curiospaper.util.VersionUtil.removeGlider(drop);
-      }
-    }
-  }
-
-  /**
-   * Equips a secret elytra with invisible item model (inventory) but normal
-   * entity model (wings in F5)
-   */
-  private void equipSecretElytra(Player player) {
-    wipeSecretElytra(player);
-
-    ItemStack secretElytra = new ItemStack(Material.ELYTRA);
-    ItemMeta meta = secretElytra.getItemMeta();
-
-    if (meta != null) {
-      // Mark this as a secret elytra
-      meta.getPersistentDataContainer().set(secretElytraKey, PersistentDataType.BYTE, (byte) 1);
-
-      // Set invisible item model for inventory display
-      // This makes the elytra invisible when seen in inventory
-      // But the entity model (wings in F5) stays normal
-      org.bg52.curiospaper.util.VersionUtil.setItemModelSafe(meta,
-          org.bg52.curiospaper.util.VersionUtil.parseNamespacedKey("curiospaper:invisible"), null);
-
-      secretElytra.setItemMeta(meta);
-    }
-
-    // Apply custom elytra asset if present on the back slot elytra
-    ItemStack backSlotElytra = getBackSlotElytra(player);
-    org.bukkit.NamespacedKey customAsset = org.bg52.curiospaper.util.VersionUtil.getEquippableAsset(backSlotElytra);
-    if (customAsset != null && !(customAsset.getNamespace().equalsIgnoreCase("minecraft") && customAsset.getKey().equalsIgnoreCase("elytra"))) {
-      org.bg52.curiospaper.util.VersionUtil.applyElytraFlight(secretElytra, customAsset.getNamespace(), customAsset.getKey());
-    }
-
-    player.getInventory().setChestplate(secretElytra);
-    playersWithSecretElytra.add(player.getUniqueId());
-  }
-
-  /**
-   * Removes the secret elytra from the chest slot
-   */
-  private void removeSecretElytra(Player player) {
-    if (!playersWithSecretElytra.contains(player.getUniqueId())) {
-      return;
-    }
-
-    ItemStack chestplate = player.getInventory().getChestplate();
-    if (chestplate != null && chestplate.getType() == Material.ELYTRA) {
-      ItemMeta meta = chestplate.getItemMeta();
-      if (meta != null && meta.getPersistentDataContainer().has(secretElytraKey, PersistentDataType.BYTE)) {
-        // This is our secret elytra - remove it
-        player.getInventory().setChestplate(null);
-        playersWithSecretElytra.remove(player.getUniqueId());
-        wipeSecretElytra(player);
-        // plugin.getLogger().info("Removed secret elytra from " + player.getName());
-      }
-    }
-  }
-
-  /**
-   * Checks if player has an elytra equipped in back slot
-   */
-  private boolean hasElytraInBackSlot(Player player) {
-    ItemStack backItem = plugin.getCuriosPaperAPI().getEquippedItem(player, "back", 0);
-    return backItem != null && backItem.getType() == Material.ELYTRA;
-  }
-
-  /**
-   * Handles when a player changes their chestplate while having elytra in back
-   * slot
-   */
-  @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-  public void onInventoryClick(InventoryClickEvent event) {
-    if (!(event.getWhoClicked() instanceof Player)) {
-      return;
-    }
-    Player player = (Player) event.getWhoClicked();
-
-    if (!plugin.getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
-      return;
-    }
-
-    // Check if they're interacting with their chest armor slot
-    if (event.getSlot() == 38 && event.getClickedInventory() == player.getInventory()) {
-      // Delay the check slightly to allow the item to be placed first
-      plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-        if (hasElytraInBackSlot(player)) {
-          handleChestplateChange(player);
+        // 2. Check chestplate: ONLY strip glider if CuriosPaper granted it
+        ItemStack chest = player.getInventory().getChestplate();
+        if (chest != null && isChestplate(chest.getType())) {
+            ItemMeta meta = chest.getItemMeta();
+            if (meta != null) {
+                PersistentDataContainer pdc = meta.getPersistentDataContainer();
+                if (pdc.has(gliderGrantedKey, PersistentDataType.BYTE)) {
+                    pdc.remove(gliderGrantedKey);
+                    chest.setItemMeta(meta);
+                    VersionUtil.removeGlider(chest);
+                    player.getInventory().setChestplate(chest);
+                }
+            }
         }
-      }, 1L);
+
+        wipeSecretElytra(player);
     }
-  }
 
-  /**
-   * Handles chestplate changes when elytra is in back slot
-   */
-  private void handleChestplateChange(Player player) {
-    ItemStack chestplate = player.getInventory().getChestplate();
+    public void equipSecretElytra(Player player) {
+        equipSecretElytra(player, null);
+    }
 
-    // Check if secret elytra was replaced with a chestplate
-    if (playersWithSecretElytra.contains(player.getUniqueId())) {
-      if (chestplate != null && isChestplate(chestplate.getType())) {
-        // Remove ALL secret elytra traces (including cursor) first
+    public void equipSecretElytra(Player player, ItemStack backElytra) {
+        removeSecretElytra(player);
+
+        ItemStack fakeElytra = new ItemStack(Material.ELYTRA);
+        ItemMeta meta = fakeElytra.getItemMeta();
+        if (meta != null) {
+            meta.getPersistentDataContainer().set(secretElytraKey, PersistentDataType.BYTE, (byte) 1);
+            VersionUtil.setItemModelSafe(meta, "curiospaper:invisible", null);
+
+            // Copy enchantments from the back-slot elytra so vanilla simulation respects Unbreaking/Mending
+            if (backElytra != null && backElytra.hasItemMeta()) {
+                ItemMeta bMeta = backElytra.getItemMeta();
+                if (bMeta.hasEnchants()) {
+                    for (Map.Entry<Enchantment, Integer> entry : bMeta.getEnchants().entrySet()) {
+                        meta.addEnchant(entry.getKey(), entry.getValue(), true);
+                    }
+                }
+            }
+            fakeElytra.setItemMeta(meta);
+        }
+
+        if (backElytra != null) {
+            NamespacedKey customAsset = VersionUtil.getEquippableAsset(backElytra);
+            if (customAsset != null && !(customAsset.getNamespace().equalsIgnoreCase("minecraft") && customAsset.getKey().equalsIgnoreCase("elytra"))) {
+                VersionUtil.applyElytraFlight(fakeElytra, customAsset.getNamespace(), customAsset.getKey());
+            }
+        }
+
+        player.getInventory().setChestplate(fakeElytra);
+        playersWithSecretElytra.add(player.getUniqueId());
+        player.updateInventory();
+    }
+
+    public void removeSecretElytra(Player player) {
+        playersWithSecretElytra.remove(player.getUniqueId());
+        ItemStack chest = player.getInventory().getChestplate();
+        if (chest != null && isSecretElytra(chest)) {
+            player.getInventory().setChestplate(null);
+        }
+    }
+
+    /**
+     * Synchronously intercepts right-clicking with a chestplate in hand when the player is wearing secret elytra.
+     * Cancelling the interact event stops vanilla from swapping the secret elytra into the player's hand.
+     */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        if (!isFeatureEnabled()) return;
+        Action action = event.getAction();
+        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) return;
+
+        ItemStack item = event.getItem();
+        if (item == null || !isChestplate(item.getType())) return;
+
+        Player player = event.getPlayer();
+        ItemStack chest = player.getInventory().getChestplate();
+        if (!isSecretElytra(chest) && !playersWithSecretElytra.contains(player.getUniqueId())) {
+            return;
+        }
+
+        // Cancel vanilla right-click armor swap
+        event.setCancelled(true);
+
+        // Equip chestplate synchronously
+        ItemStack toEquip = item.clone();
+        toEquip.setAmount(1);
+
+        // Deduct from hand
+        if (event.getHand() == EquipmentSlot.HAND) {
+            ItemStack main = player.getInventory().getItemInMainHand();
+            if (main.getAmount() > 1) {
+                main.setAmount(main.getAmount() - 1);
+            } else {
+                player.getInventory().setItemInMainHand(null);
+            }
+        } else if (event.getHand() == EquipmentSlot.OFF_HAND) {
+            ItemStack off = player.getInventory().getItemInOffHand();
+            if (off.getAmount() > 1) {
+                off.setAmount(off.getAmount() - 1);
+            } else {
+                player.getInventory().setItemInOffHand(null);
+            }
+        }
+
+        // Remove secret elytra tracking
         playersWithSecretElytra.remove(player.getUniqueId());
         wipeSecretElytra(player);
 
-        // Re-read chestplate (in case chest slot was cleared during wipe)
-        chestplate = player.getInventory().getChestplate();
-        if (chestplate != null && isChestplate(chestplate.getType())) {
-          addGliderToChestplate(player, chestplate);
+        // Apply glider capability if back slot elytra is active
+        ItemStack back = getBackSlotElytra(player);
+        if (back != null) {
+            applyGliderToChestplate(player, toEquip, back);
+        } else {
+            player.getInventory().setChestplate(toEquip);
         }
-      }
-    } else {
-      // Player has chestplate with glider, check if it was removed or swapped
-      if (chestplate == null || chestplate.getType() == Material.AIR) {
-        // Chestplate removed - equip secret elytra
-        equipSecretElytra(player);
-      } else if (isChestplate(chestplate.getType())) {
-        // Chestplate swapped - ensure new one has glider
-        // First remove glider from old one if it's still in inventory
-        // Then add to new one
-        addGliderToChestplate(player, chestplate);
-      }
+
+        player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_GENERIC, 1.0f, 1.0f);
+        player.updateInventory();
     }
-  }
 
-  /**
-   * Checks if a material is a chestplate
-   */
-  private boolean isChestplate(Material material) {
-    return material == Material.LEATHER_CHESTPLATE ||
-        material == Material.CHAINMAIL_CHESTPLATE ||
-        material == Material.IRON_CHESTPLATE ||
-        material == Material.GOLDEN_CHESTPLATE ||
-        material == Material.DIAMOND_CHESTPLATE ||
-        material.name().equals("NETHERITE_CHESTPLATE"); // Soft check
-  }
+    /**
+     * Intercepts inventory clicks on chest armor slot (slot 38) and shift-clicks to prevent fake elytra leaks.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!isFeatureEnabled() || !(event.getWhoClicked() instanceof Player player)) return;
 
-  /**
-   * Initialize elytra slots and gliders when player joins
-   */
-  @EventHandler
-  public void onPlayerJoin(org.bukkit.event.player.PlayerJoinEvent event) {
-    if (!plugin.getConfig().getBoolean("features.allow-elytra-on-back-slot", false)) {
-      return;
+        // Check secret elytra first
+        ItemStack currentChest = player.getInventory().getChestplate();
+        boolean hasSecret = isSecretElytra(currentChest) || playersWithSecretElytra.contains(player.getUniqueId());
+
+        // Ensure clicked or cursor elytras have back-slot tag and lore
+        ItemStack clickedItem = event.getCurrentItem();
+        if (clickedItem != null && clickedItem.getType() == Material.ELYTRA && !isSecretElytra(clickedItem)) {
+            ItemStack updated = ensureBackTaggedElytra(clickedItem);
+            if (updated != clickedItem) {
+                event.setCurrentItem(updated);
+            }
+        }
+        ItemStack cursorItem = event.getCursor();
+        if (cursorItem != null && cursorItem.getType() == Material.ELYTRA && !isSecretElytra(cursorItem)) {
+            ItemStack updated = ensureBackTaggedElytra(cursorItem);
+            if (updated != cursorItem) {
+                event.getView().setCursor(updated);
+            }
+        }
+
+        // 1. Player clicks on chestplate slot (38)
+        if (event.getSlot() == 38 && event.getClickedInventory() == player.getInventory()) {
+            if (hasSecret) {
+                ClickType click = event.getClick();
+                ItemStack cursor = event.getCursor();
+
+                // Block empty hand pickup, shift-click, offhand swap, and dropping
+                if (cursor == null || cursor.getType().isAir()) {
+                    event.setCancelled(true);
+                    return;
+                }
+
+                if (click == ClickType.SHIFT_LEFT || click == ClickType.SHIFT_RIGHT ||
+                    click == ClickType.DROP || click == ClickType.CONTROL_DROP ||
+                    click == ClickType.SWAP_OFFHAND) {
+                    event.setCancelled(true);
+                    return;
+                }
+
+                if (click == ClickType.NUMBER_KEY) {
+                    int hotbarSlot = event.getHotbarButton();
+                    if (hotbarSlot >= 0 && hotbarSlot < 9) {
+                        ItemStack hotbarItem = player.getInventory().getItem(hotbarSlot);
+                        if (hotbarItem != null && isChestplate(hotbarItem.getType())) {
+                            event.setCancelled(true);
+                            ItemStack toEquip = hotbarItem.clone();
+                            player.getInventory().setItem(hotbarSlot, null);
+                            playersWithSecretElytra.remove(player.getUniqueId());
+                            wipeSecretElytra(player);
+
+                            ItemStack backElytra = getBackSlotElytra(player);
+                            if (backElytra != null) {
+                                applyGliderToChestplate(player, toEquip, backElytra);
+                            } else {
+                                player.getInventory().setChestplate(toEquip);
+                            }
+                            player.updateInventory();
+                            return;
+                        }
+                    }
+                    event.setCancelled(true);
+                    return;
+                }
+
+                // If cursor is a chestplate, swap cleanly
+                if (isChestplate(cursor.getType())) {
+                    event.setCancelled(true);
+                    ItemStack toEquip = cursor.clone();
+                    toEquip.setAmount(1);
+
+                    if (cursor.getAmount() > 1) {
+                        cursor.setAmount(cursor.getAmount() - 1);
+                    } else {
+                        player.setItemOnCursor(null);
+                    }
+
+                    playersWithSecretElytra.remove(player.getUniqueId());
+                    wipeSecretElytra(player);
+
+                    ItemStack backElytra = getBackSlotElytra(player);
+                    if (backElytra != null) {
+                        applyGliderToChestplate(player, toEquip, backElytra);
+                    } else {
+                        player.getInventory().setChestplate(toEquip);
+                    }
+                    player.updateInventory();
+                    return;
+                }
+
+                event.setCancelled(true);
+            } else {
+                // Player clicked slot 38 with a normal chestplate:
+                // Check if they are removing a chestplate managed by CuriosPaper
+                if (currentChest != null && hasGliderGranted(currentChest)) {
+                    ItemMeta meta = currentChest.getItemMeta();
+                    if (meta != null) {
+                        meta.getPersistentDataContainer().remove(gliderGrantedKey);
+                        currentChest.setItemMeta(meta);
+                    }
+                    VersionUtil.removeGlider(currentChest);
+                }
+
+                // If slot becomes empty after interaction, re-equip secret elytra; if chestplate, apply glider
+                PlatformScheduler.get().runEntity(player, () -> {
+                    if (player.isOnline()) {
+                        ItemStack backElytra = getBackSlotElytra(player);
+                        if (backElytra != null) {
+                            ItemStack nowChest = player.getInventory().getChestplate();
+                            if (nowChest == null || nowChest.getType().isAir()) {
+                                equipSecretElytra(player, backElytra);
+                            } else if (isChestplate(nowChest.getType())) {
+                                applyGliderToChestplate(player, nowChest, backElytra);
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        // 2. Shift-clicking a chestplate into slot 38 while wearing secret elytra
+        else if (event.isShiftClick() && hasSecret) {
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked != null && isChestplate(clicked.getType())) {
+                event.setCancelled(true);
+                ItemStack toEquip = clicked.clone();
+                toEquip.setAmount(1);
+
+                if (clicked.getAmount() > 1) {
+                    clicked.setAmount(clicked.getAmount() - 1);
+                } else {
+                    event.setCurrentItem(null);
+                }
+
+                playersWithSecretElytra.remove(player.getUniqueId());
+                wipeSecretElytra(player);
+
+                ItemStack backElytra = getBackSlotElytra(player);
+                if (backElytra != null) {
+                    applyGliderToChestplate(player, toEquip, backElytra);
+                } else {
+                    player.getInventory().setChestplate(toEquip);
+                }
+                player.updateInventory();
+            }
+        }
+        // General shift-click to ensure chestplate gets flight immediately when placed into slot 38
+        else if (event.isShiftClick()) {
+            PlatformScheduler.get().runEntity(player, () -> {
+                if (player.isOnline()) {
+                    ItemStack backElytra = getBackSlotElytra(player);
+                    if (backElytra != null) {
+                        ItemStack chest = player.getInventory().getChestplate();
+                        if (chest != null && isChestplate(chest.getType()) && !hasGliderGranted(chest)) {
+                            applyGliderToChestplate(player, chest, backElytra);
+                        } else if ((chest == null || chest.getType().isAir()) && !playersWithSecretElytra.contains(player.getUniqueId())) {
+                            equipSecretElytra(player, backElytra);
+                        }
+                    }
+                }
+            });
+        }
     }
-    Player player = event.getPlayer();
-    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-      if (player.isOnline() && hasElytraInBackSlot(player)) {
-        handleElytraEquipped(player);
-      }
-    }, 1L);
-  }
 
-  /**
-   * Clean up secret elytra tracking and wipe data when player quits
-   */
-  @EventHandler
-  public void onPlayerQuit(PlayerQuitEvent event) {
-    Player player = event.getPlayer();
-    playersWithSecretElytra.remove(player.getUniqueId());
-    wipeSecretElytra(player);
-  }
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (!isFeatureEnabled() || !(event.getWhoClicked() instanceof Player player)) return;
+        if (event.getRawSlots().contains(38)) {
+            ItemStack chest = player.getInventory().getChestplate();
+            if (isSecretElytra(chest) || playersWithSecretElytra.contains(player.getUniqueId())) {
+                event.setCancelled(true);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPlayerDrop(PlayerDropItemEvent event) {
+        if (!isFeatureEnabled()) return;
+        ItemStack dropped = event.getItemDrop().getItemStack();
+        if (isSecretElytra(dropped)) {
+            event.setCancelled(true);
+            event.getItemDrop().remove();
+        }
+    }
+
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    public void onItemDamage(PlayerItemDamageEvent event) {
+        if (!isFeatureEnabled()) return;
+
+        Player player = event.getPlayer();
+        if (!player.isGliding()) {
+            return;
+        }
+
+        ItemStack damaged = event.getItem();
+        if (damaged == null) return;
+
+        boolean isGliderChest = isChestplate(damaged.getType()) && (hasGliderGranted(damaged) || VersionUtil.hasGlider(damaged));
+        boolean isSecret = isSecretElytra(damaged) || (damaged.getType() == Material.ELYTRA && playersWithSecretElytra.contains(player.getUniqueId()));
+
+        if (!isGliderChest && !isSecret) return;
+
+        BackElytraSlot backSlot = findBackSlotElytra(player);
+        if (backSlot == null) return;
+
+        event.setCancelled(true); // Don't damage the chestplate or secret elytra
+
+        applyFlightDamage(player, backSlot, event.getDamage());
+    }
+
+    public void applyFlightDamage(Player player, BackElytraSlot backSlot, int amount) {
+        if (player == null || backSlot == null || amount <= 0) return;
+        lastFlightDamageTime.put(player.getUniqueId(), System.currentTimeMillis());
+
+        ItemStack backElytra = backSlot.item();
+        ItemMeta meta = backElytra.getItemMeta();
+        if (meta instanceof Damageable dmg) {
+            int current = dmg.getDamage();
+            int max = VersionUtil.getMaxDurability(backElytra);
+            int maxUsable = max - 1;
+
+            int next = Math.min(maxUsable, current + amount);
+            dmg.setDamage(next);
+            backElytra.setItemMeta(meta);
+            setBackSlotElytra(player, backSlot.index(), backElytra);
+
+            if (next >= maxUsable) {
+                handleElytraUnequipped(player);
+                player.playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 1.0f, 1.0f);
+                plugin.getLogger().info("Back-slot elytra for " + player.getName()
+                        + " reached 1 durability; gliding disabled but item kept.");
+            }
+        }
+    }
+
+    private void startFlightDurabilityTask() {
+        PlatformScheduler.get().runGlobalTimer(() -> {
+            if (!isFeatureEnabled()) return;
+
+            long now = System.currentTimeMillis();
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                PlatformScheduler.get().runEntity(player, () -> {
+                    if (!player.isOnline() || !player.isGliding()) return;
+
+                    Long lastTime = lastFlightDamageTime.get(player.getUniqueId());
+                    if (lastTime != null && (now - lastTime) < 950) {
+                        return; // Already processed via PlayerItemDamageEvent this second
+                    }
+
+                    BackElytraSlot backSlot = findBackSlotElytra(player);
+                    if (backSlot == null) return;
+
+                    ItemStack chest = player.getInventory().getChestplate();
+                    boolean isManaged = (chest != null && isChestplate(chest.getType()) && (hasGliderGranted(chest) || VersionUtil.hasGlider(chest)))
+                            || (chest != null && isSecretElytra(chest))
+                            || playersWithSecretElytra.contains(player.getUniqueId());
+
+                    if (!isManaged) return;
+
+                    // Handle unbreaking enchantment calculation if present
+                    int unbreakingLevel = backSlot.item().getEnchantmentLevel(Enchantment.UNBREAKING);
+                    if (unbreakingLevel > 0) {
+                        double chance = 0.6 + (0.4 / (unbreakingLevel + 1.0));
+                        if (Math.random() > chance) {
+                            lastFlightDamageTime.put(player.getUniqueId(), now);
+                            return;
+                        }
+                    }
+
+                    applyFlightDamage(player, backSlot, 1);
+                });
+            }
+        }, 20L, 20L);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        playersWithSecretElytra.remove(player.getUniqueId());
+
+        Iterator<ItemStack> it = event.getDrops().iterator();
+        while (it.hasNext()) {
+            ItemStack drop = it.next();
+            if (drop == null || drop.getType() == Material.AIR) continue;
+
+            if (isSecretElytra(drop)) {
+                it.remove(); // Never drop fake secret elytra
+            } else if (hasGliderGranted(drop)) {
+                ItemMeta meta = drop.getItemMeta();
+                if (meta != null) {
+                    meta.getPersistentDataContainer().remove(gliderGrantedKey);
+                    drop.setItemMeta(meta);
+                }
+                VersionUtil.removeGlider(drop);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        lastFlightDamageTime.remove(player.getUniqueId());
+        if (playersWithSecretElytra.remove(player.getUniqueId())) {
+            ItemStack chest = player.getInventory().getChestplate();
+            if (isSecretElytra(chest)) {
+                player.getInventory().setChestplate(null);
+            }
+        }
+        wipeSecretElytra(player);
+    }
+
+    public boolean hasBackSlotLore(ItemMeta meta) {
+        if (meta == null || !meta.hasLore() || meta.lore() == null) return false;
+        for (net.kyori.adventure.text.Component line : meta.lore()) {
+            String plain = org.bg52.curiospaper.util.TextUtil.stripAll(org.bg52.curiospaper.util.TextUtil.toLegacy(line)).toLowerCase(Locale.ROOT);
+            if (plain.startsWith("slot:") || plain.startsWith("required slot:")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public ItemStack ensureBackTaggedElytra(ItemStack stack) {
+        if (stack == null || stack.getType() != Material.ELYTRA || !isFeatureEnabled()) {
+            return stack;
+        }
+        if (isSecretElytra(stack)) {
+            return stack;
+        }
+
+        ItemMeta meta = stack.getItemMeta();
+        if (meta != null) {
+            PersistentDataContainer pdc = meta.getPersistentDataContainer();
+            String existingSlot = pdc.get(plugin.getCuriosPaperAPI().getSlotTypeKey(), PersistentDataType.STRING);
+            if ("back".equalsIgnoreCase(existingSlot) && hasBackSlotLore(meta)) {
+                return stack;
+            }
+        }
+
+        return plugin.getCuriosPaperAPI().tagAccessoryItem(stack, "back");
+    }
+
+    public void retagAllPlayerElytras(Player player) {
+        if (!isFeatureEnabled() || player == null || !player.isOnline()) return;
+
+        ItemStack[] contents = player.getInventory().getContents();
+        boolean changed = false;
+
+        for (int i = 0; i < contents.length; i++) {
+            ItemStack original = contents[i];
+            if (original != null && original.getType() == Material.ELYTRA && !isSecretElytra(original)) {
+                ItemStack updated = ensureBackTaggedElytra(original);
+                if (updated != original) {
+                    contents[i] = updated;
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed) {
+            player.getInventory().setContents(contents);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onElytraPickup(org.bukkit.event.entity.EntityPickupItemEvent event) {
+        if (!isFeatureEnabled() || !(event.getEntity() instanceof Player player)) return;
+        ItemStack stack = event.getItem().getItemStack();
+        if (stack == null || stack.getType() != Material.ELYTRA) return;
+
+        ItemStack tagged = ensureBackTaggedElytra(stack);
+        if (tagged != stack) {
+            event.getItem().setItemStack(tagged);
+        }
+
+        PlatformScheduler.get().runEntity(player, () -> {
+            if (player.isOnline()) {
+                retagAllPlayerElytras(player);
+            }
+        });
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onInventoryOpen(org.bukkit.event.inventory.InventoryOpenEvent event) {
+        if (!isFeatureEnabled() || !(event.getPlayer() instanceof Player player)) return;
+        retagAllPlayerElytras(player);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPrepareCraft(org.bukkit.event.inventory.PrepareItemCraftEvent event) {
+        if (!isFeatureEnabled()) return;
+        ItemStack result = event.getInventory().getResult();
+        if (result != null && result.getType() == Material.ELYTRA && !isSecretElytra(result)) {
+            event.getInventory().setResult(ensureBackTaggedElytra(result));
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        if (isFeatureEnabled()) {
+            retagAllPlayerElytras(player);
+            if (getBackSlotElytra(player) != null) {
+                handleElytraEquipped(player);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerRespawn(org.bukkit.event.player.PlayerRespawnEvent event) {
+        Player player = event.getPlayer();
+        PlatformScheduler.get().runEntityLater(player, () -> {
+            if (player.isOnline() && isFeatureEnabled()) {
+                retagAllPlayerElytras(player);
+                if (getBackSlotElytra(player) != null) {
+                    handleElytraEquipped(player);
+                }
+            }
+        }, 2L);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerChangedWorld(org.bukkit.event.player.PlayerChangedWorldEvent event) {
+        Player player = event.getPlayer();
+        if (isFeatureEnabled() && getBackSlotElytra(player) != null) {
+            handleElytraEquipped(player);
+        }
+    }
+
+    public void wipeSecretElytra(Player player) {
+        // Only wipe secret elytra; never remove gliders from untagged chestplates
+        ItemStack[] contents = player.getInventory().getContents();
+        boolean changed = false;
+        for (int i = 0; i < contents.length; i++) {
+            if (isSecretElytra(contents[i])) {
+                contents[i] = null;
+                changed = true;
+            }
+        }
+        if (changed) {
+            player.getInventory().setContents(contents);
+        }
+
+        ItemStack cursor = player.getItemOnCursor();
+        if (isSecretElytra(cursor)) {
+            player.setItemOnCursor(null);
+        }
+    }
 }

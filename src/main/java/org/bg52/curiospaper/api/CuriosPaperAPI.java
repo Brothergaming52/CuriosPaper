@@ -1,418 +1,208 @@
 package org.bg52.curiospaper.api;
 
+import org.bg52.curiospaper.slot.SlotRegistry;
+import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.RegisteredServiceProvider;
 
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
+import java.util.Optional;
 
+/**
+ * Public developer API for interacting with the CuriosPaper accessory system.
+ */
 public interface CuriosPaperAPI {
-  String HIDE_MODELS_METADATA = "curios_hide_models";
 
-  // ========== ITEM TAGGING & VALIDATION ==========
+    String HIDE_MODELS_METADATA = "curios_hide_models";
 
-  /**
-   * Gets the NamespacedKey used for tagging accessory items
-   */
-  NamespacedKey getSlotTypeKey();
+    /**
+     * Retrieves the active CuriosPaperAPI instance from Bukkit's ServicesManager.
+     */
+    static CuriosPaperAPI get() {
+        RegisteredServiceProvider<CuriosPaperAPI> rsp = Bukkit.getServicesManager().getRegistration(CuriosPaperAPI.class);
+        if (rsp == null || rsp.getProvider() == null) {
+            throw new IllegalStateException("CuriosPaperAPI is not available! Is CuriosPaper enabled?");
+        }
+        return rsp.getProvider();
+    }
 
-  /**
-   * Checks if an item is a valid accessory for the given slot type
-   */
-  boolean isValidAccessory(ItemStack itemStack, String slotType);
+    /**
+     * Safely retrieves the active CuriosPaperAPI instance if present.
+     */
+    static Optional<CuriosPaperAPI> getOptional() {
+        RegisteredServiceProvider<CuriosPaperAPI> rsp = Bukkit.getServicesManager().getRegistration(CuriosPaperAPI.class);
+        return rsp != null ? Optional.ofNullable(rsp.getProvider()) : Optional.empty();
+    }
 
-  /**
-   * Tags an item as an accessory for a specific slot type
-   * 
-   * @param addLore If true, adds a lore line indicating the required slot
-   */
-  ItemStack tagAccessoryItem(ItemStack itemStack, String slotType, boolean addLore);
+    /**
+     * Static helper for external plugins & scripts to check if an accessory is equipped.
+     */
+    static boolean hasAccessoryEquipped(Player player, String itemId) {
+        return getOptional().map(api -> api.hasEquipped(player, itemId)).orElse(false);
+    }
 
-  /**
-   * Tags an item as an accessory for a specific slot type (no lore added)
-   */
-  default ItemStack tagAccessoryItem(ItemStack itemStack, String slotType) {
-    return tagAccessoryItem(itemStack, slotType, true);
-  }
+    /**
+     * Static helper to retrieve all equipped accessories for a player.
+     */
+    static List<ItemStack> getEquippedAccessories(Player player) {
+        return getOptional().map(api -> api.getAllEquippedList(player)).orElse(List.of());
+    }
 
-  /**
-   * Gets the slot type an item is tagged for, or null if not tagged
-   */
-  String getAccessorySlotType(ItemStack itemStack);
+    /**
+     * Static helper to find an equipped accessory for a player.
+     */
+    static Optional<ItemStack> getFirstEquipped(Player player, String itemId) {
+        return getOptional().flatMap(api -> api.findEquipped(player, itemId));
+    }
 
-  /**
-   * Gets the NamespacedKey used for identifying custom items
-   */
-  NamespacedKey getItemIdKey();
+    /**
+     * Checks if a player has an accessory equipped matching the given item ID
+     * across any curios slot. Matches custom item IDs from supported engines or material names.
+     */
+    boolean hasEquipped(Player player, String itemId);
 
-  /**
-   * Creates an ItemStack for a custom item by its ID.
-   * Use this instead of manually creating items to ensure they
-   * have the correct NBT data for recipes.
-   * 
-   * @param itemId The unique item identifier
-   * @return The ItemStack, or null if the item doesn't exist
-   */
-  ItemStack createItemStack(String itemId);
+    /**
+     * Checks if a player has an accessory equipped matching the given item ID
+     * within a specific slot type.
+     */
+    boolean hasEquipped(Player player, String slotType, String itemId);
 
-  // ========== EQUIPPED ITEMS ACCESS ==========
+    /**
+     * Retrieves a flat list of all active non-empty accessories currently equipped by the player.
+     */
+    List<ItemStack> getAllEquippedList(Player player);
 
-  /**
-   * Gets all items equipped in a specific slot type for a player
-   */
-  List<ItemStack> getEquippedItems(Player player, String slotType);
+    /**
+     * Finds and returns the first equipped accessory matching the given item ID, or empty.
+     */
+    Optional<ItemStack> findEquipped(Player player, String itemId);
 
-  /**
-   * Gets all items equipped in a specific slot type for a player UUID
-   */
-  List<ItemStack> getEquippedItems(UUID playerId, String slotType);
+    /**
+     * Finds the first equipped accessory matching a custom predicate.
+     */
+    Optional<ItemStack> findFirst(Player player, java.util.function.Predicate<ItemStack> filter);
 
-  /**
-   * Sets all items in a specific slot type for a player
-   */
-  void setEquippedItems(Player player, String slotType, List<ItemStack> items);
+    /**
+     * Checks if any equipped accessory matches a custom predicate.
+     */
+    boolean hasEquipped(Player player, java.util.function.Predicate<ItemStack> filter);
 
-  /**
-   * Sets all items in a specific slot type for a player UUID
-   */
-  void setEquippedItems(UUID playerId, String slotType, List<ItemStack> items);
+    /**
+     * Counts the number of equipped accessories matching a custom predicate.
+     */
+    int countEquipped(Player player, java.util.function.Predicate<ItemStack> filter);
 
-  /**
-   * Gets a specific item at an index within a slot type
-   */
-  ItemStack getEquippedItem(Player player, String slotType, int index);
+    /**
+     * Gets an equipped accessory in a specific slot type and index.
+     */
+    ItemStack getEquippedItem(Player player, String slotType, int index);
 
-  /**
-   * Gets a specific item at an index within a slot type
-   */
-  ItemStack getEquippedItem(UUID playerId, String slotType, int index);
+    /**
+     * Gets all equipped accessories for a given slot type.
+     */
+    List<ItemStack> getEquippedItems(Player player, String slotType);
 
-  /**
-   * Sets a specific item at an index within a slot type
-   */
-  void setEquippedItem(Player player, String slotType, int index, ItemStack item);
+    /**
+     * Gets all equipped accessories organized by slot type for a player.
+     */
+    Map<String, List<ItemStack>> getAllEquippedItems(Player player);
 
-  /**
-   * Sets a specific item at an index within a slot type
-   */
-  void setEquippedItem(UUID playerId, String slotType, int index, ItemStack item);
+    /**
+     * Programmatically sets an equipped accessory.
+     */
+    void setEquippedItem(Player player, String slotType, int index, ItemStack item);
 
-  // ========== ITEM REMOVAL ==========
+    /**
+     * Checks if the given ItemStack is a valid accessory for any slot.
+     */
+    boolean isAccessory(ItemStack item);
 
-  /**
-   * Removes the first matching item from a player's equipped accessories
-   * 
-   * @return true if an item was removed, false otherwise
-   */
-  boolean removeEquippedItem(Player player, String slotType, ItemStack itemToRemove);
+    /**
+     * Resolves the target Curios slot type for an ItemStack, or null if not an accessory.
+     */
+    String getAccessorySlot(ItemStack item);
 
-  /**
-   * Removes the first matching item from a player's equipped accessories
-   * 
-   * @return true if an item was removed, false otherwise
-   */
-  boolean removeEquippedItem(UUID playerId, String slotType, ItemStack itemToRemove);
+    /**
+     * Tags an ItemStack as a valid accessory for a slot type, adding PDC metadata and slot lore.
+     */
+    ItemStack tagAccessoryItem(ItemStack item, String slotType);
 
-  /**
-   * Removes an item at a specific index
-   * 
-   * @return The removed item, or null if the slot was empty
-   */
-  ItemStack removeEquippedItemAt(Player player, String slotType, int index);
+    /**
+     * Removes the Curios accessory tag from an ItemStack.
+     */
+    ItemStack untagAccessoryItem(ItemStack item);
 
-  /**
-   * Removes an item at a specific index
-   * 
-   * @return The removed item, or null if the slot was empty
-   */
-  ItemStack removeEquippedItemAt(UUID playerId, String slotType, int index);
+    /**
+     * Returns the NamespacedKey used to store the slot type in persistent data containers.
+     */
+    NamespacedKey getSlotTypeKey();
 
-  /**
-   * Clears all items from a specific slot type
-   */
-  void clearEquippedItems(Player player, String slotType);
+    /**
+     * Returns the NamespacedKey used to identify custom item IDs.
+     */
+    NamespacedKey getItemIdKey();
 
-  /**
-   * Clears all items from a specific slot type
-   */
-  void clearEquippedItems(UUID playerId, String slotType);
+    /**
+     * Opens the Curios accessory inventory for a player.
+     */
+    void openGUI(Player player);
 
-  // ========== CONFIGURATION QUERIES ==========
+    /**
+     * Opens the administrative inspection GUI to view another player's accessories.
+     */
+    void openInspectGUI(Player viewer, Player target);
 
-  /**
-   * Checks if a slot type exists in the configuration
-   */
-  boolean isValidSlotType(String slotType);
+    /**
+     * Retrieves the SlotRegistry containing all loaded slot definitions.
+     */
+    SlotRegistry getSlotRegistry();
 
-  /**
-   * Gets the number of slots available for a slot type
-   */
-  int getSlotAmount(String slotType);
+    /**
+     * Programmatically registers or updates an accessory slot definition.
+     */
+    default void registerSlot(org.bg52.curiospaper.slot.SlotDefinition def) {
+        if (getSlotRegistry() != null && def != null) {
+            getSlotRegistry().registerSlot(def);
+        }
+    }
 
-  /**
-   * Gets all registered slot type keys
-   */
-  List<String> getAllSlotTypes();
+    /**
+     * Resolves the custom item ID from an ItemStack (Synthetix, Nexo, ItemsAdder, Oraxen, CraftEngine, or native).
+     */
+    String getItemId(ItemStack item);
 
-  // ========== UTILITY ==========
+    /**
+     * Creates an ItemStack from a registered item ID across available engines.
+     */
+    ItemStack createItemStack(String itemId);
 
-  /**
-   * Checks if a player has any items equipped in a specific slot type
-   */
-  boolean hasEquippedItems(Player player, String slotType);
+    /**
+     * Equips a 3D curio accessory model onto a living mob or entity via packet-level armor stand.
+     * Fires {@link org.bg52.curiospaper.api.event.CuriosMobModelEquipEvent}.
+     *
+     * @param entity The living mob/NPC
+     * @param slotId Identifier for the model slot (e.g. "head", "back")
+     * @param accessory The accessory item to render
+     * @return true if equipped successfully, false if cancelled or unsupported
+     */
+    boolean equipMobModel(LivingEntity entity, String slotId, ItemStack accessory);
 
-  /**
-   * Checks if a player has any items equipped in a specific slot type
-   */
-  boolean hasEquippedItems(UUID playerId, String slotType);
+    /**
+     * Removes a specific 3D curio model from a living mob or entity.
+     */
+    void removeMobModel(LivingEntity entity, String slotId);
 
-  /**
-   * Counts the number of non-empty slots for a player in a slot type
-   */
-  int countEquippedItems(Player player, String slotType);
+    /**
+     * Removes all 3D curio models from a living mob or entity.
+     */
+    void removeAllMobModels(LivingEntity entity);
 
-  /**
-   * Counts the number of non-empty slots for a player in a slot type
-   */
-  /**
-   * Counts the number of non-empty slots for a player in a slot type
-   */
-  int countEquippedItems(UUID playerId, String slotType);
-
-  // ========== SLOT REGISTRATION ==========
-
-  /**
-   * Registers a new custom slot type at runtime.
-   * This allows plugins to dynamically add slot types without modifying
-   * config.yml.
-   * 
-   * @param slotType    The unique identifier for the slot type
-   * @param displayName   The display name shown in the GUI
-   * @param icon      The material to use as the icon
-   * @param itemModel    The item model key (namespace:path format)
-   * @param customModelData The CustomModelData value for older versions (can be
-   *            null)
-   * @param amount     The number of slots available for this type
-   * @param lore      The lore to display on the slot icon
-   * @param defaultSlotPosition The default position in the GUI (first come first serve), or null for any free slot
-   * @return true if registration was successful, false otherwise
-   */
-  boolean registerSlot(String slotType, String displayName, org.bukkit.Material icon,
-      String itemModel, Integer customModelData, int amount, java.util.List<String> lore, Integer defaultSlotPosition);
-
-  /**
-   * Registers a new custom slot type at runtime.
-   * This allows plugins to dynamically add slot types without modifying
-   * config.yml.
-   * 
-   * @param slotType    The unique identifier for the slot type
-   * @param displayName   The display name shown in the GUI
-   * @param icon      The material to use as the icon
-   * @param itemModel    The item model key (namespace:path format)
-   * @param customModelData The CustomModelData value for older versions (can be
-   *            null)
-   * @param amount     The number of slots available for this type
-   * @param lore      The lore to display on the slot icon
-   * @return true if registration was successful, false otherwise
-   */
-  default boolean registerSlot(String slotType, String displayName, org.bukkit.Material icon,
-      String itemModel, Integer customModelData, int amount, java.util.List<String> lore) {
-      return registerSlot(slotType, displayName, icon, itemModel, customModelData, amount, lore, null);
-  }
-
-  /**
-   * Unregisters a custom slot type.
-   * Warning: This will not remove items already equipped in this slot.
-   * 
-   * @param slotType The slot type to unregister
-   * @return true if unregistration was successful, false otherwise
-   */
-  boolean unregisterSlot(String slotType);
-
-  // ========== ITEM DATA MANAGEMENT ==========
-
-  /**
-   * Registers a recipe for a custom item
-   * 
-   * @param itemId The unique item identifier
-   * @param recipe The recipe data
-   * @return true if registration was successful
-   */
-  boolean registerItemRecipe(String itemId, org.bg52.curiospaper.data.RecipeData recipe);
-
-  /**
-   * Registers a loot table entry for a custom item
-   * 
-   * @param itemId  The unique item identifier
-   * @param lootTable The loot table data
-   * @return true if registration was successful
-   */
-  boolean registerItemLootTable(String itemId, org.bg52.curiospaper.data.LootTableData lootTable);
-
-  /**
-   * Registers a mob drop for a custom item
-   * 
-   * @param itemId The unique item identifier
-   * @param mobDrop The mob drop data
-   * @return true if registration was successful
-   */
-  boolean registerItemMobDrop(String itemId, org.bg52.curiospaper.data.MobDropData mobDrop);
-
-  /**
-   * Gets the item data for a custom item
-   * 
-   * @param itemId The unique item identifier
-   * @return The item data, or null if not found
-   */
-  org.bg52.curiospaper.data.ItemData getItemData(String itemId);
-
-  /**
-   * Creates a new custom item with the given ID
-   * 
-   * @param itemId The unique item identifier
-   * @return The created ItemData, or null if creation failed
-   */
-  org.bg52.curiospaper.data.ItemData createItem(String itemId);
-
-  /**
-   * Creates a new custom item with the given ID and owning plugin.
-   * Use this when creating items from an external plugin to ensure they are
-   * cleaned up if the plugin is removed.
-   * 
-   * @param plugin The plugin creating the item
-   * @param itemId The unique item identifier
-   * @return The created ItemData, or null if creation failed
-   */
-  org.bg52.curiospaper.data.ItemData createItem(org.bukkit.plugin.Plugin plugin, String itemId);
-
-  /**
-   * Saves item data to disk
-   * 
-   * @param itemId The unique item identifier
-   * @return true if save was successful
-   */
-  boolean saveItemData(String itemId);
-
-  /**
-   * Registers a villager trade for a custom item
-   * 
-   * @param itemId The unique item identifier
-   * @param trade The villager trade data
-   * @return true if registration was successful
-   */
-  boolean registerItemVillagerTrade(String itemId, org.bg52.curiospaper.data.VillagerTradeData trade);
-
-  /**
-   * Deletes a custom item
-   * 
-   * @param itemId The unique item identifier
-   * @return true if deletion was successful
-   */
-  boolean deleteItem(String itemId);
-
-  /**
-   * Sets whether a custom item should be hidden from the /curios list GUI
-   * 
-   * @param itemId The unique item identifier
-   * @param hidden True to hide the item
-   * @return true if successful
-   */
-  boolean setItemHidden(String itemId, boolean hidden);
-
-  /**
-   * Checks if a custom item is hidden from the list GUI
-   * 
-   * @param itemId The unique item identifier
-   * @return true if hidden, false otherwise
-   */
-  boolean isItemHidden(String itemId);
-
-  // ========== 3D MODEL CONFIGURATION ==========
-
-  /**
-   * Configures the 3D model attachment settings for an existing custom item.
-   * This allows plugins to enable body-mounted 3D models that appear when
-   * the item is equipped in a curios slot.
-   *
-   * @param itemId     The unique item identifier
-   * @param modelEnabled  Whether the 3D model should be spawned when equipped
-   * @param modelItem    The material name for the model helmet item (e.g.
-   *            "LEATHER_HORSE_ARMOR")
-   * @param customModelData The CustomModelData integer for the model item (can be
-   *            null)
-   * @param pitchUpLimit  Upward pitch cutoff angle for self-visibility (can be
-   *            null for no limit)
-   * @param pitchDownLimit Downward pitch cutoff angle for self-visibility (can
-   *            be null for no limit)
-   * @param yawLeftLimit  Left yaw cutoff angle for self-visibility (can be null
-   *            for no limit)
-   * @param yawRightLimit  Right yaw cutoff angle for self-visibility (can be
-   *            null for no limit)
-   * @return true if configuration was successful, false if item doesn't exist
-   */
-  boolean setItemModelConfig(String itemId, boolean modelEnabled, String modelItem,
-      Integer customModelData, String itemModel, Float pitchUpLimit, Float pitchDownLimit);
-
-  /**
-   * Configures the 3D model attachment settings for a custom item's mob drop.
-   * This allows plugins to enable models that visually appear when the mob spawns.
-   *
-   * @param itemId     The unique item identifier
-   * @param entityType The entity type string
-   * @param modelEnabled  Whether the 3D model should be spawned when the mob spawns
-   * @param modelItem    The material name for the model helmet item
-   * @param customModelData The CustomModelData integer for the model item (can be null)
-   * @param itemModel  The item model component string (can be null)
-   * @return true if configuration was successful, false if item or drop doesn't exist
-   */
-  boolean setMobDropModelConfig(String itemId, String entityType, boolean modelEnabled, String modelItem,
-      Integer customModelData, String itemModel);
-
-  // ========== RESOURCE PACK ==========
-
-  /**
-   * Registers a folder containing resource pack assets to be included in the
-   * generated pack.
-   * The folder should contain the 'assets' directory structure (e.g.
-   * assets/minecraft/textures/...)
-   * 
-   * @param plugin The plugin registering the assets
-   * @param folder The folder containing the assets
-   */
-  void registerResourcePackAssets(org.bukkit.plugin.Plugin plugin, java.io.File folder);
-
-  java.io.File registerResourcePackAssetsFromJar(org.bukkit.plugin.Plugin plugin);
-
-  /**
-   * Registers a CustomModelData override for a specific material and model path.
-   * This is useful for plugins to dynamically register models without manually
-   * editing the vanilla item JSON files (like carrot_on_a_stick.json).
-   * CuriosPaper will merge all registered overrides into the final generated pack.
-   *
-   * @param material        The material name (e.g. "CARROT_ON_A_STICK", "PAPER")
-   * @param customModelData The CustomModelData integer value
-   * @param modelPath       The Minecraft resource model path (e.g. "probablybackpacks:backpack/skin/cat_plushy")
-   */
-  void registerItemModelOverride(String material, int customModelData, String modelPath);
-
-  void refreshModels(Player player);
-
-  /**
-   * Creates a player head ItemStack with a custom base64 texture.
-   * 
-   * @param base64 The base64 texture string
-   * @return The PLAYER_HEAD ItemStack with the texture applied, or null if creation failed
-   */
-  ItemStack createBase64Skull(String base64);
-
-  // ========== ADDON DATA STORAGE ==========
-
-  /**
-   * Gets the storage API for addon data persistence.
-   * Addons use this to save/load their data through CuriosPaper's configured database.
-   *
-   * @return the storage API instance, or null if not initialized
-   */
-  org.bg52.curiospaper.storage.CuriosStorageAPI getStorageAPI();
+    /**
+     * Sets separate 3D model properties directly into an ItemStack's persistent data container.
+     */
+    ItemStack set3DModel(ItemStack item, org.bukkit.Material modelMat, Integer cmd, String itemModel, Float pitchUp, Float pitchDown);
 }

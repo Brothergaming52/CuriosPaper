@@ -3,7 +3,9 @@
         "humanoid": [
             {
                 "texture": "minecraft:leather",
-                "dyeable": true
+                "dyeable": {
+                    "color_when_undyed": 10511680
+                }
             },
             {
                 "texture": "minecraft:leather_overlay"

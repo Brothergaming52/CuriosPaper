@@ -1,242 +1,351 @@
 <div align="center">
 
-<img src="https://cdn.modrinth.com/data/JLMPHrRw/images/907375d54ee434019af260f5a126f361d4add7b3.png" alt="CuriosPaper Banner" width="100%">
+<img src="https://cdn.modrinth.com/data/JLMPHrRw/images/907375d54ee434019af260f5a126f361d4add7b3.png" alt="CuriosPaper Banner Logo" width="100%">
 
 # ✦ CuriosPaper ✦
 
-### The Ultimate Custom Accessory Inventory System for Paper & Spigot
+**Modern Accessory & Curios Inventory Engine for Paper & Folia 1.20.6+**
 
-[![Version](https://img.shields.io/badge/version-2.0.1-blueviolet?style=for-the-badge)](https://github.com/Brothergaming52/CuriosPaper/releases)
-[![Minecraft](https://img.shields.io/badge/minecraft-1.14.4%20—%201.21+-green?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNSAyIDIgNi41IDIgMTJzNC41IDEwIDEwIDEwIDEwLTQuNSAxMC0xMFMxNy41IDIgMTIgMnoiLz48L3N2Zz4=)](https://www.spigotmc.org/)
-[![Discord](https://img.shields.io/discord/1456137607569346739?label=Discord&style=for-the-badge&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/r5YXqgrGya)
-[![bStats](https://img.shields.io/badge/bStats-live-blue?style=for-the-badge)](https://bstats.org/plugin/bukkit/CuriosPaper/29508)
-[![Docs](https://img.shields.io/badge/docs-curiospaper.run.place-orange?style=for-the-badge)](http://www.curiospaper.run.place/)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Me-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/brothergaming52)
+[![CuriosPaper Version 3.0](https://img.shields.io/badge/version-3.0-blueviolet?style=for-the-badge)](https://github.com/Brothergaming52/CuriosPaper/releases)
+[![Paper / Folia 1.20.6 to 1.21+](https://img.shields.io/badge/Paper%20%7C%20Folia-1.20.6%20--%201.21+-green?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNSAyIDIgNi41IDIgMTJzNC41IDEwIDEwIDEwLTQuNSAxMC0xMFMxNy41IDIgMTIgMnoiLz48L3N2Zz4=)](https://papermc.io/)
+[![Discord Community](https://img.shields.io/discord/1456137607569346739?label=Discord&style=for-the-badge&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/r5YXqgrGya)
+[![bStats Live Metrics](https://img.shields.io/badge/bStats-live-blue?style=for-the-badge)](https://bstats.org/plugin/bukkit/CuriosPaper/29508)
+[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Me-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/brothergaming52)
 
-**Rings · Necklaces · Capes · Crowns · Belts · Charms — and more.**
+**Rings · Necklaces · Capes · Crowns · Belts · Charms · Gloves · Bracelets**
 <br>
-Fully server-side. No mods required. Bedrock Edition compatible. Powerful developer API.
+Server-side accessory inventory with packet 3D models, modular item engine support, and native Folia multi-threading.
+<br>
+Pure modern Paper & Folia API. Zero NMS reliance. Zero client mods required.
 
 ---
 
-*Think of it as **Baubles / Curios** — but for Paper & Spigot, with 3D models, loot tables, GUI editors, Bedrock container support, and a full plugin API.*
+*Think of it as **Baubles / Curios** for Paper and Folia 1.20.6+, featuring clientbound packet 3D models, modular item engine integrations (Synthetix — not yet approved on Modrinth, join [Discord](https://discord.gg/r5YXqgrGya) for access; Nexo, ItemsAdder, Oraxen, CraftEngine), Citizens NPC support, and a developer API.*
 
 </div>
+
+> **Documentation Notice:** The online documentation site (`curiospaper.run.place`) is currently unavailable while undergoing restructuring. Please refer to this README and join our [Discord Community](https://discord.gg/r5YXqgrGya) for setup guides, questions, and support.
 
 ---
 
 ## 🧩 What is CuriosPaper?
 
-CuriosPaper adds a complete **accessory slot system** to your Minecraft server. Players can equip rings, necklaces, capes, belts, charms, and more through a clean, tiered GUI — with full support for Java and Bedrock Edition players.
+CuriosPaper provides a customizable **accessory inventory engine** for Minecraft servers running Paper, Purpur, or Folia. Players can equip rings, necklaces, capes, belts, charms, and other accessories through a clean, tiered GUI. Version 3.0 delegates custom item creation to popular item plugins while handling accessory slots, packet-based 3D models, and equip mechanics with zero-overhead regional thread scheduling.
 
 <div align="center">
 
-<!-- 📸 IMAGE: Main GUI screenshot -->
-![Main Accessory Menu](https://cdn.modrinth.com/data/JLMPHrRw/images/fbd5dd0b5bc5446b5368a19e321b34585811f23f.png)
+![Main Accessory Menu](https://cdn.modrinth.com/data/JLMPHrRw/images/ba1dd02389e84a1308e8df35ccb36f4948b112c2.png)
 
-*The main accessory menu with all 9 slot types*
+*The main accessory menu with custom slot types*
 
 </div>
 
 ---
 
-## ⚡ Features
-
-### 🎒 Core Accessory System
+## ⚡ Features Overview
 
 | | Feature | Description |
 |:---:|---|---|
-| 💍 | **9 Slot Types** | Head, Necklace, Back, Body, Belt, Hands, Bracelet, Ring, Charm |
-| ✨ | **Ability System** | Potion effects & player attribute modifiers with custom operations |
-| ⚡ | **Quick Equip** | **Shift + Right-Click** to instantly equip accessories from your hand |
-| 🎹 | **Hotkey System** | Configurable sneak keybind to open the accessory GUI — no commands needed |
-| 🪂 | **Elytra Back Slot** | Equip elytra in the back accessory slot (1.21.3+) |
-| ☠️ | **Death Behavior** | Keep, drop, or auto-detect accessories on death — fully configurable |
-| 📱 | **Bedrock Support** | Native Geyser & Floodgate support with custom Anvil & Smithing GUIs |
+| ⚡ | **Folia Multi-Threading** | Native support for Folia multi-threaded regional ticking via universal `PlatformScheduler`. Entity mutations and flight checks dispatch directly to owning regional threads with zero cross-region desyncs. |
+| 💍 | **9 Slot Types** | Head, Necklace, Back, Body, Belt, Hands, Bracelet, Ring, and Charm |
+| 📦 | **Item Engine Support** | Works with Synthetix *(join [Discord](https://discord.gg/r5YXqgrGya) — not yet approved on Modrinth)*, Nexo, ItemsAdder, Oraxen, CraftEngine, or vanilla items |
+| 🎭 | **Packet 3D Models** | Clientbound packet armor stands (`PacketModelManager`) without persistent server entities |
+| ⚡ | **Quick Equip** | **Shift + Right-Click** to equip accessories directly from hand or hotbar |
+| 🎹 | **Universal Keybinds** | Sneak double-tap, single sneak, or hold sneak via Synthetix Keybind API *(join [Discord](https://discord.gg/r5YXqgrGya) for Synthetix)* |
+| 🪂 | **Elytra Back Slot** | Equip elytra in back slots with isolated flight logic |
+| ☠️ | **Death Behavior** | Configurable `Auto` (respects `keepInventory` and graves), `Always`, or `Never` drop on death |
+| 👥 | **Citizens NPC Support** | Equip accessories and render 3D models on Citizens NPCs via `/curios npc` |
+| 🧩 | **PlaceholderAPI** | Placeholders for equipped item names, counts, and slot status |
+| 🌐 | **Multi-Language** | Adventure MiniMessage formatting (`<gradient>`, `<rainbow>`, hex) in `languages/en_US.yml` |
 
-### 🎨 3D Model System
-
-Attach **custom 3D models** directly to the player's body when accessories are equipped. Models are rendered using synchronized invisible armor stands — visible to all nearby players.
-
-- 🔄 Tracks player movement, rotation, sneaking, swimming, flying, and spectator mode
-- 👁️ Smart visibility culling — hide models from wearer's first-person view or during flight/dismount
-- 🔱 Trident & Elytra compatibility — models auto-hide during throws, riptide, and elytra flight
-- 🧟 Mob models — mobs can visually wear items they'll drop
-- 🎮 Per-item toggle — players can right-click to show/hide their models
-- 🚪 GUI Dismount Protection — models temporarily dismount when opening inventories to prevent visual overlap
-
-### 🛠️ In-Game GUI Editors
-
-Create and configure everything visually — no manual YAML editing required:
-
-| Editor | What It Does |
-|---|---|
-| **Item Editor** | Set name, material, lore, model data, slot type |
-| **Ability Editor** | Configure potion effects & attribute modifiers with operations (`ADD_NUMBER`, `ADD_SCALAR`, `MULTIPLY_SCALAR_1`) |
-| **Recipe Editor** | Shaped, shapeless, furnace, blast, smoker, anvil & smithing recipes |
-| **Loot Table Editor** | Browse all server loot tables, add items to dungeon chests with presets |
-| **Mob Drop Editor** | Configure which mobs drop your items and at what chance |
-| **Trade Editor** | Set up villager trades with professions and price ranges |
-| **3D Model Editor** | Configure body-mounted 3D models with pitch limits |
-
-<!-- 📸 IMAGE: Tier 2 GUI screenshot -->
 <div align="center">
 
-![Slot Inventory](https://cdn.modrinth.com/data/JLMPHrRw/images/697c0f0ad8deb605b86cb18ac5295e6b030004ae.png)
+![Slot Inventory](https://cdn.modrinth.com/data/JLMPHrRw/images/b0242820880d1239aa2c896fc7453c470de0c752.png)
 
-*Slot inventory with accessories equipped*
+*Slot inventory view with accessories equipped*
 
 </div>
 
-### 📦 Item Distribution
+<details>
+<summary>🎨 <b>Click to Expand: 3D Model System Details</b></summary>
 
-| Channel | Description |
+Attach **custom 3D models** directly to the player's body when accessories are equipped. CuriosPaper 3.0 renders models using **clientbound packets**, avoiding persistent armor stand entities in the world:
+
+- 🔄 Synchronizes with movement, sneaking, swimming, flying, and spectator mode.
+- 👁️ Pitch-angle culling hides models from the wearer's first-person view.
+- 🔱 Trident & Elytra compatibility temporarily hides models during throws, riptide, and gliding.
+- 🧟 Supports mob and Citizens NPC models.
+- 🚪 Automatically hides models while inventories are open to prevent GUI visual overlap.
+- ⚙️ Rendering modes in `config.yml`: `auto` (packet mode with fallback), `packet`, or `entity`.
+
+<div align="center">
+
+![Packet 3D Models](https://cdn.modrinth.com/data/JLMPHrRw/images/e0a9fbdba61bb46dd3dacb6a92c1927f53e48daf.png)
+
+*In-game packet 3D body-mounted models*
+
+</div>
+
+</details>
+
+<details>
+<summary>📦 <b>Click to Expand: Item Engine Integrations & Resource Pack Info</b></summary>
+
+CuriosPaper 3.0 delegates item creation, recipes, and abilities to specialized item engines:
+
+| Engine | Integration Highlights |
 |---|---|
-| **Crafting Recipes** | 7 recipe types — shaped, shapeless, furnace, blast, smoker, anvil, smithing |
-| **Loot Tables** | Items appear in dungeon chests, mineshafts, temples, strongholds, and more |
-| **Mob Drops** | Any mob type can drop accessories with configurable chance & amount |
-| **Villager Trades** | Accessories appear in villager trade pools by profession and level |
-| **Commands** | `/curios give <item> [player] [amount]` for direct distribution |
+| **Synthetix** | Native integration, unified `AddonDataStore` database support, Universal Keybinds hook *(Not yet approved on Modrinth — join our [Discord](https://discord.gg/r5YXqgrGya) to get it!)* |
+| **Nexo** | Automatic custom item detection, custom model data resolution, slot mapping |
+| **ItemsAdder** | Automatic ItemsAdder item and equippable model resolution |
+| **Oraxen** | Automatic Oraxen item detection, model mapping, and attribute synchronization |
+| **CraftEngine** | Modular custom item support with automatic slot detection |
+| **Vanilla / In-Game** | Tag any item or vanilla material in-game using `/curios tag <slot>` |
 
-### 🔌 Developer API
+**Zero-Port Resource Pack Injection:**
+CuriosPaper extracts its custom GUI icons and equipment assets on boot and registers them directly into your server's active pack host (`Synthetix` → `Nexo` → `ItemsAdder` → `Oraxen` → `CraftEngine` → `RSPM`). No secondary HTTP ports or firewall rules are required.
 
-A comprehensive API for other plugins to integrate with CuriosPaper:
+</details>
+
+<details>
+<summary>🔌 <b>Click to Expand: Developer API & Custom Events</b></summary>
+
+A thread-safe API for external plugins:
 
 ```java
-CuriosPaperAPI api = CuriosPaper.getInstance().getCuriosPaperAPI();
-
-// Tag any item as an accessory
-ItemStack ring = api.tagAccessoryItem(myItem, "ring");
+CuriosPaperAPI api = CuriosPaperAPI.get();
 
 // Check what a player is wearing
+boolean hasRing = api.hasEquipped(player, "ring", "synthetix:ruby_ring");
 List<ItemStack> rings = api.getEquippedItems(player, "ring");
-boolean hasRing = api.hasEquippedItems(player, "ring");
-int count = api.countEquippedItems(player, "ring");
+List<ItemStack> allCurios = api.getAllEquippedList(player);
 
-// Register slots, items, recipes, loot tables at runtime
-api.registerSlot("earring", "Earring", "DIAMOND", 2);
-api.registerItemLootTable("my_ring", new LootTableData("minecraft:chests/simple_dungeon", 0.25));
-api.setItemModelConfig("my_cape", true, "LEATHER_HORSE_ARMOR", null, "myplugin:cape", 45f, 30f);
+// Tag an ItemStack as an accessory
+ItemStack taggedRing = api.tagAccessoryItem(myItem, "ring");
 
-// Contribute resource pack assets from your plugin's JAR
-api.registerResourcePackAssetsFromJar(myPlugin);
+// Programmatically equip accessories
+api.setEquippedItem(player, "ring", 0, taggedRing);
+
+// Equip 3D models onto mobs or NPCs
+api.equipMobModel(zombie, "head", crownItem);
+
+// Access the runtime slot registry
+SlotRegistry registry = api.getSlotRegistry();
 ```
 
 **Custom Events:**
 
 | Event | When It Fires |
 |---|---|
-| `AccessoryEquipEvent` | Player equips, unequips, or swaps an accessory |
-| `CuriosLootGenerateEvent` | Custom item generated in a loot container (cancellable) |
-| `CuriosMobDropEvent` | Custom item dropped by a mob (cancellable) |
-| `CuriosRecipeTransferEvent` | Custom item crafted via a recipe (data transfer) |
-| `CuriosCraftEvent` | Custom item created via craft/smelt/smith (final) |
-| `CuriosModelEquipEvent` | 3D model about to be displayed on player |
-| `CuriosMobModelEquipEvent` | 3D model about to be displayed on mob |
-| `PlayerDeathCurioDropEvent` | Fired on player death to filter/cancel curio drops |
+| `AccessoryEquipEvent` | Fired when an accessory is equipped, unequipped, or swapped |
+| `CuriosModelEquipEvent` | Fired before a 3D model is displayed on a player (allows modifying model/CMD) |
+| `CuriosMobModelEquipEvent` | Fired before a 3D model is displayed on a mob or NPC |
+| `PlayerDeathCurioDropEvent` | Fired on death to filter, keep, or modify which accessories drop |
+
+</details>
 
 ---
 
-## 🛠️ Configuration Showcase & Setup Instructions
+## ⌨️ Commands & Permissions
 
 <details>
-<summary>⚙️ Click to Expand Setup & Configuration Files</summary>
+<summary>📋 <b>Click to Expand: Commands & Permissions Table</b></summary>
 
-### 1. Installation & Initial Setup
-1. Download `CuriosPaper.jar` and place it into your server's `plugins/` directory.
-2. Start the server to generate default configuration files (`config.yml`, `messages.yml`, `items.yml`, etc.).
-3. Choose your desired **Resource Pack Delivery Mode** in `config.yml`:
-   - `SELF`: CuriosPaper hosts the resource pack on an embedded HTTP server (`port: 8080`).
-   - `LINK`: Serve your resource pack via an external URL (e.g. Modrinth, Dropbox, or web host).
-   - `NONE`: Disable automatic resource pack prompt completely.
+### Commands
 
-### 2. Bedrock & Geyser Integration Setup
-CuriosPaper includes automatic detection and support for **Bedrock Edition** players connecting via **GeyserMC / Floodgate**.
+| Command | Permission | Description |
+|---|---|---|
+| `/curios open [player]` | `curiospaper.use` / `curiospaper.admin` | Opens accessory menu for yourself or another player |
+| `/baubles` | `curiospaper.use` | Shortcut to open your accessory inventory |
+| `/curios inspect <player>` | `curiospaper.admin` | Live inspection & modification GUI for player accessories |
+| `/curios tag <slot>` | `curiospaper.admin` | Tags the held item as a valid accessory for the specified slot |
+| `/curios untag` | `curiospaper.admin` | Removes the accessory tag from the held item |
+| `/curios give <player> <item> [amount]` | `curiospaper.admin` | Gives a registered custom accessory item to a player |
+| `/curios clear <player> [slot]` | `curiospaper.admin` | Clears all or specific accessory slots for a player |
+| `/curios reload [type]` | `curiospaper.admin` | Reloads `config`, `slots`, `languages`, or `all` |
+| `/curios rp <info\|inject>` | `curiospaper.admin` | Views resource pack status or triggers pack injection |
+| `/curios npc <id> [clear]` | `curiospaper.admin` | Opens accessory GUI or clears accessories for a Citizens NPC |
+| `/curios debug <player\|item>` | `curiospaper.admin` | Displays debug diagnostics for player accessories or held item |
 
-- **Automatic Setup (Geyser on same server):**
-  CuriosPaper automatically detects Geyser, extracts `CuriosPaper_Geyser.zip` and `CuriosPaper_mappings.json` into `plugins/CuriosPaper/geyser/`, and copies them to Geyser's `packs/` and `custom_mappings/` folders.
-- **Bedrock Custom Containers:**
-  Bedrock players cannot natively use Java Anvil/Smithing container packets without glitches. CuriosPaper provides native 3-row Chest GUIs (`BedrockAnvilGUI` and `BedrockSmithingGUI`) for Bedrock players, supporting 1.20+ template smithing and XP repair/renaming.
+<div align="center">
 
-### 3. Main Plugin Config (`/plugins/CuriosPaper/config.yml`)
+![Admin Inspect GUI](https://cdn.modrinth.com/data/JLMPHrRw/images/10065dc33eb072688b041d4cb871c068dcec598e.png)
+
+*Live inspection & modification GUI (/curios inspect <player>)*
+
+<br>
+
+![Citizens NPC Accessories](https://cdn.modrinth.com/data/JLMPHrRw/images/bc06b84c42002a116a050d418eaf3264b0885e1d.png)
+
+*Equipping accessories on Citizens NPCs (/curios npc <id>)*
+
+</div>
+
+### Permissions
+
+| Permission | Default | Description |
+|---|---|---|
+| `curiospaper.use` | `true` | Allows players to open and use the accessory inventory |
+| `curiospaper.admin` | `op` | Access to administrative commands (inspect, tag, give, reload) |
+| `curiospaper.slot.*` | `true` | Access to all accessory slots |
+| `curiospaper.slot.<type>` | `true` | Access to a specific accessory slot (e.g. `curiospaper.slot.ring`) |
+
+</details>
+
+---
+
+## 🛠️ Configuration Showcase
+
+<details>
+<summary>⚙️ <b>Click to Expand: Configuration Files (`config.yml`, `slots.yml`, `en_US.yml`)</b></summary>
+
+### 1. Main Plugin Config (`/plugins/CuriosPaper/config.yml`)
 
 ```yaml
-# Configuration for CuriosPaper Custom Accessory Slots
-version: "2.0.1"
+# ==============================================================================
+#                      CuriosPaper 3.0 Configuration
+# ==============================================================================
 
-# Update Checker
-updates:
-  check-for-updates: true
+language: "en_US"
 
-# Storage Engine Settings
-storage:
-  # Selected engine: YAML (flatfile), SQLITE, MYSQL, or MONGODB
-  engine: "YAML"
-  mysql:
-    host: "localhost"
-    port: 3306
-    database: "minecraft"
-    username: "root"
-    password: ""
-    table-prefix: "curios_"
-  mongodb:
-    connection-string: "mongodb://localhost:27017"
-    database: "minecraft"
-    collection: "curios_playerdata"
-
-# Resource Pack Settings
+# Resource Pack Settings (injects into active host plugin)
 resource-pack:
-  # Mode: SELF (embedded HTTP host), LINK (external URL), or NONE
-  mode: SELF
-  port: 8080
-  host-ip: "123.45.67.89"
-  url: ""
-  hash: ""
-  force-pack: false
-  prompt-message: "Please accept the resource pack to view custom accessories!"
+  host-plugin: "AUTO" # AUTO, SYNTHETIX, NEXO, ITEMSADDER, ORAXEN, CRAFTENGINE, RSPM, NONE
 
-# Feature Toggles
 features:
-  # Allow elytra equipping in back slots
   allow-elytra-on-back-slot: true
+  quick-equip-right-click: true
 
-  # Custom Bedrock GUIs for Anvils and Smithing Tables
-  use-custom-smithing-gui: true
-  use-custom-anvil-gui: true
+  # Keybind system (hooks into Synthetix Universal Keybinds when present)
+  hotkey:
+    enabled: true
+    slot: 8               # Hotbar slot 1-9 (8 = slot 8, -1 = any slot)
+    sneak-type: "double"  # "double", "single", or "hold"
+    sneak-hold-duration: 3
 
-  # Display empty accessory slots in GUI
-  show-empty-slots: true
-
-  # Keep Curios on Death: Always, Auto (follows keepInventory), or Never
+  # Curios inventory death drop behavior: "Auto", "Always", or "Never"
   keep-curio-inventory:
     type: "Auto"
 
-  # Sneak keybind hotkey to open accessory menu
-  hotkey:
-    enabled: true
-    slot: 8
-    sneak-type: "double" # single, double, or hold
+# 3D Accessory Model Rendering Engine
+models:
+  enabled: true
+  mode: "auto" # "auto", "packet", or "entity"
+  tracking-distance: 48.0
+  update-interval-ticks: 1
+  hide-in-first-person: false
+  auto-render-engine-models: true
+
+# Storage Settings (Synthetix AddonDataStore or standalone YAML flatfiles)
+storage:
+  auto-save-interval: 5 # Minutes
 ```
 
-### 4. Messages Configuration (`/plugins/CuriosPaper/messages.yml`)
+### 2. Slot Configuration (`/plugins/CuriosPaper/slots.yml`)
 
 ```yaml
-# Message customization with legacy (&a) and HEX (<#FF5555>) color support
-prefix: "&6[CuriosPaper] "
+# ==============================================================================
+#                      CuriosPaper 3.0 Slot Configuration
+# ==============================================================================
 
-items:
-  quick-equip-lore: "&8▶ Shift + Right Click to equip"
-  slot-lore: "&6Slot: &e{slots}"
-  ability-when-worn: "&7When worn:"
-  ability-potion-effect: "&9{effect} {level}"
-  
-  # Attribute Modifier Operation Lore Formatting (v2.0.1)
-  ability-attribute-positive: "&9+{value} {attribute}"
-  ability-attribute-negative: "&c-{value} {attribute}"
-  ability-attribute-scalar-positive: "&9+{value}% {attribute}"
-  ability-attribute-scalar-negative: "&c-{value}% {attribute}"
-  ability-attribute-multiply-positive: "&9x{value} {attribute}"
-  ability-attribute-multiply-negative: "&cx{value} {attribute}"
+slots:
+  head:
+    name: "Head"
+    icon: "GOLDEN_HELMET"
+    item-model: "curiospaper:head_slot"
+    custom-model-data: 10001
+    amount: 1
+    gui-slot: 10
+    permission: "curiospaper.slot.head"
+    lore:
+      - "&7Equip crowns, circlets, or magical headpieces."
+
+  necklace:
+    name: "Necklace"
+    icon: "NAUTILUS_SHELL"
+    item-model: "curiospaper:necklace_slot"
+    custom-model-data: 10002
+    amount: 1
+    gui-slot: 11
+    permission: "curiospaper.slot.necklace"
+
+  back:
+    name: "Back"
+    icon: "ELYTRA"
+    item-model: "curiospaper:back_slot"
+    custom-model-data: 10003
+    amount: 1
+    gui-slot: 12
+    permission: "curiospaper.slot.back"
+    pitch-up-limit: 45.0
+    pitch-down-limit: 30.0
+
+  body:
+    name: "Body"
+    icon: "DIAMOND_CHESTPLATE"
+    item-model: "curiospaper:body_slot"
+    custom-model-data: 10004
+    amount: 1
+    gui-slot: 13
+    permission: "curiospaper.slot.body"
+
+  belt:
+    name: "Belt"
+    icon: "LEATHER"
+    item-model: "curiospaper:belt_slot"
+    custom-model-data: 10005
+    amount: 1
+    gui-slot: 14
+    permission: "curiospaper.slot.belt"
+
+  hands:
+    name: "Hands"
+    icon: "LEATHER_CHESTPLATE"
+    item-model: "curiospaper:hands_slot"
+    custom-model-data: 10006
+    amount: 2
+    gui-slot: 15
+    permission: "curiospaper.slot.hands"
+
+  bracelet:
+    name: "Bracelet"
+    icon: "CHAIN"
+    item-model: "curiospaper:bracelet_slot"
+    custom-model-data: 10007
+    amount: 2
+    gui-slot: 16
+    permission: "curiospaper.slot.bracelet"
+
+  ring:
+    name: "Ring"
+    icon: "GOLD_NUGGET"
+    item-model: "curiospaper:ring_slot"
+    custom-model-data: 10008
+    amount: 2
+    gui-slot: 19
+    permission: "curiospaper.slot.ring"
+
+  charm:
+    name: "Charm"
+    icon: "EMERALD"
+    item-model: "curiospaper:charm_slot"
+    custom-model-data: 10009
+    amount: 4
+    gui-slot: 20
+    permission: "curiospaper.slot.charm"
+```
+
+### 3. Language File (`/plugins/CuriosPaper/languages/en_US.yml`)
+
+```yaml
+prefix: "<gradient:#FFB300:#FF5500>[CuriosPaper]</gradient> "
+
+commands:
+  usage-header: "<gold>CuriosPaper Commands:</gold>"
+  usage-open: "<yellow>/{label} open [player]</yellow> <gray>- Open accessory inventory</gray>"
+  usage-inspect: "<yellow>/{label} inspect <player></yellow> <gray>- Inspect and modify player's curios</gray>"
+  usage-tag: "<yellow>/{label} tag <slot></yellow> <gray>- Tag held item for an accessory slot</gray>"
+  usage-npc: "<yellow>/{label} npc <id></yellow> <gray>- Manage NPC accessories and 3D models</gray>"
 ```
 
 </details>
@@ -246,132 +355,74 @@ items:
 ## 🎮 How It Works
 
 ```
-1. /baubles              →  Opens the accessory menu
-2. Click a slot icon     →  Opens that slot's inventory
-3. Place an accessory    →  Abilities activate instantly!
+1. /curios open (or /baubles) → Opens the accessory menu
+2. Click a slot icon          → Opens that slot's inventory
+3. Place an accessory         → Abilities & 3D models activate!
 ```
 
-**Or use Quick Equip:** Hold a tagged item + **Shift + Right-Click** to equip instantly.
-
-**Or use the Hotkey:** Select a hotbar slot + **Double-Sneak** to open the menu.
-
----
-
-## 📊 Stats
-
-<p align="center">
-  <a href="https://bstats.org/plugin/bukkit/CuriosPaper/29508">
-    <img src="https://bstats.org/signatures/bukkit/CuriosPaper.svg" width="500">
-  </a>
-</p>
+- **Quick Equip:** Hold a tagged item + **Shift + Right-Click** to equip directly.
+- **Hotkey:** Select hotbar slot 8 + **Double-Sneak** to open the menu without typing commands.
 
 ---
 
-## 🔧 Compatibility
+## 🔧 Requirements & Compatibility
 
 | | Requirements |
 |---|---|
-| **Minecraft** | 1.14.4 — 1.21+ |
-| **Server** | Spigot, Paper, Purpur, Folia* |
-| **Java** | 8+ |
-| **GeyserMC** | Supported (custom Bedrock resource pack & mappings included) |
-| **Dependencies** | None (standalone) |
+| **Minecraft** | 1.20.6 — 1.21+ |
+| **Server Software** | Paper, Purpur, Folia *(Experimental Support)* |
+| **Java** | 21 LTS+ |
+| **Supported Item Engines** | Synthetix *(join [Discord](https://discord.gg/r5YXqgrGya) — not yet approved on Modrinth)*, Nexo, ItemsAdder, Oraxen, CraftEngine |
+| **Integrations** | Citizens 2, PlaceholderAPI |
+| **Resource Pack** | Automatically injected into host plugin |
 
-> *Folia support is experimental
-
-### 🌐 Geyser & Bedrock Edition Support
-
-CuriosPaper provides full GUI slot icon and custom container support for Bedrock Edition players joining via GeyserMC.
-
-- **Automatic Setup:** If Geyser is running on the same server, CuriosPaper will automatically detect Geyser's folder on startup, extract the mappings and resource pack, and copy them directly to Geyser's `packs/` and `custom_mappings/` folders.
-- **Custom Bedrock GUIs (Anvil & Smithing):** Bedrock players get dedicated 3-row chest interfaces for Anvils (repair, rename, combine) and Smithing Tables (supports 1.20+ Netheriite templates and legacy recipes).
-- **Manual Setup (Proxy/Separate Server):**
-  1. Retrieve files from your server's `plugins/CuriosPaper/geyser/` directory.
-  2. Copy `CuriosPaper_Geyser.zip` into your Geyser `packs/` folder.
-  3. Copy `CuriosPaper_mappings.json` into your Geyser `custom_mappings/` folder.
-  4. Ensure `enable-custom-content` is set to `true` in Geyser's `config.yml` and restart Geyser.
+> [!WARNING]
+> **Experimental Folia Support:** Folia regional multi-threading support is experimental—many errors, desyncs, and unexpected bugs can happen when running on Folia servers.
 
 ---
 
-## 📥 Quick Start
+## 🆕 What's New in v3.0
 
-```bash
-# 1. Download CuriosPaper.jar from Modrinth or GitHub Releases
-# 2. Drop it into your server's plugins/ folder
-# 3. Start the server
-# 4. Done! Use /baubles in-game
-```
-
-### First Accessory in 60 Seconds
-
-```
-/curios create speed_ring          # Create a new item
-```
-In the GUI: set the name, material, slot type → add a Speed ability → add a recipe → done.
-
-```
-/curios give speed_ring             # Get the item
-/baubles                          # Open accessory menu
-```
-Place it in a ring slot — Speed I activates! 🏃
-
----
-
-## 📖 Documentation
-
-<div align="center">
-
-### 🌐 [**curiospaper.run.place**](http://www.curiospaper.run.place/)
-
-</div>
-
-The full documentation site covers:
-
-| Section | Topics |
-|---|---|
-| **Getting Started** | Installation, concepts, first accessory walkthrough |
-| **Configuration** | Slots, features, abilities, performance, databases & Bedrock GUIs |
-| **Systems** | Accessories, abilities, recipes, loot tables, mob drops, trades, 3D models, Bedrock support, hotkeys, death behavior |
-| **GUI Editors** | Item, ability, recipe, loot table, mob drop, trade, 3D model editors |
-| **Developer API** | Getting the API, accessories, loot tables, 3D models, resource packs, events |
-| **Examples** | Complete plugin examples with loot tables, abilities, and recipes |
-
----
-
-## 🆕 What's New in v2.0.1
-
-- 📱 **Bedrock Anvil & Smithing GUIs** — Dedicated 3-row chest interfaces for Bedrock Edition players to access Anvil (combining, repairing, renaming with XP cost) and Smithing Tables (1.20+ templates & legacy smithing).
-- 📊 **Attribute Modifier Operations** — Configure player modifier abilities with specific operations: `ADD_NUMBER` (flat value), `ADD_SCALAR` (percentage `%`), and `MULTIPLY_SCALAR_1` (multiplier `x`).
-- ✈️ **Flight & Spectator Model Auto-Hiding** — ArmorStand 3D models automatically hide when players toggle flight (`isFlying`), enter spectator mode, or enter special poses (`SWIMMING`, `FALL_FLYING`, `SPIN_ATTACK`).
-- 🚪 **Inventory Dismount Safety** — 3D models temporarily dismount when opening inventories and auto-remount 2 ticks after close to eliminate visual GUI overlaps.
-- 🛠️ **Flexible Server Version Parsing** — Improved version parsing regex in `VersionUtil` for non-standard Paper dev builds (e.g. `26.2.build.48-alpha`).
-- 💬 **Command & GUI Improvements** — Fixed `give` command messaging targeting and case-insensitive color-stripped GUI title matching.
+- ⚡ **Full Folia & Multi-Threading Support** — Engineered with universal `PlatformScheduler` for native Folia multi-threaded regional ticking. Thread-independent logic executes asynchronously while entity/region mutations (abilities, flight checks, sneak hotkeys) are safely dispatched to their owning regional threads.
+- 🚀 **Logic & Performance Optimizations** — Overhauled internal pipelines to eliminate legacy bloat (-25k lines), implemented concurrent keybind tracking, offloaded packet models and data stores completely off the main thread, and decoupled flight checks for smooth gameplay without server tick drops.
+- 🧩 **Item Engine Delegation** — Delegated item creation, abilities, and recipes to modern item plugins (Synthetix [join Discord — not approved on Modrinth yet], Nexo, ItemsAdder, Oraxen, CraftEngine).
+- 🎭 **Packet-Based 3D Models (`PacketModelManager`)** — Body-mounted 3D accessory models are rendered using clientbound packets, avoiding persistent world entities.
+- ⚙️ **Dedicated `slots.yml`** — Migrated slot configuration to a dedicated file covering all 9 slot types with per-slot permissions (`curiospaper.slot.<id>`).
+- 🌐 **MiniMessage Localization** — Adventure MiniMessage support with external language files in `languages/en_US.yml`.
+- ⌨️ **Universal Keybinds** — Hooks into the Synthetix Keybind API (available via our [Discord](https://discord.gg/r5YXqgrGya) as it is not yet approved on Modrinth) for configurable sneak hotkeys.
+- 👥 **Citizens NPC Support** — Manage NPC accessories via `/curios npc <id>`.
+- 🧩 **PlaceholderAPI Expansion** — Placeholders for equipped items and slot status.
+- 📦 **Automatic Resource Pack Injection** — Injects assets directly into active pack host plugins without requiring secondary HTTP ports.
+- 🛠️ **Compatibility Fixes** — Resolved smithing table conflicts (ValhallaMMO) and fixed elytra back-slot interactions with custom flight chestplates.
+- 📢 **Documentation Notice** — `curiospaper.run.place` is currently undergoing restructuring; join Discord for guides and support.
 
 Full changelog → [**CHANGELOGS.md**](CHANGELOGS.md)
 
 ---
 
-## 💬 Community
+## 📊 Live Statistics
+
+<p align="center">
+  <a href="https://bstats.org/plugin/bukkit/CuriosPaper/29508">
+    <img src="https://bstats.org/signatures/bukkit/CuriosPaper.svg" alt="CuriosPaper bStats Metrics Graph" width="500">
+  </a>
+</p>
+
+---
+
+## 💬 Community & Support
 
 <div align="center">
 
-[![Discord](https://img.shields.io/discord/1456137607569346739?label=Join%20the%20Discord&style=for-the-badge&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/r5YXqgrGya)
+[![Join the Discord](https://img.shields.io/discord/1456137607569346739?label=Join%20the%20Discord&style=for-the-badge&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/r5YXqgrGya)
 
 **[discord.gg/r5YXqgrGya](https://discord.gg/r5YXqgrGya)**
 
 Get help · Report bugs · Suggest features · Stay updated
 
-</div>
+<br>
 
----
-
-## ☕ Support the Project
-
-<div align="center">
-
-If CuriosPaper has been useful to you, consider leaving a tip — it helps keep the project alive!
-
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Buy%20me%20a%20coffee-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/brothergaming52)
+[![Buy Me a Coffee on Ko-fi](https://img.shields.io/badge/Ko--fi-Buy%20me%20a%20coffee-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/brothergaming52)
 
 **[ko-fi.com/brothergaming52](https://ko-fi.com/brothergaming52)**
 
@@ -379,7 +430,8 @@ If CuriosPaper has been useful to you, consider leaving a tip — it helps keep 
 
 ---
 
-## 🤝 For Developers
+<details>
+<summary>🤝 <b>For Developers (Maven Dependency)</b></summary>
 
 ### Maven
 ```xml
@@ -391,7 +443,7 @@ If CuriosPaper has been useful to you, consider leaving a tip — it helps keep 
 <dependency>
     <groupId>com.github.Brothergaming52</groupId>
     <artifactId>CuriosPaper</artifactId>
-    <version>2.0.1</version>
+    <version>3.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -401,7 +453,7 @@ If CuriosPaper has been useful to you, consider leaving a tip — it helps keep 
 depend: [CuriosPaper]
 ```
 
-Full API docs → [**curiospaper.run.place/api**](http://www.curiospaper.run.place/api/)
+</details>
 
 ---
 
@@ -409,6 +461,6 @@ Full API docs → [**curiospaper.run.place/api**](http://www.curiospaper.run.pla
 
 **Made with ❤️ by Brothergaming52**
 
-[Documentation](http://www.curiospaper.run.place/) · [Discord](https://discord.gg/r5YXqgrGya) · [Ko-fi](https://ko-fi.com/brothergaming52) · [Changelog](CHANGELOGS.md) · [bStats](https://bstats.org/plugin/bukkit/CuriosPaper/29508) · [GitHub](https://github.com/Brothergaming52/CuriosPaper)
+[Discord](https://discord.gg/r5YXqgrGya) · [Ko-fi](https://ko-fi.com/brothergaming52) · [Changelog](CHANGELOGS.md) · [bStats](https://bstats.org/plugin/bukkit/CuriosPaper/29508) · [GitHub](https://github.com/Brothergaming52/CuriosPaper)
 
 </div>

@@ -1,154 +1,36 @@
-# Configuration for CuriosPaper Custom Accessory Slots
+# ==============================================================================
+#                      CuriosPaper 3.0 Configuration
+#      Ultra-modular, lightweight custom accessory engine for Paper 1.20.6+
+# ==============================================================================
 
-# DO NOT EDIT THIS
-version: "2.0.1"
-
-# Update Checker
-updates:
-  check-for-updates: true
+# Active language file located in plugins/CuriosPaper/languages/<language>.yml
+# If the specified language file is not found, automatically falls back to en_US.yml.
+language: "en_US"
 
 # Resource Pack Settings
+# CuriosPaper does not host its own resource pack. It automatically extracts its
+# textures, models, and equipment assets and registers/injects them directly into
+# the server's resource pack host plugin (Priority: Synthetix -> Nexo -> ItemsAdder -> Oraxen -> CraftEngine -> RSPM).
 resource-pack:
-  # Resource pack hosting mode:
-  # - SELF: Automatically generate and host the resource pack on this server using an embedded HTTP server.
-  # - LINK: Deliver the pack via a direct external download link (configured in 'url' below).
-  # - NONE: Disable automatic resource pack downloading/hosting completely.
-  mode: SELF
-
-  # Direct download link for the resource pack (only used if mode is LINK)
-  # IMPORTANT: This must be a direct download link (the URL must start downloading the file immediately, not open a web page).
-  url: "https://example.com/your-resource-pack.zip"
-
-  # (Legacy option) Enable automatic resource pack generation and serving (fallback if mode is not specified)
-  enabled: true
-  # Port for the embedded HTTP server (only used if mode is SELF)
-  # You need a seperate port using the default port will not work and may break things if tried
-  port: 8080
-  # Public IP or Hostname of the server (for players to download the pack - only used if mode is SELF)
-  host-ip: "localhost"
-  # Base material for custom icons (usually PAPER or LEATHER_HORSE_ARMOR)
-  base-material: "PAPER"
-
-  # Whether to look in the "external-resource-packs" folder and combine zips into the main pack
-  combine-external-rp: false
-
-  allow-minecraft-namespace: true
-
-  allow-namespace-conflicts: false
-
-# Slot configurations - 9 total slot types
-slots:
-  # Head slot for helmets, crowns, circlets
-  head:
-    name: "Head"
-    icon: "GOLDEN_HELMET"
-    item-model: "curiospaper:head_slot"
-    custom-model-data: 10001
-    amount: 1
-    lore:
-      - "&7Equip crowns, circlets, or magical headpieces."
-
-  # Necklace slot for amulets and pendants
-  necklace:
-    name: "Necklace"
-    icon: "NAUTILUS_SHELL"
-    item-model: "curiospaper:necklace_slot"
-    custom-model-data: 10002
-    amount: 1
-    lore:
-      - "&7Wear powerful amulets and pendants."
-
-  # Back slot for capes and cloaks
-  back:
-    name: "Back"
-    icon: "ELYTRA"
-    item-model: "curiospaper:back_slot"
-    custom-model-data: 10003
-    amount: 1
-    lore:
-      - "&7Equip magical capes and cloaks."
-
-  # Body slot for chest accessories
-  body:
-    name: "Body"
-    icon: "DIAMOND_CHESTPLATE"
-    item-model: "curiospaper:body_slot"
-    custom-model-data: 10004
-    amount: 1
-    lore:
-      - "&7Wear chest talismans and armor attachments."
-
-  # Belt slot for utility items
-  belt:
-    name: "Belt"
-    icon: "LEATHER"
-    item-model: "curiospaper:belt_slot"
-    custom-model-data: 10005
-    amount: 1
-    lore:
-      - "&7Equip utility belts and sashes."
-
-  # Hands/Gloves slots
-  hands:
-    name: "Hands"
-    icon: "LEATHER_CHESTPLATE"
-    item-model: "curiospaper:hands_slot"
-    custom-model-data: 10006
-    amount: 2
-    lore:
-      - "&7Magical gloves for both hands."
-
-  # Bracelet slots for wrists
-  bracelet:
-    name: "Bracelet"
-    icon: "IRON_CHAIN"
-    item-model: "curiospaper:bracelet_slot"
-    custom-model-data: 10007
-    amount: 2
-    lore:
-      - "&7Wear enchanted bracelets and bangles."
-
-  # Ring slots for fingers
-  ring:
-    name: "Ring"
-    icon: "GOLD_NUGGET"
-    item-model: "curiospaper:ring_slot"
-    custom-model-data: 10008
-    amount: 2
-    lore:
-      - "&7Holds powerful magical rings."
-
-  # Charm slots for misc trinkets
-  charm:
-    name: "Charm"
-    icon: "EMERALD"
-    item-model: "curiospaper:charm_slot"
-    custom-model-data: 10009
-    amount: 4
-    lore:
-      - "&7Holds small, potent charms and trinkets."
+  # Desired pack host plugin to inject CuriosPaper's assets into.
+  # Options:
+  # - "AUTO"         : Automatically detects the best available host plugin (Synthetix is #1 priority).
+  # - "SYNTHETIX"    : Injects into Synthetix resource pack manager.
+  # - "NEXO"         : Injects into Nexo resource pack.
+  # - "ITEMSADDER"   : Injects into ItemsAdder resource pack.
+  # - "ORAXEN"       : Injects into Oraxen resource pack.
+  # - "CRAFTENGINE"  : Injects into CraftEngine resource pack.
+  # - "RSPM"         : Injects into ResourcePackManager (RSPM) pack.
+  # - "NONE"         : Disables external injection.
+  host-plugin: "AUTO"
 
 # Feature toggles
 features:
-  # Enable the in-game item editor and custom item system
-  # If disabled, custom items, recipes, loot tables,(made using this plugin) and the /edit command will be disabled
-  item-editor:
-    enabled: true
-
-  # Allow elytra equipping in back slots
+  # Allow elytra equipping in back slots with automatic flight capabilities
   allow-elytra-on-back-slot: true
 
-  # Whether to use the custom Smithing Table GUI for Bedrock players
-  use-custom-smithing-gui: true
-
-  # Whether to use the custom Anvil GUI for Bedrock players
-  use-custom-anvil-gui: true
-
-  # Allow players to see empty accessory slots in GUI
-  show-empty-slots: true
-
-  # Use vanilla items for accessory slot icons (no custom models)
-  use-vanilla-slot-icons: false
+  # Quick-equip accessories by shift + right-clicking them in hand or hotbar
+  quick-equip-right-click: true
 
   # Play sound when opening GUI
   play-gui-sound: true
@@ -163,78 +45,67 @@ features:
   unequip-sound: "ENTITY_ITEM_PICKUP"
 
   # Hotkey system to open accessory GUI
+  # When Synthetix is present, automatically registers with Synthetix Universal Keybinds.
   hotkey:
     enabled: true
-    slot: 8  # Which hotbar slot (1-9) must be selected
-    sneak-type: "double"  # Options: single, double, hold
+    slot: 8  # Which hotbar slot (1-9) must be selected (8 = slot 8, -1 = any slot)
+    sneak-type: "double"  # Options: "double" (double tap shift), "single", "hold"
     sneak-hold-duration: 3  # Seconds to hold sneak (for 'hold' type)
 
+  # Curios inventory death drop behavior
+  # Options:
+  # - "Auto"   : Drops or keeps the inventory according to the gamerule keepInventory (compatible with grave plugins)
+  # - "Always" : Player always keeps curios inventory on death even when keepInventory is false
+  # - "Never"  : Player always drops curios inventory on death even when keepInventory is true
   keep-curio-inventory:
-    # it can be "Always", "Auto" and "Never"
-    # - Always makes the player keep their curios inventory even when keep inventory is false
-    # - Auto drops or keeps the inventory according to the gamerule keepinventory (also applies for regions where drops are enabled and disabled)
-    # - Never makes the player drop their inventory even when keep inventory is true
     type: "Auto"
 
-  # Random Teleport (RTP) trigger settings
-  # You can record these interactively in-game using /curios recordrtp
-  rtp:
-    # Set to false to completely disable all RTP compatibility checks and recordings
-    enabled: false
-    # Commands that trigger temporary model dismounting
-    # You can use the in game recordrtp command to record these interactively
-    commands:
-      - "rtp"
-      - "wild"
-    # Interacted blocks (materials or "world,x,y,z") that trigger temporary model dismounting
-    blocks: []
-    # Entities/NPC names that trigger temporary model dismounting
-    entities: []
-    # GUIs (titles or "title:slot") that trigger temporary model dismounting
-    guis: []
+# 3D Accessory Model Rendering Engine
+# Supports both clientbound Packet mode and Universal Non-Persistent Entity mode.
+# Options for mode:
+# - "auto"   : Uses packet mode if supported, otherwise automatically falls back to universal entity mode.
+# - "packet" : Enforces packet mode.
+# - "entity" : Uses high-performance non-persistent entity mode (universal across all server platforms).
+models:
+  enabled: true
+  mode: "auto"
+  tracking-distance: 48.0
+  update-interval-ticks: 1
+  hide-in-first-person: false
+  auto-render-engine-models: true
 
-# Storage settings
+# ==============================================================================
+# Storage Settings
+# CuriosPaper automatically uses database storage (SQLite, MySQL, MongoDB, or YAML)
+# when Synthetix is installed by utilizing Synthetix's AddonDataStore.
+# When running standalone without Synthetix, player inventories are stored
+# in plugins/CuriosPaper/data/players/<uuid>.yml flatfiles.
+# ==============================================================================
 storage:
-  # Storage type: 'yaml', 'sqlite', 'mysql', 'mongodb'
-  # yaml    - File-based storage in playerdata/ folder (default, legacy)
-  # sqlite  - Local database file (recommended for single servers)
-  # mysql   - Remote MySQL database (recommended for networks/proxies)
-  # mongodb - MongoDB database (recommended for large-scale deployments)
-  type: "sqlite"
+  # Periodic auto-save interval in minutes for player curios inventory (0 = disable)
+  auto-save-interval: 5
 
-  # Auto-save interval in seconds (300 = 5 minutes)
-  # Set to 0 to disable auto-save
-  save-interval: 300
+# Modular Item Engine Integrations
+# Automatically connects with Nexo, Oraxen, ItemsAdder, CraftEngine, and Synthetix.
+item-engines:
+  enabled: true
+  auto-detect-slots: true
+  auto-render-models: true
+  apply-item-meta-attributes: true
 
-  # Automatically migrate existing YAML player data to the selected database
-  # on first startup. Only runs once - migrated files are renamed to .yml.migrated
-  auto-migrate: true
+  nexo:
+    enabled: true
+  oraxen:
+    enabled: true
+  itemsadder:
+    enabled: true
+  craftengine:
+    enabled: true
 
-  # SQLite settings (used when type is 'sqlite')
-  sqlite:
-    file: "storage/curiospaper.db"
-
-  # MySQL settings (used when type is 'mysql')
-  mysql:
-    host: "localhost"
-    port: 3306
-    database: "curiospaper"
-    username: "root"
-    password: ""
-    # HikariCP connection pool size
-    pool-size: 10
-    # Use SSL for MySQL connection
-    use-ssl: false
-
-  # MongoDB settings (used when type is 'mongodb')
-  mongodb:
-    connection-string: "mongodb://localhost:27017"
-    database: "curiospaper"
+  # Manual slot mappings for external items (e.g. "nexo:ruby_ring": "ring")
+  mappings: {}
 
 # Debug settings
 debug:
-  # Enable debug logging
   enabled: false
-
-  # Log inventory interactions
   log-inventory-events: false

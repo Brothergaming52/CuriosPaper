@@ -1,0 +1,136 @@
+# ==============================================================================
+#                      CuriosPaper 3.0 Language File (en_US)
+#  Supports Adventure MiniMessage formatting and legacy & color codes.
+#  Every single message, GUI title, button, prompt, and lore line is customizable here.
+# ==============================================================================
+
+prefix: "<gradient:#FFB300:#FF5500>[CuriosPaper]</gradient> "
+
+common:
+  only-players: "<red>Only players can use this command.</red>"
+  no-permission: "<red>You do not have permission to use this command.</red>"
+  no-permission-exclaim: "<red>You do not have permission to use this command!</red>"
+  player-not-found: "<red>Player <yellow>{player}</yellow> not found or offline.</red>"
+  invalid-amount: "<red>Invalid amount specified: <yellow>{amount}</yellow>.</red>"
+
+commands:
+  usage-header: "<gold>CuriosPaper Commands:</gold>"
+  usage-open: "<yellow>/{label} open [player]</yellow> <gray>- Open accessory inventory</gray>"
+  usage-rp: "<yellow>/{label} rp <info|inject></yellow> <gray>- View or trigger resource pack injection</gray>"
+  usage-reload: "<yellow>/{label} reload <config|slots|languages|all></yellow> <gray>- Reload plugin configuration</gray>"
+  usage-inspect: "<yellow>/{label} inspect <player></yellow> <gray>- Inspect and modify player's curios</gray>"
+  usage-clear: "<yellow>/{label} clear <player> [slot]</yellow> <gray>- Clear player's curios inventory</gray>"
+  usage-tag: "<yellow>/{label} tag <slot></yellow> <gray>- Tag held item for an accessory slot</gray>"
+  usage-untag: "<yellow>/{label} untag</yellow> <gray>- Remove accessory tag from held item</gray>"
+  usage-give: "<yellow>/{label} give <item> [player] [amount]</yellow> <gray>- Give custom accessory</gray>"
+  usage-npc: "<yellow>/{label} npc <id></yellow> <gray>- Manage NPC accessories and 3D models</gray>"
+  usage-debug: "<yellow>/{label} debug <player <name> | item></yellow> <gray>- Debug player or held item</gray>"
+
+  reload:
+    config-success: "<green>CuriosPaper configuration reloaded successfully.</green>"
+    slots-success: "<green>CuriosPaper slot registry reloaded successfully.</green>"
+    languages-success: "<green>CuriosPaper language files reloaded successfully.</green>"
+    all-success: "<green>CuriosPaper configuration, slots, and language files fully reloaded!</green>"
+    config-warning: "<red><bold>WARNING:</bold> Reloading configuration can cause temporary client cache desyncs.</red>"
+
+  rp:
+    usage: "<yellow>Usage: /{label} rp <info|inject></yellow>"
+    info-header: "<gradient:#FFB300:#FF5500><bold>==== CuriosPaper Resource Pack ====</bold></gradient>"
+    info-host: "<yellow>Active Host Plugin:</yellow> <white>{host}</white>"
+    info-sources: "<yellow>Extracted Resource Directory:</yellow> <white>{dir}</white>"
+    info-namespaces: "<yellow>Namespaces:</yellow> <white>curiospaper, minecraft</white>"
+    inject-start: "<yellow>Injecting CuriosPaper assets into <gold>{host}</gold>...</yellow>"
+    inject-success: "<green>Successfully injected CuriosPaper resource pack into <gold>{host}</gold>!</green>"
+    inject-failed: "<red>Failed to inject resource pack into <yellow>{host}</yellow>. Check server console.</red>"
+
+  debug:
+    usage: "<yellow>Usage: /{label} debug <player <name> | item></yellow>"
+    no-permission: "<red>You don't have permission to use debug commands.</red>"
+    header-player: "<gold>==== Curios Debug: Player {player} ====</gold>"
+    header-item: "<gold>==== Curios Debug: Item in hand ====</gold>"
+    no-item: "<red>You must be holding an item in your main hand!</red>"
+    never-joined: "<red>Player <yellow>{player}</yellow> has never joined.</red>"
+    no-slots: "<red>No slot types configured in slots.yml.</red>"
+    slot-info: "<yellow>Slot: <aqua>{slot}</aqua></yellow> <gray>(count={count}, equipped={equipped})</gray>"
+    item-entry: "<gray>[{index}]</gray> <white>{name}</white> <dark_gray>({material})</dark_gray>"
+    required-slot-valid: "<gray>   Required Slot: <green>{slot}</green></gray>"
+    required-slot-invalid: "<gray>   Required Slot: <red>{slot} (INVALID)</red></gray>"
+    required-slot-none: "<gray>   Required Slot: <red>none</red></gray>"
+    pdc-keys: "<gray>   PDC Keys: <yellow>{keys}</yellow></gray>"
+    type: "<yellow>Type:</yellow> <aqua>{type}</aqua>"
+    name: "<yellow>Name:</yellow> <white>{name}</white>"
+    is-accessory-true: "<yellow>Is accessory:</yellow> <green>true</green>"
+    is-accessory-false: "<yellow>Is accessory:</yellow> <red>false</red>"
+    no-meta: "<yellow>Item has no meta.</yellow>"
+
+  tag:
+    success: "<green>Successfully tagged held item as an accessory for <gold>{slot}</gold> slot.</green>"
+    removed: "<yellow>Removed accessory tag from held item.</yellow>"
+    no-item: "<red>You must hold an item in your main hand!</red>"
+    invalid-slot: "<red>Unknown accessory slot: <yellow>{slot}</yellow>.</red>"
+
+  clear:
+    all-success: "<yellow>Cleared curios accessory inventory for <gold>{player}</gold>.</yellow>"
+    slot-success: "<yellow>Cleared <gold>{slot}</gold> slot for <gold>{player}</gold>.</yellow>"
+
+  give:
+    received: "<green>You received <yellow>{amount}x</yellow> <gold>{item}</gold>!</green>"
+    sent: "<green>Gave <yellow>{amount}x</yellow> <gold>{item}</gold> to <gold>{player}</gold>.</green>"
+    failed: "<red>Custom item <yellow>{item}</yellow> not found in any engine!</red>"
+
+gui:
+  main-title: "<gradient:#FFB300:#FF5500><bold>Accessory Inventory</bold></gradient>"
+  slot-title-prefix: "<gold>Slot: </gold>"
+  inspect-title: "<dark_gray>Inspecting: <gold>{player}</gold></dark_gray>"
+  npc-title: "<gold>NPC Curios: <yellow>{npc}</yellow></gold>"
+  slot-button-slots: "<gray>Slots: <white>{amount}</white></gray>"
+  slot-button-click: "<dark_gray>▶ Click to open</dark_gray>"
+  back-button-name: "<red>← Back</red>"
+  back-button-lore-1: "<gray>Click to return to the</gray>"
+  back-button-lore-2: "<gray>main accessory menu.</gray>"
+  empty-slot-name: "<yellow>{slot}</yellow>"
+  empty-slot-lore: "<gray>Click to equip a <gold>{slot}</gold> accessory</gray>"
+  close-button-name: "<red><bold>Close Menu</bold></red>"
+  close-button-lore: "<gray>Click to close this menu</gray>"
+  locked-slot-name: "<red><bold>Locked {slot} #{number}</bold></red>"
+  locked-slot-lore-1: "<gray>Requires permission:</gray>"
+  locked-slot-lore-2: "<yellow>{permission}.{number}</yellow>"
+  invalid-slot-type: "<red>Invalid slot type!</red>"
+  layout-updated: "<gray>The accessory menu layout was updated.</gray>"
+
+inventory:
+  invalid-item: "<red>That item cannot be placed in this slot type!</red>"
+  slot-locked: "<red>You do not have permission to use the <yellow>{slot}</yellow> slot.</red>"
+  slot-full: "<red>All <yellow>{slot}</yellow> slots are currently full.</red>"
+  item-equipped: "<green>Equipped <yellow>{item}</yellow> into <gold>{slot}</gold> slot.</green>"
+  item-unequipped: "<yellow>Unequipped <gold>{item}</gold> from <gold>{slot}</gold> slot.</yellow>"
+  no-empty-slots: "<red>No empty slots available!</red>"
+  inventory-full: "<red>Your inventory is full!</red>"
+  model-enabled: "<green>3D model display <dark_green>enabled</dark_green> for this item.</green>"
+  model-disabled: "<red>3D model display <dark_red>disabled</dark_red> for this item.</red>"
+
+items:
+  quick-equip-lore: "<dark_gray>▶ Shift + Right Click to equip</dark_gray>"
+  slot-lore: "<gold>Slot: </gold><yellow>{slot}</yellow>"
+  ability-when-worn: "<gray>When worn:</gray>"
+  ability-potion-effect: "<blue>{effect} {level}</blue>"
+  ability-attribute-positive: "<blue>+{value} {attribute}</blue>"
+  ability-attribute-negative: "<red>-{value} {attribute}</red>"
+  ability-attribute-scalar-positive: "<blue>+{value}% {attribute}</blue>"
+  ability-attribute-scalar-negative: "<red>-{value}% {attribute}</red>"
+  ability-attribute-multiply-positive: "<blue>x{value} {attribute}</blue>"
+  ability-attribute-multiply-negative: "<red>x{value} {attribute}</red>"
+
+quick-equip:
+  equipped: "<green>Equipped to <gold>{slot}</gold> slot!</green>"
+  no-slots: "<red>No empty slots available for this item!</red>"
+
+citizens:
+  not-installed: "<red>Citizens plugin is not installed on this server.</red>"
+  no-npc-selected: "<red>No NPC selected! Select an NPC with <yellow>/npc select <id></yellow> or specify an NPC ID.</red>"
+  npc-not-found: "<red>NPC not found: <yellow>{npc}</yellow>.</red>"
+  not-humanoid: "<red>NPC <yellow>{npc}</yellow> is not a humanoid entity! Only humanoid NPCs can equip Curios 3D models.</red>"
+  gui-title: "<gold>NPC Curios: <yellow>{npc}</yellow></gold>"
+  equipped: "<green>Equipped <yellow>{item}</yellow> into slot <gold>{slot}</gold> on NPC <gold>{npc}</gold>.</green>"
+  unequipped: "<yellow>Unequipped item from slot <gold>{slot}</gold> on NPC <gold>{npc}</gold>.</yellow>"
+  cleared: "<yellow>Cleared all Curios accessories from NPC <gold>{npc}</gold>.</yellow>"
