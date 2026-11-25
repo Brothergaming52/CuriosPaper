@@ -35,6 +35,10 @@
             <id>citizens-repo</id>
             <url>https://maven.citizensnpcs.co/repo</url>
         </repository>
+        <repository>
+		    <id>jitpack.io</id>
+		    <url>https://jitpack.io</url>
+		</repository>
     </repositories>
 
     <dependencies>
@@ -56,9 +60,9 @@
 
         <!-- Synthetix Core Plugin (Soft Dependency) -->
         <dependency>
-            <groupId>org.bg52</groupId>
+            <groupId>com.github.Brothergaming52</groupId>
             <artifactId>Synthetix</artifactId>
-            <version>1.0.0</version>
+            <version>1.1</version>
             <scope>provided</scope>
         </dependency>
 

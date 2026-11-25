@@ -6,7 +6,6 @@ target/
 compile.bat
 dependency-reduced-pom.xml
 PLUGIN_PAGE.md
-pom.xml
 .settings/
 .classpath
 .project
